@@ -1,0 +1,7 @@
+# Caché del editor de Godot (se regenera)
+.godot/
+*.import
+# Builds exportados
+/build/
+*.exe
+*.pck
