@@ -26,6 +26,7 @@ var embers_earned := 0.0
 var kills := 0
 var burned := 0
 var phoenix_available := false
+var pending_doors: Array[String] = []
 var rng := RandomNumberGenerator.new()
 
 

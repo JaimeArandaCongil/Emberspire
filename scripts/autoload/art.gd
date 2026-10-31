@@ -386,7 +386,7 @@ func background(biome: int, seed_value: int, cycle: int = 0) -> Texture2D:
 	var img := Image.create(W, H, false, Image.FORMAT_RGBA8)
 	var wall: Color = pal["wall"]
 	var mortar := wall.darkened(0.45)
-	var floor_y := 138
+	var floor_y := 118
 	# Ladrillos
 	for by in range(0, floor_y, 8):
 		var row := by / 8
