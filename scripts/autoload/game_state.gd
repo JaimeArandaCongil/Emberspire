@@ -126,11 +126,11 @@ func floor_factor(floor_num: int) -> float:
 
 
 func burn_value(card_cost: int, mult: int, floor_num: int) -> float:
-	return (2.0 + 2.0 * maxi(card_cost, 0)) * floor_factor(floor_num) * mult + production() * 3.0 * mult
+	return (4.0 + 3.0 * maxi(card_cost, 0)) * floor_factor(floor_num) * mult + production() * 3.0 * mult
 
 
 func kill_value(floor_num: int, elite: bool, boss: bool) -> float:
-	var v := 4.0 * floor_factor(floor_num)
+	var v := 8.0 * floor_factor(floor_num)
 	if elite:
 		v *= 4.0
 	if boss:
@@ -270,12 +270,13 @@ func start_run(seed_value: int = -1) -> RunState:
 		r.rng.seed = seed_value
 	else:
 		r.rng.randomize()
-	r.max_hp = 60 + 6 * arsenal_level("vitality")
+	r.max_hp = int((60 + 6 * arsenal_level("vitality")) * pow(1.04, arsenal_level("skin")))
 	r.hp = r.max_hp
 	r.max_energy = 3 + arsenal_level("core")
 	r.draw_per_turn = 5 + arsenal_level("hands")
 	r.burns_per_turn = 1 + arsenal_level("flue")
 	r.start_str = arsenal_level("arm")
+	r.dmg_mult = pow(1.04, arsenal_level("edge"))
 	r.phoenix_available = talents.has("phoenix")
 	var tempered := arsenal_level("temper")
 	# Orden de templado: variedad primero (Tajo, Leña, Golpe, Defensa...).
@@ -323,7 +324,8 @@ func to_dict() -> Dictionary:
 		"stardust": stardust, "stardust_total": stardust_total, "max_floor": max_floor,
 		"runs_started": runs_started, "rebirths": rebirths, "best_kills": best_kills,
 		"last_seen": Time.get_unix_time_from_system(), "buy_mode": buy_mode,
-		"sfx_volume": sfx_volume, "music_volume": music_volume, "seen_intro": seen_intro}
+		"sfx_volume": sfx_volume, "music_volume": music_volume, "seen_intro": seen_intro,
+		"run": run.to_dict() if run != null else {}, "record_at_start": _record_at_start}
 
 
 func from_dict(d: Dictionary) -> void:
@@ -353,6 +355,9 @@ func from_dict(d: Dictionary) -> void:
 	sfx_volume = float(d.get("sfx_volume", 0.8))
 	music_volume = float(d.get("music_volume", 0.5))
 	seen_intro = bool(d.get("seen_intro", false))
+	var rd: Variant = d.get("run", {})
+	run = RunState.from_dict(rd) if rd is Dictionary and not (rd as Dictionary).is_empty() else null
+	_record_at_start = int(d.get("record_at_start", max_floor))
 
 
 func save_game() -> void:

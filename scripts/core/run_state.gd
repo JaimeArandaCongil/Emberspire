@@ -21,12 +21,15 @@ var max_energy := 3
 var draw_per_turn := 5
 var burns_per_turn := 1
 var start_str := 0
+var dmg_mult := 1.0
 var ember_mult := 1.0
 var embers_earned := 0.0
 var kills := 0
 var burned := 0
 var phoenix_available := false
 var pending_doors: Array[String] = []
+## true mientras se está dentro de una sala (combate, tienda...). Al cargar se repite el piso.
+var in_room := false
 var rng := RandomNumberGenerator.new()
 
 
@@ -113,3 +116,46 @@ func roll_card_rewards(packs: Array, count: int = 3, elite: bool = false) -> Arr
 		used.append(id)
 		out.append(Card.new(id, rng.randf() < 0.08 + floor_num * 0.006))
 	return out
+
+
+# --- Guardado ---------------------------------------------------------------
+
+func to_dict() -> Dictionary:
+	var cards: Array = []
+	for c in deck:
+		cards.append([c.id, c.upgraded])
+	return {"deck": cards, "relics": relics, "hp": hp, "max_hp": max_hp, "floor": floor_num,
+		"energy": max_energy, "draw": draw_per_turn, "burns": burns_per_turn, "str": start_str, "dmg_mult": dmg_mult,
+		"ember_mult": ember_mult, "embers": embers_earned, "kills": kills, "burned": burned,
+		"phoenix": phoenix_available, "doors": pending_doors, "in_room": in_room, "seed": str(rng.seed), "state": str(rng.state)}
+
+
+static func from_dict(d: Dictionary) -> RunState:
+	var r := RunState.new()
+	for e in d.get("deck", []):
+		if e is Array and e.size() == 2 and CardDB.CARDS.has(str(e[0])):
+			r.deck.append(Card.new(str(e[0]), bool(e[1])))
+	for id in d.get("relics", []):
+		r.relics.append(str(id))
+	r.hp = int(d.get("hp", 60))
+	r.max_hp = int(d.get("max_hp", 60))
+	r.floor_num = int(d.get("floor", 0))
+	r.max_energy = int(d.get("energy", 3))
+	r.draw_per_turn = int(d.get("draw", 5))
+	r.burns_per_turn = int(d.get("burns", 1))
+	r.start_str = int(d.get("str", 0))
+	r.dmg_mult = float(d.get("dmg_mult", 1.0))
+	r.ember_mult = float(d.get("ember_mult", 1.0))
+	r.embers_earned = float(d.get("embers", 0.0))
+	r.kills = int(d.get("kills", 0))
+	r.burned = int(d.get("burned", 0))
+	r.phoenix_available = bool(d.get("phoenix", false))
+	for k in d.get("doors", []):
+		r.pending_doors.append(str(k))
+	r.rng.seed = str(d.get("seed", "0")).to_int()
+	r.rng.state = str(d.get("state", "0")).to_int()
+	# Si se cerró el juego dentro de una sala, se vuelve a elegir puerta en ese piso.
+	if bool(d.get("in_room", false)):
+		r.floor_num = maxi(0, r.floor_num - 1)
+		r.pending_doors.clear()
+	return r

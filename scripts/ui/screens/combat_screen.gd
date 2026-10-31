@@ -256,6 +256,7 @@ func _on_card_clicked(cv: CardView, button: int) -> void:
 		else:
 			_set_selected(cv)
 			Sfx.play("hover")
+			main.toast("Elige un objetivo", UI.EMBER)
 		return
 	_play(cv, null)
 

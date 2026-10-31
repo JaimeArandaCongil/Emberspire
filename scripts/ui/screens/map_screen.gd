@@ -14,6 +14,8 @@ func build() -> void:
 	var bg := UI.tex_rect(Art.background(biome, 999, cyc), 4.0)
 	bg.modulate = Color(0.55, 0.5, 0.5)
 	add_child(bg)
+	run.in_room = false
+	Game.save_game()
 	if run.pending_doors.is_empty():
 		run.pending_doors = run.roll_doors(1 if Game.talents.has("star_map") else 0)
 
@@ -108,6 +110,7 @@ func _enter(kind: String) -> void:
 	Sfx.play("door")
 	run.floor_num += 1
 	run.pending_doors.clear()
+	run.in_room = true
 	Game.reach_floor(run.floor_num)
 	match kind:
 		"combat", "elite", "boss": main.go("combat", {"kind": kind})

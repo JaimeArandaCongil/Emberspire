@@ -25,6 +25,8 @@ const ARSENAL: Array[Dictionary] = [
 	{"id": "arm", "name": "Brazo Forjado", "icon": "sword", "base": 15000.0, "growth": 9.0, "max": 3, "desc": "+1 Fuerza al empezar cada combate."},
 	{"id": "heirloom", "name": "Herencia", "icon": "crown", "base": 8000.0, "growth": 20.0, "max": 2, "desc": "Empiezas la ascensión con 1 reliquia aleatoria."},
 	{"id": "hands", "name": "Manos Hábiles", "icon": "card", "base": 40000.0, "growth": 30.0, "max": 2, "desc": "+1 carta robada por turno."},
+	{"id": "edge", "name": "Filo Eterno", "icon": "flame_sword", "base": 3000.0, "growth": 1.7, "max": 999, "desc": "×1.04 daño de tus cartas (acumulativo). Sin límite."},
+	{"id": "skin", "name": "Piel Forjada", "icon": "shield", "base": 3000.0, "growth": 1.7, "max": 999, "desc": "×1.04 PV máximos (acumulativo). Sin límite."},
 	{"id": "core", "name": "Núcleo Ígneo", "icon": "orb", "base": 600000.0, "growth": 50.0, "max": 2, "desc": "+1 Energía por turno."},
 ]
 

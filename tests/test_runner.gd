@@ -194,6 +194,17 @@ func _test_save_roundtrip() -> void:
 	check(Game.gen_count("spark") == 3, "guardado: generadores")
 	check(Game.arsenal_level("vitality") == 2, "guardado: arsenal")
 	check(Game.grimoires.has("pyre"), "guardado: grimorios")
+	var r := Game.start_run(3)
+	r.floor_num = 6
+	r.in_room = true
+	r.deck.append(Card.new("gunpowder", true))
+	r.add_relic("ember_ring")
+	var j2: Dictionary = JSON.parse_string(JSON.stringify(Game.to_dict()))
+	Game.run = null
+	Game.from_dict(j2)
+	check(Game.run != null and Game.run.floor_num == 5, "guardado: ascensión en curso (repite piso)")
+	check(Game.run.deck.size() == 11 and Game.run.deck[10].upgraded, "guardado: mazo de la ascensión")
+	check(Game.run.has_relic("ember_ring"), "guardado: reliquias")
 	Game.reset_all()
 
 

@@ -401,6 +401,8 @@ func calc_damage(src: Fighter, dst: Fighter, base: int) -> int:
 	var d := float(base)
 	if src != null:
 		d += src.st("str")
+		if src.is_player:
+			d *= run.dmg_mult
 		if src.st("weak") > 0:
 			d *= 0.75
 	if dst != null and dst.st("vuln") > 0:
