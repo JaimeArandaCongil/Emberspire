@@ -11,7 +11,7 @@
 ## 2. Combate
 - Energía 3, robo 5, mano máx. 10. Turnos alternos con **intenciones** visibles.
 - **QUEMAR** (clic derecho o seleccionar + horno): exilia la carta del combate, otorga Ascuas
-  `(2 + 2·coste) · (1 + 0.2·piso) + 3 s de producción` y ejecuta su efecto *Al quemar*. Límite: 1 por turno (ampliable).
+  `(4 + 3·coste) · (1 + 0.2·piso + 0.02·piso²) + 3 s de producción` y ejecuta su efecto *Al quemar*. Límite: 1 por turno (ampliable).
 - Cartas **Combustible**: no jugables, existen para ser quemadas (Leña, Carbón, Pólvora, Pluma de Fénix…).
 - Las cartas de estado enemigas (Hollín) son combustible: el jugador convierte el ataque enemigo en economía.
 - Estados: Fuerza, Débil (−25% daño), Vulnerable (+50% daño recibido), Quemadura (pierde PV al inicio de turno y baja 1).
