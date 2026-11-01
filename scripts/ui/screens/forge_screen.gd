@@ -50,6 +50,15 @@ func _show_welcome() -> void:
 			"• Cada piso récord enciende un [color=#ffb43a]Brasero[/color]: +10% de producción para siempre.\n" +
 			"• Morir no te quita nada. Todo vuelve a la Forja.",
 			[["Encender la forja", func() -> void: pass]], 680)
+	elif Game.pacts_unlocked() and not Game.seen_tips.has("pacts"):
+		Game.seen_tips["pacts"] = true
+		main.modal("Pactos de Brasa", "Has derrotado al primer guardián. En la [color=#ffd36a]Antesala[/color] puedes firmar [color=#ff8a4a]Pactos[/color]:
+" +
+			"dificultad opcional que da [color=#ff8a4a]Calor[/color]. Cada punto de Calor multiplica las Ascuas que ganas en la Torre.
+
+" +
+			"Tu [color=#ffd36a]Reliquario[/color] (pestaña Archivo) guarda cada reliquia que encuentras: todas suman producción.",
+			[["Entendido", func() -> void: pass]], 620)
 	elif not Game.offline_report.is_empty():
 		var r: Dictionary = Game.offline_report
 		Game.offline_report = {}

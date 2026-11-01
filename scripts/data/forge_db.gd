@@ -18,7 +18,7 @@ const GENERATORS: Array[Dictionary] = [
 ## Arsenal: mejoras permanentes de combate. cost = base * growth^nivel
 const ARSENAL: Array[Dictionary] = [
 	{"id": "vitality", "name": "Corazón de Hierro", "icon": "heart", "base": 50.0, "growth": 1.55, "max": 30, "desc": "+6 PV máximos."},
-	{"id": "greed", "name": "Codicia", "icon": "coin", "base": 80.0, "growth": 1.9, "max": 25, "desc": "+25% Ascuas obtenidas en la Torre."},
+	{"id": "greed", "name": "Codicia", "icon": "coin", "base": 80.0, "growth": 1.9, "max": 20, "desc": "+10% Ascuas obtenidas en la Torre."},
 	{"id": "flue", "name": "Tiro de Chimenea", "icon": "wind", "base": 600.0, "growth": 12.0, "max": 3, "desc": "+1 Quema por turno."},
 	{"id": "temper", "name": "Templado", "icon": "anvil", "base": 400.0, "growth": 2.6, "max": 10, "desc": "Mejora 1 carta más del mazo inicial."},
 	{"id": "hearth", "name": "Brasero Cálido", "icon": "flame", "base": 300.0, "growth": 3.0, "max": 4, "desc": "Las Hogueras curan +10% más."},
@@ -50,7 +50,7 @@ const TALENTS: Array[Dictionary] = [
 	{"id": "twin_embers", "name": "Brasas Gemelas", "cost": 2, "desc": "+1 Quema en el primer turno de cada combate."},
 	{"id": "echoes", "name": "Ecos", "cost": 3, "desc": "Las Resonancias necesitan la mitad de generadores (5 / 25 / 50)."},
 	{"id": "deep_codex", "name": "Códice Profundo", "cost": 3, "desc": "Cada reliquia del Reliquario da +4% de producción (antes +2%)."},
-	{"id": "heat_lover", "name": "Amante del Calor", "cost": 4, "desc": "Cada punto de Calor de Pacto da +40% Ascuas en la Torre (antes +25%)."},
+	{"id": "heat_lover", "name": "Amante del Calor", "cost": 4, "desc": "Cada punto de Calor de Pacto da +30% Ascuas en la Torre (antes +20%)."},
 	{"id": "star_forge", "name": "Forja Estelar", "cost": 6, "desc": "Los generadores cuestan un 15% menos."},
 ]
 

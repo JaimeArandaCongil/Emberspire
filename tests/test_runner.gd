@@ -97,8 +97,8 @@ func _test_economy() -> void:
 	check(ForgeDB.max_affordable(g, 0, sum) == 10, "max asequible = 10")
 	Game.max_floor = 10
 	check(is_equal_approx(Game.production(), 0.5 * 2.0), "braseros duplican a piso 10")
-	Game.life_embers = 4.0e6
-	check(Game.rebirth_gain() == 3, "polvo estelar: %d" % Game.rebirth_gain())
+	Game.life_embers = 6.25e6
+	check(Game.rebirth_gain() == 3, "polvo estelar (√6.25 × 1.2 = 3): %d" % Game.rebirth_gain())
 	check(Game.rebirth(), "renacer")
 	check(Game.gen_count("spark") == 0 and Game.stardust_total == 3.0, "renacer reinicia y otorga polvo")
 	Game.reset_all()
@@ -303,7 +303,7 @@ func _test_resonance_and_pacts() -> void:
 	check(e1.enemies[0].max_hp == int(round(int(round(130 * (1.0 + 0.06 * 9))) * 1.25 * 1.5)), "pactos escalan PV del jefe (%d)" % e1.enemies[0].max_hp)
 	var before := Game.embers
 	Game.gain_tower_embers(100.0, "test")
-	check(is_equal_approx(Game.embers - before, 175.0), "calor 3 → ×1.75 Ascuas (%f)" % (Game.embers - before))
+	check(is_equal_approx(Game.embers - before, 160.0), "calor 3 → ×1.6 Ascuas (%f)" % (Game.embers - before))
 	Game.max_floor = 0
 	r = Game.start_run(5)
 	check(r.pacts.is_empty(), "sin piso 10 no hay pactos")
@@ -401,6 +401,22 @@ func _test_new_mechanics() -> void:
 	# Ceniza Húmeda no se quema.
 	eng = _engine_with(["ash_slime"], ["wet_ash"])
 	check(not eng.can_burn(eng.hand[eng.hand.size() - 1]), "Ceniza Húmeda no se quema")
+	# Hija del Fuego: los Ataques aplican Quemadura (con y sin objetivo).
+	eng = _engine_with(["ash_slime", "cinder_bat"], ["fireborn", "strike", "cleave"])
+	eng.play_card(eng.hand[eng.hand.size() - 3])
+	eng.play_card(eng.hand[eng.hand.size() - 2], eng.enemies[0])
+	check(eng.enemies[0].st("scorch") >= 1 or not eng.enemies[0].alive(), "Hija del Fuego con objetivo")
+	eng.play_card(eng.hand[eng.hand.size() - 1])
+	check(eng.attacks_played == 2, "Hija del Fuego sin objetivo")
+	# Poderes combinados con ataques: cada poder seguido de cada tipo de ataque.
+	for pw: String in CardDB.POWERS:
+		var e2 := _engine_with(["slag_crawler", "ash_slime"], ["strike", "cleave", "sparks"])
+		e2.player.powers[pw] = 2
+		for i in 3:
+			e2.play_card(e2.hand[e2.hand.size() - 1], e2.enemies[0] if e2.enemies[0].alive() else null)
+		e2.end_player_turn()
+		e2.begin_enemy_phase()
+		e2.end_enemy_phase()
 	# Transmutar.
 	eng = _engine_with(["ash_slime"], ["transmute"])
 	var n0 := eng.hand.size()

@@ -277,7 +277,11 @@ func play_card(card: Card, target: Fighter = null) -> bool:
 		if player.pw("rhythm") > 0:
 			_gain_block(player, player.pw("rhythm"))
 		if player.pw("flame_brand") > 0:
-			var tgts: Array[Fighter] = [target] if target != null else living_enemies()
+			var tgts: Array[Fighter] = []
+			if target != null:
+				tgts.append(target)
+			else:
+				tgts = living_enemies()
 			for e in tgts:
 				_apply_status(e, "scorch", player.pw("flame_brand") + player.pw("salamander"))
 		if run.has_relic("war_drum") and attacks_played % 4 == 0:

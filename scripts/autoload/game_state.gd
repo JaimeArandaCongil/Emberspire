@@ -43,6 +43,7 @@ var stats := {}                 # burns, kills, elites, bosses, heat_boss
 var hitos := {}                 # id -> true (reclamados)
 var active_pacts: Array[String] = []
 var heirloom_picks: Array[String] = []
+var seen_tips := {}             # consejos de una sola vez (pactos, reliquario...)
 
 var run: RunState = null
 var _record_at_start := 0
@@ -95,7 +96,7 @@ func codex_mult() -> float:
 
 
 func heat_bonus_each() -> float:
-	return 0.40 if talents.has("heat_lover") else 0.25
+	return 0.30 if talents.has("heat_lover") else 0.20
 
 
 func generator_rate(g: Dictionary) -> float:
@@ -127,7 +128,7 @@ func _add(amount: float, source: String, notify := true) -> void:
 
 ## Ascuas ganadas en la Torre (aplica Codicia y multiplicadores de la run).
 func gain_tower_embers(amount: float, source: String) -> float:
-	var mult := 1.0 + 0.25 * arsenal_level("greed")
+	var mult := 1.0 + 0.10 * arsenal_level("greed")
 	if run != null:
 		mult *= run.ember_mult * (1.0 + heat_bonus_each() * run.heat())
 	var v := amount * mult
@@ -427,7 +428,7 @@ func buy_talent(id: String) -> bool:
 # --- Renacer --------------------------------------------------------------
 
 func rebirth_gain() -> int:
-	var g := sqrt(life_embers / 1.0e6) * (1.0 + max_floor / 20.0)
+	var g := sqrt(life_embers / 1.0e6) * (1.0 + max_floor / 50.0)
 	if talents.has("stellar_greed"):
 		g *= 1.5
 	return int(floor(g))
@@ -540,7 +541,7 @@ func to_dict() -> Dictionary:
 		"last_seen": Time.get_unix_time_from_system(), "buy_mode": buy_mode,
 		"sfx_volume": sfx_volume, "music_volume": music_volume, "seen_intro": seen_intro,
 		"mastery": mastery, "relic_codex": relic_codex.keys(), "stats": stats, "hitos": hitos.keys(),
-		"active_pacts": active_pacts, "heirloom_picks": heirloom_picks,
+		"active_pacts": active_pacts, "heirloom_picks": heirloom_picks, "seen_tips": seen_tips.keys(),
 		"run": run.to_dict() if run != null else {}, "record_at_start": _record_at_start}
 
 
@@ -593,6 +594,9 @@ func from_dict(d: Dictionary) -> void:
 	heirloom_picks.clear()
 	for k in d.get("heirloom_picks", []):
 		heirloom_picks.append(str(k))
+	seen_tips = {}
+	for k in d.get("seen_tips", []):
+		seen_tips[str(k)] = true
 	var rd: Variant = d.get("run", {})
 	run = RunState.from_dict(rd) if rd is Dictionary and not (rd as Dictionary).is_empty() else null
 	_record_at_start = int(d.get("record_at_start", max_floor))

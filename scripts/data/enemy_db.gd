@@ -87,6 +87,12 @@ const ACTS := [
 ]
 
 
+## Cada vuelta completa a la Torre (30 pisos) multiplica PV y daño. El salto debe superar la diferencia
+## entre el acto 3 y el acto 1 (~×4) para que la dificultad nunca retroceda al empezar un ciclo.
+const HP_PER_CYCLE := 4.0
+const DMG_PER_CYCLE := 2.0
+
+
 static func act_index(floor_num: int) -> int:
 	return int((floor_num - 1) / 10) % ACTS.size()
 
@@ -130,8 +136,8 @@ static func make(id: String, floor_num: int, rng: RandomNumberGenerator) -> Figh
 	var f := Fighter.new()
 	var c := cycle(floor_num)
 	var in_act := float((floor_num - 1) % 10)
-	var hp_mult := (1.0 + 0.06 * in_act) * pow(2.6, c)
-	f.dmg_mult = (1.0 + 0.03 * in_act) * pow(1.7, c)
+	var hp_mult := (1.0 + 0.06 * in_act) * pow(HP_PER_CYCLE, c)
+	f.dmg_mult = (1.0 + 0.03 * in_act) * pow(DMG_PER_CYCLE, c)
 	f.def_id = id
 	f.display_name = d["name"]
 	var hr: Array = d["hp"]

@@ -22,6 +22,7 @@ func _ready() -> void:
 	Game.relic_codex = {"whetstone": true, "iron_lung": true, "bone_tinder": true, "pyre_mask": true, "gold_bellows": true}
 	Game.mastery = {"strike": 7, "kindling": 40, "defend": 2, "coal": 90, "ember_slash": 16}
 	Game.stats = {"burns": 60, "kills": 70}
+	Game.seen_tips = {"pacts": true}
 	Game.check_hitos()
 	main.go("forge")
 	await _wait(1.4)

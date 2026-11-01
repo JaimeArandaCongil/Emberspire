@@ -81,7 +81,9 @@ func _simulate(seed_value: int) -> Dictionary:
 ## IA: quema combustible y estados, juega poderes, luego ataques/defensas según intención.
 func _ai_turn(eng: CombatEngine) -> void:
 	var progressed := true
-	while progressed and not eng.over:
+	var actions := 0
+	while progressed and not eng.over and actions < 40:
+		actions += 1
 		progressed = false
 		var incoming := 0
 		for e in eng.living_enemies():
