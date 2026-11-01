@@ -6,6 +6,9 @@ var _pact_box: VBoxContainer
 var _heat_label: RichTextLabel
 var _heir_box: VBoxContainer
 var _stats: RichTextLabel
+var _res_box: VBoxContainer
+var _grim_box: HBoxContainer
+var _start_floor := 1
 
 
 func build() -> void:
@@ -32,6 +35,29 @@ func build() -> void:
 	_build_hero()
 	_build_pacts()
 	_build_heirlooms()
+	var cps := Game.checkpoints()
+	if cps.size() > 1:
+		var cp_row := UI.hbox(6)
+		cp_row.position = Vector2(30, 646)
+		cp_row.add_child(UI.label("Empezar en:", 14, UI.DIM))
+		for f in cps:
+			var fl: int = f
+			var cb := Button.new()
+			cb.toggle_mode = true
+			cb.button_pressed = fl == _start_floor
+			cb.text = "Piso %d" % fl
+			cb.focus_mode = Control.FOCUS_NONE
+			cb.add_theme_font_size_override("font_size", 13)
+			cb.tooltip_text = "Empieza en el piso %d.\nCompensación: 1 carta a elegir por cada 3 pisos saltados y 1 reliquia de jefe por cada jefe saltado.\nLos pisos saltados no dan Ascuas." % fl if fl > 1 else "Desde el principio."
+			cb.add_theme_stylebox_override("pressed", UI.box(Color("5a3a14"), Color("ffd36a"), 2, 0))
+			cb.pressed.connect(func() -> void:
+				_start_floor = fl
+				for other in cp_row.get_children():
+					if other is Button:
+						(other as Button).button_pressed = (other as Button).text == "Piso %d" % fl
+				Sfx.play("click"))
+			cp_row.add_child(cb)
+		add_child(cp_row)
 	var go_btn := UI.button("ASCENDER", _go, 26)
 	go_btn.position = Vector2(490, 640)
 	go_btn.size = Vector2(300, 60)
@@ -78,29 +104,47 @@ func _build_hero() -> void:
 	_stats = UI.rich("", 15)
 	_stats.custom_minimum_size = Vector2(230, 150)
 	row.add_child(_stats)
-	v.add_child(UI.label("Resonancias de la Forja", 16, Color("d0a8ff")))
-	var perks := Game.perk_ids()
-	if perks.is_empty():
-		v.add_child(UI.rich("[color=#806860]Ninguna todavía. Ten 10 unidades de un generador para que Resuene.[/color]", 13))
-	else:
-		var grid := GridContainer.new()
-		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 8)
-		for id in perks:
-			var d := RelicDB.get_def(id)
-			var h := UI.hbox(4)
-			h.mouse_filter = Control.MOUSE_FILTER_PASS
-			h.tooltip_text = d["desc"]
-			h.add_child(UI.icon(d["icon"], 2))
-			var l := UI.label(d["name"], 13, Color("e0c8ff"))
-			l.custom_minimum_size.x = 130
-			h.add_child(l)
-			grid.add_child(h)
-		var sc := ScrollContainer.new()
-		sc.custom_minimum_size = Vector2(350, 200)
-		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		sc.add_child(grid)
-		v.add_child(sc)
+	v.add_child(UI.label("Resonancias (elige versión)", 16, Color("d0a8ff")))
+	_res_box = UI.vbox(3)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(356, 230)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.add_child(_res_box)
+	v.add_child(sc)
+	_build_resonances()
+
+
+func _build_resonances() -> void:
+	UI.clear(_res_box)
+	var any := false
+	for g in ForgeDB.GENERATORS:
+		for tier in RelicDB.RESONANCE_TIERS.size():
+			if Game.gen_count(g["id"]) < Game.resonance_threshold(tier):
+				continue
+			any = true
+			var key := "%s:%d" % [g["id"], tier]
+			var row := UI.hbox(4)
+			for variant: String in ["a", "b"]:
+				var pid := RelicDB.perk_for(g["id"], tier, variant)
+				var d := RelicDB.get_def(pid)
+				var b := Button.new()
+				b.toggle_mode = true
+				b.button_pressed = Game.perk_choices.get(key, "a") == variant
+				b.focus_mode = Control.FOCUS_NONE
+				b.custom_minimum_size = Vector2(172, 30)
+				b.text = d["name"]
+				b.add_theme_font_size_override("font_size", 12)
+				b.tooltip_text = "%s (%d): %s" % [g["name"], Game.resonance_threshold(tier), d["desc"]]
+				b.add_theme_stylebox_override("pressed", UI.box(Color("3a2250"), Color("b07ae0"), 2, 0))
+				b.pressed.connect(func() -> void:
+					Game.perk_choices[key] = variant
+					Sfx.play("click")
+					_build_resonances.call_deferred()
+					_refresh())
+				row.add_child(b)
+			_res_box.add_child(row)
+	if not any:
+		_res_box.add_child(UI.rich("[color=#806860]Ninguna todavía. Ten 10 unidades de un generador para que Resuene.[/color]", 13))
 
 
 func _build_pacts() -> void:
@@ -146,7 +190,7 @@ func _build_pacts() -> void:
 
 
 func _build_heirlooms() -> void:
-	_heir_box = _panel(Vector2(870, 132), Vector2(380, 490), "Herencia", UI.EMBER)
+	_heir_box = _panel(Vector2(870, 132), Vector2(380, 490), "Grimorios y Herencia", UI.EMBER)
 	_rebuild_heirlooms()
 
 
@@ -155,6 +199,8 @@ func _rebuild_heirlooms() -> void:
 		var c := _heir_box.get_child(1)
 		_heir_box.remove_child(c)
 		c.queue_free()
+	_build_grimoire_picks()
+	_heir_box.add_child(UI.label("Herencia", 16, UI.EMBER))
 	var slots := Game.arsenal_level("heirloom")
 	if slots <= 0:
 		_heir_box.add_child(UI.rich("[color=#a08878]Mejora [color=#ffd36a]Herencia[/color] en el Arsenal para empezar cada ascensión con reliquias de tu Reliquario.[/color]", 15))
@@ -174,7 +220,7 @@ func _rebuild_heirlooms() -> void:
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(360, 400)
+	sc.custom_minimum_size = Vector2(360, 230)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.add_child(grid)
 	_heir_box.add_child(sc)
@@ -204,6 +250,48 @@ func _rebuild_heirlooms() -> void:
 		grid.add_child(b)
 
 
+## Grimorios activos: sólo sus cartas salen en las recompensas (arquetipos coherentes).
+func _build_grimoire_picks() -> void:
+	var learned: Array[String] = []
+	for g in ForgeDB.GRIMOIRES:
+		if Game.grimoires.has(g["id"]):
+			learned.append(g["id"])
+	if learned.is_empty():
+		_heir_box.add_child(UI.rich("[color=#806860]Aprende Grimorios en la Forja para añadir arquetipos a las recompensas.[/color]", 13))
+		return
+	var active := Game.active_grimoire_list()
+	_heir_box.add_child(UI.rich("[color=#a08878]Activos: [color=#ffd36a]%d / %d[/color]. Las recompensas salen de Base + estos.[/color]" % [active.size(), Game.max_active_grimoires()], 13))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 4)
+	for gid in learned:
+		var g := ForgeDB.grimoire(gid)
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_pressed = active.has(gid)
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(176, 30)
+		b.text = String(g["name"]).replace("Grimorio ", "")
+		b.add_theme_font_size_override("font_size", 13)
+		b.tooltip_text = g["desc"]
+		b.add_theme_stylebox_override("pressed", UI.box(Color("5a3a14"), Color("ffd36a"), 2, 0))
+		b.pressed.connect(func() -> void:
+			var cur := Game.active_grimoire_list()
+			if cur.has(gid):
+				cur.erase(gid)
+			else:
+				cur.append(gid)
+				while cur.size() > Game.max_active_grimoires():
+					cur.pop_front()
+			Game.active_grimoires = cur
+			Sfx.play("click")
+			_rebuild_heirlooms.call_deferred())
+		grid.add_child(b)
+	_heir_box.add_child(grid)
+	_heir_box.add_child(UI.spacer(6))
+
+
 func _refresh() -> void:
 	var vit := Game.arsenal_level("vitality")
 	var hp := int((60 + 6 * vit) * pow(1.04, Game.arsenal_level("skin")))
@@ -222,7 +310,7 @@ func _refresh() -> void:
 
 
 func _go() -> void:
-	Game.start_run()
+	Game.start_run(-1, _start_floor)
 	Sfx.play("door")
 	main.shake(6.0)
 	main.go("map")

@@ -16,7 +16,7 @@ func build() -> void:
 	add_child(bg)
 	run.in_room = false
 	Game.save_game()
-	if run.pending_doors.is_empty():
+	if run.pending_doors.is_empty() or run.door_meta.size() != run.pending_doors.size():
 		run.pending_doors = run.roll_doors(1 if Game.talents.has("star_map") else 0)
 	add_child(UI.dust(Rect2(0, 60, 1280, 660), Color("ffb070"), 18))
 
@@ -28,6 +28,34 @@ func build() -> void:
 
 	_build_doors()
 	_build_info()
+	_process_drafts.call_deferred()
+
+
+## Compensación del punto de control: cartas a elegir y reliquias de jefe.
+func _process_drafts() -> void:
+	if run.pending_drafts > 0:
+		var offer := run.roll_card_rewards(Game.card_packs(), 3, true)
+		main.pick_card("Punto de control: elige una carta (%d restantes)" % run.pending_drafts, offer, func(c: Variant) -> void:
+			run.pending_drafts -= 1
+			if c != null:
+				run.deck.append(c)
+			Game.save_game()
+			_process_drafts.call_deferred(), true)
+		return
+	if run.pending_boss_relics > 0:
+		var opts := RelicDB.choices(run.relics, run.rng, 3, "boss")
+		var buttons: Array = []
+		for id in opts:
+			var rid: String = id
+			buttons.append([RelicDB.get_def(rid)["name"], func() -> void:
+				run.add_relic(rid)
+				run.pending_boss_relics -= 1
+				Game.save_game()
+				main.go("map")])
+		var body := ""
+		for id in opts:
+			body += "[color=#ffd36a]%s[/color]: %s\n" % [RelicDB.get_def(id)["name"], RelicDB.get_def(id)["desc"]]
+		main.modal("Reliquia del guardián saltado", body, buttons, 620)
 
 
 func _build_doors() -> void:
@@ -49,7 +77,7 @@ func _build_doors() -> void:
 	var x0 := 640.0 - total * 0.5
 	for i in doors.size():
 		var kind: String = doors[i]
-		var b := _door_button(kind)
+		var b := _door_button(kind, i)
 		b.position = Vector2(x0 + i * (w + gap), 190)
 		add_child(b)
 		b.modulate.a = 0.0
@@ -60,7 +88,7 @@ func _build_doors() -> void:
 		tw.parallel().tween_property(b, "position:y", 190.0, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-func _door_button(kind: String) -> Control:
+func _door_button(kind: String, idx: int) -> Control:
 	var info: Dictionary = RunState.DOOR_INFO[kind]
 	var col := UI.EDGE
 	match kind:
@@ -94,8 +122,8 @@ func _door_button(kind: String) -> Control:
 	var n := UI.label(info["name"], 22, col.lightened(0.35))
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(n)
-	var d := UI.rich("[center]%s[/center]" % info["desc"], 14)
-	d.custom_minimum_size = Vector2(180, 40)
+	var d := UI.rich("[center]%s[/center]" % _door_desc(kind, idx), 13)
+	d.custom_minimum_size = Vector2(180, 52)
 	v.add_child(d)
 	b.mouse_entered.connect(func() -> void:
 		Sfx.play("hover", 0.1, -6.0)
@@ -103,18 +131,49 @@ func _door_button(kind: String) -> Control:
 		b.create_tween().tween_property(b, "scale", Vector2(1.05, 1.05), 0.1))
 	b.mouse_exited.connect(func() -> void:
 		b.create_tween().tween_property(b, "scale", Vector2.ONE, 0.1))
-	b.pressed.connect(func() -> void: _enter(kind))
+	b.pressed.connect(func() -> void: _enter(kind, idx))
 	return b
 
 
-func _enter(kind: String) -> void:
+## Descripción con información parcial: quién espera detrás y qué rasgo tiene la puerta.
+func _door_desc(kind: String, idx: int) -> String:
+	var info: Dictionary = RunState.DOOR_INFO[kind]
+	var meta: Dictionary = run.door_meta[idx] if idx < run.door_meta.size() else {}
+	if not meta.has("enemies"):
+		return info["desc"]
+	var names: PackedStringArray = []
+	var counts := {}
+	for eid: String in meta["enemies"]:
+		counts[eid] = int(counts.get(eid, 0)) + 1
+	for eid: String in counts:
+		var nm: String = EnemyDB.ENEMIES[eid]["name"]
+		names.append(nm if counts[eid] == 1 else "%d× %s" % [counts[eid], nm])
+	var t := "[color=#c8b0a0]%s[/color]" % ", ".join(names)
+	var tr: String = RunState.DOOR_TRAITS.get(meta.get("trait", "none"), "")
+	if tr != "":
+		t += "\n[color=#ffd36a]%s[/color]" % tr
+	return t
+
+
+func _enter(kind: String, idx: int = 0) -> void:
 	Sfx.play("door")
+	var meta: Dictionary = run.door_meta[idx] if idx < run.door_meta.size() else {}
 	run.floor_num += 1
+	run.floors_climbed += 1
+	run.streak_floors += 1
 	run.pending_doors.clear()
+	run.door_meta = []
 	run.in_room = true
+	run.combat_mods = {}
+	if meta.get("trait", "none") != "none" and meta.has("trait"):
+		run.combat_mods[meta["trait"]] = true
 	Game.reach_floor(run.floor_num)
 	match kind:
-		"combat", "elite", "boss": main.go("combat", {"kind": kind})
+		"combat", "elite", "boss":
+			var a := {"kind": kind}
+			if meta.has("enemies"):
+				a["enemies"] = meta["enemies"]
+			main.go("combat", a)
 		"rest": main.go("rest")
 		"shop": main.go("shop")
 		"event": main.go("event", {"type": "event"})
@@ -135,6 +194,10 @@ func _build_info() -> void:
 	v.add_child(hp)
 	v.add_child(UI.rich("Energía [color=#ffd36a]%d[/color] · Robo [color=#ffd36a]%d[/color]\nQuemas/turno [color=#ffd36a]%d[/color]" % [run.max_energy, run.draw_per_turn, run.burns_per_turn], 15))
 	v.add_child(UI.rich("Ascuas en esta ascensión:\n[color=#ffd36a]%s[/color]" % Num.fmt(run.embers_earned), 15))
+	var pot_l := UI.rich("Brasas Vivas: racha [color=#ffd36a]%d[/color] pisos (+%d%%)\nBote: [color=#ffb43a]%s[/color]" % [run.streak_floors, int(run.streak_mult() * 100), Num.fmt(run.pot)], 14)
+	pot_l.mouse_filter = Control.MOUSE_FILTER_PASS
+	pot_l.tooltip_text = "Cada piso sin volver a la Forja suma +4% (máx. +100%) a un bote aparte.\nSe cobra al retirarte o en una Hoguera. Si mueres, el bote se pierde (tus Ascuas no)."
+	v.add_child(pot_l)
 	if run.heat() > 0:
 		var names: PackedStringArray = []
 		for id in run.pacts:
@@ -165,7 +228,7 @@ func _build_info() -> void:
 		v.add_child(grid)
 	v.add_child(UI.spacer(10))
 	var retire := UI.button("Volver a la Forja", func() -> void:
-		main.modal("¿Retirarte?", "Volverás a la Forja con todas las Ascuas ganadas.\nTu récord de pisos se conserva.",
+		main.modal("¿Retirarte?", "Volverás a la Forja con todas las Ascuas ganadas y cobrarás el bote de Brasas Vivas (+%s).\nTu récord de pisos se conserva." % Num.fmt(run.pot),
 			[["Retirarme", func() -> void: main.go("summary", {"died": false})], ["Seguir subiendo", func() -> void: pass]]), 16)
 	v.add_child(retire)
 

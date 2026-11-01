@@ -9,7 +9,7 @@ var run: RunState
 var _offers: Array[Card] = []
 var _sold := {}
 var _relic := ""
-var _removed := false
+var _removed_count := 0
 var _upgraded := false
 var _body: Control
 
@@ -37,7 +37,9 @@ func _on_embers(_v: float) -> void:
 
 func _price(base: float, secs: float) -> float:
 	var mult := 0.7 if run.has_relic("merchant_seal") else 1.0
-	return roundf((base * (1.0 + 0.15 * run.floor_num) + Game.production() * secs) * mult)
+	var gl := Game.arsenal_level("greed")
+	var tower := (1.0 + 0.10 * mini(gl, 10) + 0.05 * maxi(0, gl - 10)) * (1.0 + Game.heat_bonus_each() * run.heat())
+	return roundf((base * (1.0 + 0.15 * run.floor_num) + Game.production() * secs * tower) * mult)
 
 
 func _rebuild() -> void:
@@ -82,15 +84,15 @@ func _rebuild() -> void:
 	services.size = Vector2(980, 160)
 	services.alignment = BoxContainer.ALIGNMENT_CENTER
 	_body.add_child(services)
-	var rm_price := _price(70.0, 30.0)
-	services.add_child(_service("Fundir carta", "Elimina una carta del mazo.", "flame", rm_price, _removed, func() -> void:
+	var rm_price := _price(70.0, 30.0) * (1.5 if _removed_count > 0 else 1.0)
+	services.add_child(_service("Fundir carta", "Elimina una carta del mazo." + (" (2.ª vez: ×1.5)" if _removed_count > 0 else ""), "flame", rm_price, _removed_count >= 2, func() -> void:
 		main.pick_card("Elige una carta para fundir", run.deck, func(c: Variant) -> void:
 			if c == null:
 				Game.embers += rm_price
 				Game.embers_changed.emit(Game.embers)
 				return
 			run.deck.erase(c)
-			_removed = true
+			_removed_count += 1
 			_rebuild())))
 	var up_price := _price(60.0, 25.0)
 	services.add_child(_service("Templar", "Mejora una carta.", "anvil", up_price, _upgraded, func() -> void:

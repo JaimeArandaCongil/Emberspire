@@ -23,6 +23,9 @@ var biome := 0
 var is_boss := false
 var is_elite := false
 var on_death: Array = []
+var on_burn: Array = []
+var on_no_burn: Array = []
+var affixes: Array[String] = []
 ## Ascuas robadas (Urracas): se devuelven dobles al matarla.
 var stolen := 0.0
 

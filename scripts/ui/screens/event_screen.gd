@@ -102,7 +102,7 @@ func _ev_well() -> void:
 	_title.text = "Pozo de Brasas"
 	_set_art("flame")
 	var heal := int(run.max_hp * 0.25)
-	var embers := Game.production() * 60.0 + 30.0 * Game.floor_factor(run.floor_num)
+	var embers := Game.production() * 30.0 + 30.0 * Game.floor_factor(run.floor_num)
 	_show("Un pozo lleno de brasas líquidas. Su calor promete vida… o riqueza.", [
 		["Beber (cura %d PV)" % heal, func() -> void:
 			run.heal(heal)
@@ -173,16 +173,16 @@ func _ev_gambler() -> void:
 	_title.text = "Jugador de Ascuas"
 	_set_art("coin")
 	var bet := maxf(Game.embers * 0.2, 20.0)
-	_show("Un diablillo lanza una brasa al aire. «¿Cara o cruz? Lo que apuestes, lo doblo… o me lo quedo.»", [
-		["Apostar %s Ascuas" % Num.fmt(bet), func() -> void:
+	_show("Un diablillo lanza una brasa al aire. «Seis de cada diez veces gano yo… o eso dicen. Si ganas tú, te llevas casi el doble.»", [
+		["Apostar %s Ascuas (60%%: recibes ×1.8)" % Num.fmt(bet), func() -> void:
 			if not Game.spend(bet):
 				Sfx.play("deny")
 				return
-			if run.rng.randf() < 0.5:
-				Game.refund(bet * 2.0)
+			if run.rng.randf() < 0.6:
+				Game.refund(bet * 1.8)
 				main.fly_embers(Vector2(640, 300), 12)
 				Sfx.play("coin")
-				_result("¡Cara! Recibes [color=#ffd36a]%s[/color] Ascuas." % Num.fmt(bet * 2.0))
+				_result("¡Cara! Recibes [color=#ffd36a]%s[/color] Ascuas." % Num.fmt(bet * 1.8))
 			else:
 				Sfx.play("defeat")
 				_result("Cruz. El diablillo se ríe y desaparece con tus Ascuas.")],
@@ -212,7 +212,7 @@ func _ev_hollow_shrine() -> void:
 func _ev_frozen_traveller() -> void:
 	_title.text = "Viajera Congelada"
 	_set_art("snowflake")
-	var loot := Game.production() * 90.0 + 40.0 * Game.floor_factor(run.floor_num)
+	var loot := Game.production() * 45.0 + 40.0 * Game.floor_factor(run.floor_num)
 	_show("Una ascendente medio congelada abraza su mochila. Aún respira.", [
 		["Darle calor (−8 PV): te regala una carta rara", func() -> void:
 			run.hp = maxi(1, run.hp - 8)
@@ -302,7 +302,7 @@ func _ev_star_fall() -> void:
 func _ev_coal_mine() -> void:
 	_title.text = "Veta de Carbón"
 	_set_art("coal")
-	var embers := Game.production() * 60.0 + 40.0 * Game.floor_factor(run.floor_num)
+	var embers := Game.production() * 30.0 + 40.0 * Game.floor_factor(run.floor_num)
 	_show("Una veta negra recorre el muro. Puedes llevártela al mazo… o enviarla a la Forja.", [
 		["Excavar: añade 2 Carbón a tu mazo", func() -> void:
 			run.deck.append(Card.new("coal"))
@@ -357,15 +357,33 @@ func _ev_burning_bridge() -> void:
 				_result("[color=#ff8a7a]%s[/color] se convierte en vapor. El puente queda libre." % (c as Card).title()), false)]])
 
 
+## Tesoro con precio: el cofre está cerrado y abrirlo cuesta algo.
 func _treasure() -> void:
 	_set_art("chest")
+	var cost_hp := maxi(4, int(run.max_hp * 0.10))
+	_show("Un cofre de hierro sellado por otro ascendente. La cerradura aún está caliente.", [
+		["Forzarlo (−%d PV)" % cost_hp, func() -> void:
+			run.hp = maxi(1, run.hp - cost_hp)
+			Sfx.play("hit")
+			_open_chest()],
+		["Fundir la cerradura: quema una carta de tu mazo para siempre", func() -> void:
+			main.pick_card("Elige la carta que fundirá la cerradura", run.deck, func(c: Variant) -> void:
+				if c == null:
+					return
+				run.deck.erase(c)
+				Sfx.play("burn")
+				_open_chest())],
+		["Dejarlo", _leave]])
+
+
+func _open_chest() -> void:
 	var r := RelicDB.random_unowned(run.relics, run.rng)
-	var embers := Game.production() * 30.0 + 40.0 * Game.floor_factor(run.floor_num)
+	var embers := Game.production() * 15.0 + 40.0 * Game.floor_factor(run.floor_num)
 	run.add_relic(r)
 	Game.gain_tower_embers(embers, "treasure")
 	Sfx.play("coin")
 	main.fly_embers(Vector2(640, 300), 10)
-	var txt := "Un cofre olvidado por otro ascendente.\n+%s Ascuas." % Num.fmt(embers)
+	var txt := "El cofre cede.\n+%s Ascuas." % Num.fmt(embers)
 	if r != "":
 		var rd := RelicDB.get_def(r)
 		txt += "\nReliquia: [color=#ffd36a]%s[/color] — %s" % [rd["name"], rd["desc"]]

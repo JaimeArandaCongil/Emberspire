@@ -18,7 +18,7 @@ const GENERATORS: Array[Dictionary] = [
 ## Arsenal: mejoras permanentes de combate. cost = base * growth^nivel
 const ARSENAL: Array[Dictionary] = [
 	{"id": "vitality", "name": "Corazón de Hierro", "icon": "heart", "base": 50.0, "growth": 1.55, "max": 30, "desc": "+6 PV máximos."},
-	{"id": "greed", "name": "Codicia", "icon": "coin", "base": 80.0, "growth": 1.9, "max": 20, "desc": "+10% Ascuas obtenidas en la Torre."},
+	{"id": "greed", "name": "Codicia", "icon": "coin", "base": 80.0, "growth": 2.4, "max": 20, "desc": "+10% Ascuas en la Torre (+5% desde el nivel 11)."},
 	{"id": "flue", "name": "Tiro de Chimenea", "icon": "wind", "base": 600.0, "growth": 12.0, "max": 3, "desc": "+1 Quema por turno."},
 	{"id": "temper", "name": "Templado", "icon": "anvil", "base": 400.0, "growth": 2.6, "max": 10, "desc": "Mejora 1 carta más del mazo inicial."},
 	{"id": "hearth", "name": "Brasero Cálido", "icon": "flame", "base": 300.0, "growth": 3.0, "max": 4, "desc": "Las Hogueras curan +10% más."},
@@ -43,7 +43,7 @@ const TALENTS: Array[Dictionary] = [
 	{"id": "memory", "name": "Memoria del Fuego", "cost": 1, "desc": "Tras Renacer empiezas con 10 Chispas y 1.000 Ascuas."},
 	{"id": "eternal", "name": "Llama Eterna", "cost": 2, "desc": "Producción offline hasta 24 h (antes 8 h)."},
 	{"id": "star_map", "name": "Mapa Estelar", "cost": 2, "desc": "Una puerta extra en cada piso."},
-	{"id": "autoforge", "name": "Autoforja", "cost": 3, "desc": "Compra automáticamente el generador más barato."},
+	{"id": "autoforge", "name": "Autoforja", "cost": 3, "desc": "Compra sola el generador más rentable, guardando la reserva que elijas. Se puede apagar."},
 	{"id": "phoenix", "name": "Fénix", "cost": 5, "desc": "Una vez por ascensión, al morir revives con 50% PV."},
 	{"id": "stellar_greed", "name": "Codicia Estelar", "cost": 8, "desc": "Renacer otorga +50% Polvo Estelar."},
 	{"id": "ember_memory", "name": "Memoria Ígnea", "cost": 2, "desc": "Cada carta quemada gana +1 de Maestría extra."},
@@ -54,13 +54,25 @@ const TALENTS: Array[Dictionary] = [
 	{"id": "star_forge", "name": "Forja Estelar", "cost": 6, "desc": "Los generadores cuestan un 15% menos."},
 ]
 
+## Constelaciones: sumideros de Polvo Estelar que cambian reglas.
+const CONSTELLATIONS: Array[Dictionary] = [
+	{"id": "c_seer", "name": "Ojo de Fragua", "cost": 40, "desc": "Las recompensas de carta ofrecen una opción más."},
+	{"id": "c_third", "name": "Tercer Grimorio", "cost": 100, "desc": "Puedes llevar 3 Grimorios activos por ascensión."},
+	{"id": "c_glow", "name": "Forja Ardiente", "cost": 200, "desc": "Resplandor: tope +100% y duración ×1.5."},
+	{"id": "c_twin", "name": "Doble Temple", "cost": 400, "desc": "Las cartas con Maestría 5 tienen las dos ramas de su Temple."},
+	{"id": "c_heir", "name": "Herencia de Maestría", "cost": 700, "desc": "Al ascender, 2 Golpes/Defensas se cambian por cartas tuyas con Maestría 5."},
+	{"id": "c_kiln", "name": "Horno Gemelo", "cost": 1200, "desc": "El primer Combustible que quemas cada turno no gasta Quema."},
+	{"id": "c_memory", "name": "Memoria de las Llamas", "cost": 2000, "desc": "Renacer no apaga las Resonancias de umbral 10 que ya elegiste."},
+	{"id": "c_pyre", "name": "Pira Eterna", "cost": 3500, "desc": "La primera quema en caliente de cada turno no cuesta Energía."},
+]
+
 ## Pactos de Brasa: dificultad opcional a cambio de Calor (más Ascuas en la Torre). Se desbloquean en el piso 10.
 const PACTS: Array[Dictionary] = [
 	{"id": "pact_hp", "name": "Carne de Piedra", "heat": 1, "icon": "golem", "desc": "Los enemigos tienen +25% PV."},
 	{"id": "pact_dmg", "name": "Colmillos", "heat": 1, "icon": "fang", "desc": "Los enemigos infligen +20% de daño."},
 	{"id": "pact_elite", "name": "Élites Coronadas", "heat": 1, "icon": "crown", "desc": "Élites y jefes empiezan con 3 de Fuerza."},
 	{"id": "pact_rest", "name": "Hogueras Mortecinas", "heat": 1, "icon": "bonfire", "desc": "Las Hogueras curan la mitad."},
-	{"id": "pact_frost", "name": "Mazo Escarchado", "heat": 1, "icon": "snowflake", "desc": "Empiezas la ascensión con 2 Escarchas en el mazo."},
+	{"id": "pact_frost", "name": "Mazo Empapado", "heat": 1, "icon": "wet_ash", "desc": "Empiezas la ascensión con 2 Cenizas Empapadas en el mazo (no se pueden quemar)."},
 	{"id": "pact_burn", "name": "Horno Avaro", "heat": 2, "icon": "furnace", "desc": "−1 Quema en el primer turno de cada combate."},
 	{"id": "pact_boss", "name": "Guardianes Antiguos", "heat": 2, "icon": "skull", "desc": "Los jefes tienen +50% PV."},
 	{"id": "pact_hunger", "name": "Hambre", "heat": 2, "icon": "goblet", "desc": "Derrotar a un jefe no te cura."},
@@ -94,6 +106,14 @@ const HITOS: Array[Dictionary] = [
 	{"id": "heat3", "name": "Jugar con Fuego", "stat": "heat_boss", "goal": 3, "dust": 2, "desc": "Derrota a un jefe con 3 o más de Calor de Pacto."},
 	{"id": "heat8", "name": "Infierno", "stat": "heat_boss", "goal": 8, "dust": 5, "desc": "Derrota a un jefe con 8 o más de Calor de Pacto."},
 	{"id": "grim_all", "name": "Biblioteca Completa", "stat": "grimoires", "goal": 6, "dust": 2, "desc": "Aprende los 6 Grimorios."},
+	{"id": "hot10", "name": "Sacrificio", "stat": "hot_burns", "goal": 10, "secs": 120, "desc": "Quema 10 cartas en caliente."},
+	{"id": "hot200", "name": "Holocausto Ritual", "stat": "hot_burns", "goal": 200, "dust": 2, "desc": "Quema 200 cartas en caliente."},
+	{"id": "temple1", "name": "Primer Temple", "stat": "temples", "goal": 1, "dust": 1, "desc": "Elige el Temple de una carta (Maestría 3)."},
+	{"id": "temple10", "name": "Armería Templada", "stat": "temples", "goal": 10, "dust": 2, "desc": "Templa 10 cartas."},
+	{"id": "pot1", "name": "Brasas Vivas", "stat": "pot_best", "goal": 1, "secs": 120, "desc": "Cobra un bote de Brasas Vivas."},
+	{"id": "const1", "name": "Mirar las Estrellas", "stat": "constellations", "goal": 1, "dust": 2, "desc": "Compra una Constelación."},
+	{"id": "const8", "name": "Firmamento", "stat": "constellations", "goal": 8, "dust": 25, "desc": "Compra las 8 Constelaciones."},
+	{"id": "checkpoint", "name": "Atajo", "stat": "checkpoint_runs", "goal": 1, "secs": 120, "desc": "Empieza una ascensión desde un punto de control."},
 ]
 
 
@@ -116,6 +136,13 @@ static func talent(id: String) -> Dictionary:
 	for t in TALENTS:
 		if t["id"] == id:
 			return t
+	return {}
+
+
+static func constellation(id: String) -> Dictionary:
+	for c in CONSTELLATIONS:
+		if c["id"] == id:
+			return c
 	return {}
 
 

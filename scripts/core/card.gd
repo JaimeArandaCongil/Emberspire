@@ -79,16 +79,38 @@ func has_kw(key: String) -> bool:
 	return def().get(key, false)
 
 
+## Rama de Temple activa ("" si no hay). Con la Constelación Doble Temple y Maestría 5, ambas.
+func has_temple(branch: String) -> bool:
+	var t: String = Game.temples.get(id, "")
+	if t == branch:
+		return true
+	return t != "" and Game.constellations.has("c_twin") and mastery() >= Game.MASTERY_MAX and CardDB.temple_branches(id).has(branch)
+
+
 func effects() -> Array:
 	var d := def()
 	var ops: Array = d["up"] if is_up() and d.has("up") else d.get("fx", [])
-	return CardDB.scale_ops(ops, mastery())
+	return CardDB.scale_ops(ops, mastery() + (2 if has_temple("edge") else 0))
 
 
 func burn_effects() -> Array:
 	var d := def()
 	var ops: Array = d["up_burn"] if is_up() and d.has("up_burn") else d.get("burn", [])
-	return CardDB.scale_ops(ops, mastery())
+	var out := CardDB.scale_ops(ops, mastery())
+	if has_temple("ember"):
+		out = out + CardDB.temple_ember_ops(id)
+	if has_temple("forge"):
+		out = out + [["burn_charge", 1]]
+	return out
+
+
+## Coste de la quema en caliente: -1 si no se puede (Combustible, Estado, coste 0).
+func hot_cost(energy: int) -> int:
+	if not is_playable() or type() == "status":
+		return -1
+	if is_x_cost():
+		return maxi(1, energy)
+	return cost() if cost() > 0 else -1
 
 
 func can_upgrade() -> bool:

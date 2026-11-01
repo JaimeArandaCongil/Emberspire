@@ -36,6 +36,15 @@ var bank_embers := true
 var embers_this_combat := 0.0
 var _play_mult := 1.0
 var _first_attack_done := false
+## Quema en caliente: pagas el coste de la carta y la quema vale ×2 (Ascuas y Maestría).
+var hot_burns := 0
+var _free_hot := 0
+var _hot_this_turn := 0
+var _attacks_this_turn := 0
+var _power_energy_used := false
+var _energy_once_used := false
+var _fuel_burned_this_turn := 0
+var _below_half_done := false
 
 
 func setup(p_run: RunState, enemy_ids: Array, p_floor: int, p_kind: String) -> void:
@@ -53,9 +62,10 @@ func setup(p_run: RunState, enemy_ids: Array, p_floor: int, p_kind: String) -> v
 	for c in run.deck:
 		c.temp_up = false
 		draw_pile.append(c)
+	_tutorial_order = run.tutorial and run.floor_num <= 1
 	if run.has_relic("cracked_core"):
-		for i in 2:
-			draw_pile.append(Card.new("wet_ash"))
+		for i in 3:
+			draw_pile.append(Card.new("sodden_ash"))
 	_shuffle(draw_pile)
 	# Innatas arriba del mazo (se roba desde el final).
 	var innate: Array[Card] = []
@@ -65,6 +75,16 @@ func setup(p_run: RunState, enemy_ids: Array, p_floor: int, p_kind: String) -> v
 	for c in innate:
 		draw_pile.erase(c)
 		draw_pile.append(c)
+	# Primera ascensión: la mano inicial enseña a quemar (Leña arriba del mazo).
+	if _tutorial_order:
+		for c in draw_pile.duplicate():
+			if c.id == "kindling":
+				draw_pile.erase(c)
+				draw_pile.append(c)
+				break
+
+
+var _tutorial_order := false
 
 
 func _make_enemy(id: String) -> Fighter:
@@ -93,6 +113,9 @@ func start() -> void:
 	if s > 0:
 		player.add_status("str", s)
 	for e in enemies:
+		if e.affixes.has("stifling"):
+			player.add_status("choke", 1)
+	for e in enemies:
 		_on_enemy_enter(e)
 		if run.has_relic("res_heart3"):
 			e.hp = maxi(1, e.hp - int(e.max_hp * 0.1))
@@ -100,6 +123,8 @@ func start() -> void:
 		_choose_intent(e)
 	start_player_turn()
 	if run.has_relic("bone_tinder"):
+		_add_to_hand(Card.new("spark_card"))
+	if run.has_relic("res_spark1b"):
 		_add_to_hand(Card.new("spark_card"))
 	if run.has_relic("tongs"):
 		_upgrade_random(1)
@@ -136,6 +161,12 @@ func start_player_turn() -> void:
 	var leftover := burns_left
 	turn += 1
 	burns_this_turn = 0
+	_hot_this_turn = 0
+	_free_hot = 0
+	_attacks_this_turn = 0
+	_power_energy_used = false
+	_energy_once_used = false
+	_fuel_burned_this_turn = 0
 	player.block = 0
 	if turn == 1:
 		if run.has_relic("warm_stone"):
@@ -151,6 +182,12 @@ func start_player_turn() -> void:
 		return
 	energy = run.max_energy + player.pw("solar") + energy_next
 	energy_next = 0
+	if turn == 2 and run.has_relic("res_sun1b"):
+		energy += 2
+	if turn == 1 and run.has_relic("res_bellows1b"):
+		energy += 1
+	if turn % 2 == 0 and run.has_relic("res_heart1b"):
+		_apply_status(player, "str", 1)
 	if run.has_relic("res_heart2"):
 		energy += 1
 	if run.has_relic("blood_coal") and player.hp * 2 <= player.max_hp:
@@ -173,6 +210,10 @@ func start_player_turn() -> void:
 			burns -= 1
 	elif run.has_relic("kiln_key"):
 		burns += mini(leftover, 3)
+	elif run.has_relic("res_spark2b"):
+		burns += mini(leftover, 1)
+	if run.combat_mods.has("burn"):
+		burns += 1
 	burns -= player.st("choke")
 	if player.st("choke") > 0:
 		player.statuses.erase("choke")
@@ -191,11 +232,15 @@ func start_player_turn() -> void:
 		if over:
 			return
 	var n := run.draw_per_turn
+	if run.has_relic("res_sun3b"):
+		n += 1
 	if turn == 1:
 		if run.has_relic("ash_eye"):
 			n += 2
 		if run.has_relic("res_bellows2"):
 			n += 1
+		if run.has_relic("res_bellows1b"):
+			n -= 1
 	draw_cards(n)
 	if player.pw("philo") > 0:
 		_upgrade_random(player.pw("philo"))
@@ -215,6 +260,9 @@ func draw_cards(n: int) -> void:
 			discard.clear()
 			_shuffle(draw_pile)
 			event.emit("shuffle", {})
+			if run.has_relic("res_bellows3b"):
+				energy += 1
+				event.emit("energy", {"value": energy})
 		var c: Card = draw_pile.pop_back()
 		hand.append(c)
 		event.emit("draw", {"card": c})
@@ -244,7 +292,35 @@ func _burn_is_free(card: Card) -> bool:
 func can_burn(card: Card) -> bool:
 	if over or not hand.has(card) or not card.is_burnable():
 		return false
-	return burns_left > 0 or _burn_is_free(card)
+	return burns_left > 0 or _burn_is_free(card) or _kiln_free(card)
+
+
+func _kiln_free(card: Card) -> bool:
+	return card.type() == "fuel" and _fuel_burned_this_turn == 0 and bank_embers and Game.constellations.has("c_kiln")
+
+
+## La primera quema en caliente del turno es gratis (Latido Ígneo, Pira Eterna) o la siguiente (Fundir).
+func _hot_is_free() -> bool:
+	if _free_hot > 0:
+		return true
+	if _hot_this_turn == 0 and (run.has_relic("res_heart2b") or (bank_embers and Game.constellations.has("c_pyre"))):
+		return true
+	return false
+
+
+## Energía que costaría quemar en caliente (-1 si no se puede).
+func hot_burn_cost(card: Card) -> int:
+	var c := card.hot_cost(energy)
+	if c < 0:
+		return -1
+	return 0 if _hot_is_free() else c
+
+
+func can_burn_hot(card: Card) -> bool:
+	if not can_burn(card):
+		return false
+	var c := hot_burn_cost(card)
+	return c >= 0 and energy >= c
 
 
 func play_card(card: Card, target: Fighter = null) -> bool:
@@ -268,6 +344,15 @@ func play_card(card: Card, target: Fighter = null) -> bool:
 		_first_attack_done = true
 		if run.has_relic("slag_hammer"):
 			_play_mult = 2.0
+	if is_attack:
+		if _attacks_this_turn == 0 and run.has_relic("res_blast3b"):
+			_play_mult *= 1.5
+		_attacks_this_turn += 1
+	if bank_embers:
+		var lvl := Game.add_mastery(card.id, 0.25)
+		if lvl > 0:
+			run.mastery_ups += 1
+			event.emit("mastery", {"card": card, "level": lvl})
 	event.emit("energy", {"value": energy})
 	event.emit("card_played", {"card": card, "target": target})
 	_run_ops(card.effects(), target, x, card)
@@ -289,6 +374,10 @@ func play_card(card: Card, target: Fighter = null) -> bool:
 	if card.type() == "power":
 		if run.has_relic("anvil_charm"):
 			_gain_block(player, 6)
+		if run.has_relic("res_sun2b") and not _power_energy_used:
+			_power_energy_used = true
+			energy += 1
+			event.emit("energy", {"value": energy})
 	elif card.exhausts():
 		exhaust_pile.append(card)
 		event.emit("exhaust", {"card": card})
@@ -298,23 +387,60 @@ func play_card(card: Card, target: Fighter = null) -> bool:
 	return true
 
 
-func burn_card(card: Card) -> bool:
+func burn_card(card: Card, hot: bool = false) -> bool:
 	if not can_burn(card):
 		return false
-	_burn(card, false)
+	if hot:
+		if not can_burn_hot(card):
+			return false
+		var c := hot_burn_cost(card)
+		if c > 0:
+			energy -= c
+		elif _free_hot > 0:
+			_free_hot -= 1
+		_hot_this_turn += 1
+		hot_burns += 1
+		event.emit("energy", {"value": energy})
+	_burn(card, false, hot)
 	_check_end()
 	return true
 
 
+## Lo que daría una quema (para la vista previa de la UI).
+func burn_preview(card: Card, hot: bool) -> Dictionary:
+	var mult := 1
+	for op: Array in card.burn_effects():
+		if op[0] == "ember_mult":
+			mult = op[1]
+	var v := Game.burn_value(card.cost(), mult, floor_num, card.mastery()) * (1.5 if run.has_relic("gold_bellows") else 1.0)
+	var gl := Game.arsenal_level("greed")
+	v *= (1.0 + 0.10 * mini(gl, 10) + 0.05 * maxi(0, gl - 10)) * run.ember_mult * (1.0 + Game.heat_bonus_each() * run.heat())
+	return {"embers": v * (2.0 if hot else 1.0), "xp": _mastery_xp() * (2.0 if hot else 1.0)}
+
+
+func _mastery_xp() -> float:
+	var xp := 1.0 + (1.0 if bank_embers and Game.talents.has("ember_memory") else 0.0)
+	if run.has_relic("smiths_journal"):
+		xp *= 2.0
+	return xp
+
+
 ## Núcleo de QUEMAR. `free`: no gasta Quemas (Fundir, Tarro de Hollín).
-func _burn(card: Card, free: bool) -> void:
+func _burn(card: Card, free: bool, hot: bool = false) -> void:
 	hand.erase(card)
-	if not free and not _burn_is_free(card):
+	var kiln := _kiln_free(card)
+	if not free and not _burn_is_free(card) and not kiln:
 		burns_left -= 1
+	if card.type() == "fuel":
+		_fuel_burned_this_turn += 1
 	burned_count += 1
 	burns_this_turn += 1
 	run.burned += 1
-	exhaust_pile.append(card)
+	# Rescoldo (Temple de Combustible): vuelve al descarte.
+	if card.has_temple("rekindle"):
+		discard.append(card)
+	else:
+		exhaust_pile.append(card)
 	burned_cards.append(card)
 	var mult := 1
 	for op: Array in card.burn_effects():
@@ -323,18 +449,21 @@ func _burn(card: Card, free: bool) -> void:
 	var value := Game.burn_value(card.cost(), mult, floor_num, card.mastery())
 	if run.has_relic("gold_bellows"):
 		value *= 1.5
+	if hot:
+		value *= 2.0
+	if run.combat_mods.has("embers"):
+		value *= 1.5
 	if bank_embers:
 		value = Game.gain_tower_embers(value, "burn")
 		Game.add_stat("burns", 1)
-		var xp := 1 + (1 if Game.talents.has("ember_memory") else 0)
-		if run.has_relic("smiths_journal"):
-			xp *= 2
-		var lvl := Game.add_mastery(card.id, xp)
+		if hot:
+			Game.add_stat("hot_burns", 1)
+		var lvl := Game.add_mastery(card.id, _mastery_xp() * (2.0 if hot else 1.0))
 		if lvl > 0:
 			run.mastery_ups += 1
 			event.emit("mastery", {"card": card, "level": lvl})
 	embers_this_combat += value
-	event.emit("card_burned", {"card": card, "embers": value})
+	event.emit("card_burned", {"card": card, "embers": value, "hot": hot})
 	event.emit("burns", {"value": burns_left})
 	var alive := living_enemies()
 	var tgt: Fighter = alive[rng.randi_range(0, alive.size() - 1)] if not alive.is_empty() else null
@@ -355,6 +484,22 @@ func _burn(card: Card, free: bool) -> void:
 		var al := living_enemies()
 		if not al.is_empty():
 			_hit(null, al[rng.randi_range(0, al.size() - 1)], 4)
+	if run.has_relic("res_spark3b") and card.type() == "attack":
+		var weakest: Fighter = null
+		for e in living_enemies():
+			if weakest == null or e.hp < weakest.hp:
+				weakest = e
+		_hit(null, weakest, 6)
+	# Enemigos que reaccionan a la quema (Polilla de Llama, Devorador, afijos Carroñero y Avaro).
+	for e in living_enemies():
+		for op: Array in e.on_burn:
+			_enemy_op(e, op)
+		if e.affixes.has("scavenger"):
+			_heal(e, maxi(1, int(e.max_hp * 0.03)))
+		if e.affixes.has("greedy"):
+			_enemy_op(e, ["steal", 2])
+	if over:
+		return
 	if burned_count % 3 == 0:
 		var e_gain := (1 if run.has_relic("cinder_heart") else 0) + (1 if run.has_relic("res_sun2") else 0)
 		if e_gain > 0:
@@ -376,6 +521,12 @@ func end_player_turn() -> void:
 		_gain_block(player, player.pw("slag_skin"))
 	if player.block <= 0 and run.has_relic("molten_shield"):
 		_gain_block(player, 5)
+	if run.has_relic("res_bellows2b") and energy > 0:
+		_gain_block(player, 4 * energy)
+	if burns_this_turn == 0:
+		for e in living_enemies():
+			for op: Array in e.on_no_burn:
+				_enemy_op(e, op)
 	for c in hand.duplicate():
 		if c.has_kw("retain"):
 			continue
@@ -407,6 +558,8 @@ func enemy_act(e: Fighter) -> void:
 		if over or not e.alive():
 			break
 		_enemy_op(e, op)
+	if e.alive() and e.affixes.has("sticky") and turn % 2 == 0:
+		_enemy_op(e, ["add_card", "wet_ash", 1])
 	if e.alive():
 		_choose_intent(e)
 
@@ -445,7 +598,7 @@ static func _intent_kind(ops: Array) -> String:
 			"atk": has_atk = true
 			"block", "block_all", "thorns": has_def = true
 			"str", "str_all", "heal", "heal_all", "regen": has_buff = true
-			"steal": has_steal = true
+			"steal", "flee": has_steal = true
 			"summon": has_summon = true
 			_: has_debuff = true
 	if has_steal:
@@ -525,6 +678,12 @@ func _enemy_op(e: Fighter, op: Array) -> void:
 				amount = Game.steal(amount)
 			e.stolen += amount
 			event.emit("steal", {"source": e, "amount": amount})
+		"flee":
+			if e.stolen > 0.0:
+				e.hp = 0
+				e.statuses.clear()
+				event.emit("fled", {"target": e, "amount": e.stolen})
+				_check_end()
 		"summon":
 			for i in int(op[2]):
 				if living_enemies().size() >= MAX_ENEMIES:
@@ -546,12 +705,12 @@ func _run_ops(ops: Array, target: Fighter, x: int, card: Card) -> void:
 		var k: String = op[0]
 		match k:
 			"dmg":
-				_hit(player, target, _atk_base(op[1], is_attack))
+				_hit(player, target, _atk_base(op[1], is_attack, card))
 			"dmg_x":
 				for i in int(op[2]):
 					if target == null or not target.alive():
 						break
-					_hit(player, target, _atk_base(op[1], is_attack))
+					_hit(player, target, _atk_base(op[1], is_attack, card, true))
 			"dmg_all":
 				for e in living_enemies():
 					_hit(player, e, _atk_base(op[1], is_attack))
@@ -560,12 +719,12 @@ func _run_ops(ops: Array, target: Fighter, x: int, card: Card) -> void:
 					var alive := living_enemies()
 					if alive.is_empty():
 						break
-					_hit(player, alive[rng.randi_range(0, alive.size() - 1)], _atk_base(op[1], is_attack))
+					_hit(player, alive[rng.randi_range(0, alive.size() - 1)], _atk_base(op[1], is_attack, card, int(op[2]) > 1))
 			"dmg_xcost":
 				for i in x:
 					if target == null or not target.alive():
 						break
-					_hit(player, target, _atk_base(op[1], is_attack))
+					_hit(player, target, _atk_base(op[1], is_attack, card, true))
 			"dmg_per_burned":
 				_hit(player, target, _atk_base(int(op[1]) + int(op[2]) * burned_count, is_attack))
 			"dmg_all_per_burned":
@@ -581,7 +740,10 @@ func _run_ops(ops: Array, target: Fighter, x: int, card: Card) -> void:
 				_hit(player, target, _atk_base(player.block, is_attack))
 			"detonate":
 				if target != null and target.alive():
-					_hit(null, target, target.st("scorch") * int(op[1]))
+					var det := target.st("scorch") * int(op[1])
+					if target.affixes.has("fireproof"):
+						det = int(det / 2)
+					_hit(null, target, det)
 			"block":
 				_gain_block(player, op[1])
 			"block_per_burned":
@@ -620,6 +782,17 @@ func _run_ops(ops: Array, target: Fighter, x: int, card: Card) -> void:
 						return
 			"recall":
 				_recall(int(op[1]))
+			"free_hot":
+				_free_hot += int(op[1])
+			"dmg_rand_hot":
+				var al2 := living_enemies()
+				if not al2.is_empty():
+					_hit(player, al2[rng.randi_range(0, al2.size() - 1)], _atk_base(int(op[1]), true))
+			"energy_once":
+				if not _energy_once_used:
+					_energy_once_used = true
+					energy += int(op[1])
+					event.emit("energy", {"value": energy})
 			"add_hand":
 				for i in int(op[2]):
 					_add_to_hand(Card.new(op[1]))
@@ -655,7 +828,7 @@ func _run_ops(ops: Array, target: Fighter, x: int, card: Card) -> void:
 				_apply_status(player, "str", op[1])
 			"str_mastery":
 				if bank_embers:
-					_apply_status(player, "str", int(Game.mastered_count(1) / maxi(1, int(op[1]))))
+					_apply_status(player, "str", CardDB.str_mastery_value(op))
 			"heal":
 				_heal(player, op[1])
 			"heal_braziers":
@@ -745,10 +918,14 @@ func _transmute(n: int) -> void:
 		event.emit("draw", {"card": nc, "created": true})
 
 
-func _atk_base(base: int, is_attack: bool) -> int:
+func _atk_base(base: int, is_attack: bool, card: Card = null, multi: bool = false) -> int:
 	if not is_attack:
 		return base
 	var b := base
+	if multi and run.has_relic("res_blast2b"):
+		b += 1
+	if card != null and card.cost() >= 2 and run.has_relic("res_blast1b"):
+		b += 3
 	if run.has_relic("whetstone"):
 		b += 2
 	if run.has_relic("res_blast1"):
@@ -782,7 +959,10 @@ func calc_damage(src: Fighter, dst: Fighter, base: int) -> int:
 func _hit(src: Fighter, dst: Fighter, base: int) -> void:
 	if dst == null or not dst.alive():
 		return
-	_damage(dst, calc_damage(src, dst, base), true, src)
+	var amount := calc_damage(src, dst, base)
+	if src == null and not dst.is_player:
+		amount = int(floor(amount * run.dmg_mult))
+	_damage(dst, amount, true, src)
 	if src == null or not src.alive() or over:
 		return
 	# Espinas: quien golpea se pincha.
@@ -806,14 +986,17 @@ func _damage(dst: Fighter, amount: int, blockable: bool, src: Fighter = null) ->
 	var dealt := amount - blocked
 	dst.hp = maxi(0, dst.hp - dealt)
 	event.emit("damage", {"target": dst, "amount": dealt, "blocked": blocked, "source": src})
+	if dst.is_player and dst.alive() and not _below_half_done and dst.hp * 2 <= dst.max_hp and run.has_relic("res_furnace3b"):
+		_below_half_done = true
+		_apply_status(player, "str", 2)
 	if dst.hp <= 0:
 		_on_death(dst)
 
 
 func _on_death(f: Fighter) -> void:
 	if f.is_player:
-		if run.phoenix_available:
-			run.phoenix_available = false
+		if run.phoenix_charges > 0:
+			run.phoenix_charges -= 1
 			f.hp = int(f.max_hp * 0.5)
 			event.emit("revive", {"target": f})
 			return
@@ -837,7 +1020,7 @@ func _on_death(f: Fighter) -> void:
 	embers_this_combat += v
 	event.emit("enemy_died", {"target": f, "embers": v})
 	if f.stolen > 0.0:
-		var back := f.stolen * 2.0
+		var back := f.stolen * 1.5
 		if bank_embers:
 			Game.refund(back)
 		f.stolen = 0.0
@@ -845,6 +1028,14 @@ func _on_death(f: Fighter) -> void:
 	if run.has_relic("volcanic_glass"):
 		energy += 1
 		event.emit("energy", {"value": energy})
+	if f.is_elite and run.has_relic("res_furnace1b"):
+		run.max_hp += 4
+		player.max_hp += 4
+		_heal(player, 4)
+	if run.has_relic("res_heart3b"):
+		for o in living_enemies():
+			o.hp = maxi(1, o.hp - int(o.max_hp * 0.1))
+			event.emit("damage", {"target": o, "amount": int(o.max_hp * 0.1), "blocked": 0, "source": null})
 	for op: Array in f.on_death:
 		if op[0] == "dmg_p" and player.alive():
 			_damage(player, int(round(int(op[1]) * f.dmg_mult)), true, f)
@@ -867,6 +1058,8 @@ func _heal(f: Fighter, n: int) -> void:
 func _apply_status(f: Fighter, id: String, n: int) -> void:
 	if f == null or not f.alive() or n == 0:
 		return
+	if id == "scorch" and n > 0 and f.affixes.has("fireproof"):
+		n = maxi(1, int(n / 2))
 	f.add_status(id, n)
 	event.emit("status", {"target": f, "id": id, "amount": n})
 
@@ -875,7 +1068,7 @@ func _tick_scorch(f: Fighter) -> void:
 	var s := f.st("scorch")
 	if s <= 0 or not f.alive():
 		return
-	_damage(f, s, false)
+	_damage(f, s if f.is_player else int(floor(s * run.dmg_mult)), false)
 	f.add_status("scorch", -1)
 	event.emit("status", {"target": f, "id": "scorch", "amount": -1})
 
@@ -898,6 +1091,8 @@ func _check_end() -> void:
 			run.heal(6)
 		if run.has_relic("res_furnace2"):
 			run.heal(4)
+		if run.has_relic("res_furnace2b") and run.hp * 2 <= run.max_hp:
+			run.heal(10)
 		_cleanup()
 		event.emit("victory", {})
 
@@ -906,6 +1101,7 @@ func _check_end() -> void:
 func _cleanup() -> void:
 	for c in run.deck:
 		c.temp_up = false
+	run.combat_mods = {}
 
 
 func _shuffle(arr: Array[Card]) -> void:

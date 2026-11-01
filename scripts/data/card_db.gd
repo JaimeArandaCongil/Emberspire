@@ -32,7 +32,7 @@ const CARDS := {
 	"cleave": {"name": "Barrido", "type": "attack", "cost": 1, "icon": "axe",
 		"rarity": "common", "pack": "base", "fx": [["dmg_all", 8]], "up": [["dmg_all", 11]]},
 	"iron_wall": {"name": "Muro de Hierro", "type": "skill", "cost": 2, "icon": "wall",
-		"rarity": "common", "pack": "base", "fx": [["block", 13]], "up": [["block", 17]]},
+		"rarity": "common", "pack": "base", "fx": [["block", 16]], "up": [["block", 21]]},
 	"quench": {"name": "Enfriar", "type": "skill", "cost": 1, "icon": "drop",
 		"rarity": "common", "pack": "base", "fx": [["block", 6], ["draw", 1]], "up": [["block", 8], ["draw", 2]]},
 	"bellows": {"name": "Fuelle", "type": "skill", "cost": 0, "icon": "wind", "exhaust": true,
@@ -73,7 +73,7 @@ const CARDS := {
 	"fire_wall": {"name": "Muro de Fuego", "type": "skill", "cost": 2, "icon": "fire_wall",
 		"rarity": "uncommon", "pack": "base", "fx": [["block", 12], ["scorch_all", 2]], "up": [["block", 15], ["scorch_all", 3]]},
 	"smelt": {"name": "Fundir", "type": "skill", "cost": 1, "icon": "crucible",
-		"rarity": "uncommon", "pack": "base", "fx": [["free_burn", 1], ["draw", 1]], "up": [["free_burn", 1], ["draw", 2]]},
+		"rarity": "uncommon", "pack": "base", "fx": [["free_hot", 1], ["draw", 1]], "up": [["free_hot", 1], ["draw", 2]]},
 	"rally": {"name": "Cántico de Forja", "type": "power", "cost": 1, "icon": "bell",
 		"rarity": "uncommon", "pack": "base", "fx": [["power", "rhythm", 2]], "up": [["power", "rhythm", 3]]},
 	"fireborn": {"name": "Hija del Fuego", "type": "power", "cost": 2, "up_cost": 1, "icon": "phoenix",
@@ -94,10 +94,10 @@ const CARDS := {
 		"rarity": "common", "pack": "pyre", "fx": [["burn_charge", 2], ["draw", 1]], "up": [["burn_charge", 2], ["draw", 2]]},
 	"phoenix_feather": {"name": "Pluma de Fénix", "type": "fuel", "cost": 1, "icon": "feather",
 		"rarity": "rare", "pack": "pyre", "burn": [["heal", 5], ["str", 1]], "up_burn": [["heal", 8], ["str", 2]]},
-	"rake_coals": {"name": "Atizar", "type": "skill", "cost": 1, "icon": "poker",
+	"rake_coals": {"name": "Atizar", "type": "skill", "cost": 0, "icon": "poker",
 		"rarity": "common", "pack": "pyre", "fx": [["draw", 3], ["burn_charge", 1]], "up": [["draw", 4], ["burn_charge", 1]]},
 	"kiln": {"name": "Horno de Tiro", "type": "power", "cost": 1, "up_cost": 0, "icon": "furnace",
-		"rarity": "uncommon", "pack": "pyre", "fx": [["power", "kiln", 1]], "up": [["power", "kiln", 1]]},
+		"rarity": "uncommon", "pack": "pyre", "fx": [["burn_charge", 1], ["power", "kiln", 1]], "up": [["burn_charge", 1], ["power", "kiln", 1]]},
 	"bonfire": {"name": "Hoguera Viva", "type": "fuel", "cost": 1, "icon": "bonfire",
 		"rarity": "common", "pack": "pyre", "burn": [["block", 8], ["dmg_all", 4]], "up_burn": [["block", 12], ["dmg_all", 6]]},
 	"phoenix_paper": {"name": "Fénix de Papel", "type": "skill", "cost": 1, "icon": "phoenix", "exhaust": true,
@@ -119,7 +119,7 @@ const CARDS := {
 	"anvil_stance": {"name": "Postura de Yunque", "type": "power", "cost": 2, "up_cost": 1, "icon": "anvil",
 		"rarity": "rare", "pack": "anvil", "fx": [["power", "temper", 1]], "up": [["power", "temper", 1]]},
 	"hammer_flurry": {"name": "Ráfaga de Martillo", "type": "attack", "cost": 1, "target": true, "icon": "hammer",
-		"rarity": "common", "pack": "anvil", "fx": [["dmg_x", 4, 3]], "up": [["dmg_x", 5, 3]]},
+		"rarity": "common", "pack": "anvil", "fx": [["dmg_x", 4, 3]], "up": [["dmg_x", 5, 4]]},
 	"double_shield": {"name": "Redoblar Escudo", "type": "skill", "cost": 1, "up_cost": 0, "icon": "twin_shields",
 		"rarity": "uncommon", "pack": "anvil", "fx": [["double_block"]], "up": [["double_block"]]},
 	"counterweight": {"name": "Contrapeso", "type": "skill", "cost": 1, "icon": "weight",
@@ -127,7 +127,7 @@ const CARDS := {
 	"molten_core": {"name": "Núcleo Fundido", "type": "attack", "cost": -1, "target": true, "icon": "orb",
 		"rarity": "rare", "pack": "anvil", "fx": [["dmg_xcost", 9]], "up": [["dmg_xcost", 12]]},
 	"heavy_blade": {"name": "Mandoble", "type": "attack", "cost": 2, "target": true, "icon": "greatsword",
-		"rarity": "uncommon", "pack": "anvil", "fx": [["dmg_strmult", 14, 3]], "up": [["dmg_strmult", 14, 5]]},
+		"rarity": "uncommon", "pack": "anvil", "fx": [["dmg_strmult", 14, 3]], "up": [["dmg_strmult", 18, 5]]},
 	"iron_skin": {"name": "Piel de Hierro", "type": "power", "cost": 1, "icon": "armor",
 		"rarity": "uncommon", "pack": "anvil", "fx": [["power", "slag_skin", 4]], "up": [["power", "slag_skin", 6]]},
 	"spiked_shield": {"name": "Escudo de Púas", "type": "power", "cost": 1, "icon": "spikes",
@@ -145,9 +145,9 @@ const CARDS := {
 	"salamander": {"name": "Salamandra", "type": "power", "cost": 1, "icon": "lizard",
 		"rarity": "uncommon", "pack": "ash", "fx": [["power", "salamander", 1]], "up": [["power", "salamander", 2]]},
 	"wildfire": {"name": "Incendio", "type": "attack", "cost": 1, "icon": "fire_wall",
-		"rarity": "common", "pack": "ash", "fx": [["scorch_all", 4]], "up": [["scorch_all", 6]]},
+		"rarity": "common", "pack": "ash", "fx": [["scorch_all", 3]], "up": [["scorch_all", 5]]},
 	"detonate": {"name": "Detonar", "type": "attack", "cost": 1, "target": true, "icon": "bomb",
-		"rarity": "uncommon", "pack": "ash", "fx": [["detonate", 2]], "up": [["detonate", 3]]},
+		"rarity": "uncommon", "pack": "ash", "fx": [["scorch", 3], ["detonate", 2]], "up": [["scorch", 4], ["detonate", 3]]},
 	"cinder_breath": {"name": "Aliento de Brasas", "type": "attack", "cost": 2, "icon": "breath",
 		"rarity": "common", "pack": "ash", "fx": [["dmg_all", 6], ["scorch_all", 3]], "up": [["dmg_all", 8], ["scorch_all", 4]]},
 	"smoke_veil": {"name": "Velo de Humo", "type": "skill", "cost": 1, "icon": "smoke",
@@ -157,7 +157,7 @@ const CARDS := {
 	"conflagration": {"name": "Conflagración", "type": "skill", "cost": 1, "up_cost": 0, "target": true, "icon": "volcano",
 		"rarity": "uncommon", "pack": "ash", "fx": [["scorch_double"]], "up": [["scorch_double"]]},
 	"smoldering": {"name": "Rescoldo", "type": "power", "cost": 1, "icon": "coal",
-		"rarity": "uncommon", "pack": "ash", "fx": [["power", "smolder", 2]], "up": [["power", "smolder", 3]]},
+		"rarity": "uncommon", "pack": "ash", "fx": [["power", "smolder", 1]], "up": [["power", "smolder", 2]]},
 	"ashen_shroud": {"name": "Mortaja de Ceniza", "type": "skill", "cost": 1, "icon": "cloak",
 		"rarity": "common", "pack": "ash", "fx": [["block_scorch", 3]], "up": [["block_scorch", 7]]},
 	"firestorm": {"name": "Tormenta de Fuego", "type": "attack", "cost": 3, "icon": "volcano",
@@ -187,19 +187,19 @@ const CARDS := {
 	"brazier_flame": {"name": "Llama de Brasero", "type": "attack", "cost": 1, "target": true, "icon": "brazier",
 		"rarity": "common", "pack": "forge", "fx": [["dmg_braziers", 4, 5]], "up": [["dmg_braziers", 6, 4]]},
 	"gen_wall": {"name": "Muralla de Engranajes", "type": "skill", "cost": 1, "icon": "gear",
-		"rarity": "common", "pack": "forge", "fx": [["block_gens", 4, 20]], "up": [["block_gens", 6, 15]]},
+		"rarity": "common", "pack": "forge", "fx": [["block_gens", 4, 50]], "up": [["block_gens", 6, 40]]},
 	"stardust_strike": {"name": "Golpe Estelar", "type": "attack", "cost": 1, "target": true, "icon": "star_sword",
-		"rarity": "uncommon", "pack": "forge", "fx": [["dmg_dust", 6, 30]], "up": [["dmg_dust", 9, 45]]},
+		"rarity": "uncommon", "pack": "forge", "fx": [["dmg_dust", 4, 2]], "up": [["dmg_dust", 6, 3]]},
 	"dividend": {"name": "Dividendo Ígneo", "type": "skill", "cost": 1, "icon": "coin", "exhaust": true,
 		"rarity": "uncommon", "pack": "forge", "fx": [["embers_secs", 30], ["draw", 1]], "up": [["embers_secs", 45], ["draw", 2]]},
 	"legacy": {"name": "Legado", "type": "power", "cost": 1, "icon": "book",
-		"rarity": "rare", "pack": "forge", "fx": [["str_mastery", 6]], "up": [["str_mastery", 4]]},
+		"rarity": "rare", "pack": "forge", "fx": [["str_mastery", 8, 4]], "up": [["str_mastery", 6, 6]]},
 	"ember_cannon": {"name": "Cañón de Ascuas", "type": "attack", "cost": 2, "target": true, "icon": "cannon",
 		"rarity": "rare", "pack": "forge", "fx": [["dmg_prod", 10, 5]], "up": [["dmg_prod", 14, 7]]},
 	"hearth_song": {"name": "Canción del Hogar", "type": "skill", "cost": 1, "icon": "bell", "exhaust": true,
 		"rarity": "uncommon", "pack": "forge", "fx": [["heal_braziers", 3, 8]], "up": [["heal_braziers", 5, 6]]},
 	"relic_echo": {"name": "Eco del Reliquario", "type": "skill", "cost": 1, "icon": "chest",
-		"rarity": "uncommon", "pack": "forge", "fx": [["block_codex", 4, 2]], "up": [["block_codex", 7, 2]]},
+		"rarity": "uncommon", "pack": "forge", "fx": [["block_codex", 4, 4]], "up": [["block_codex", 7, 4]]},
 
 	# --- Grimorio del Crisol (alquimia) --------------------------------------
 	"transmute": {"name": "Transmutar", "type": "skill", "cost": 1, "up_cost": 0, "icon": "flask", "exhaust": true,
@@ -213,7 +213,7 @@ const CARDS := {
 	"retort": {"name": "Alambique", "type": "attack", "cost": 1, "target": true, "icon": "flask",
 		"rarity": "common", "pack": "crucible", "fx": [["dmg_hand", 2]], "up": [["dmg_hand", 3]]},
 	"fuel_search": {"name": "Buscar Combustible", "type": "skill", "cost": 1, "up_cost": 0, "icon": "poker",
-		"rarity": "common", "pack": "crucible", "fx": [["draw_type", "fuel", 2]], "up": [["draw_type", "fuel", 2]]},
+		"rarity": "common", "pack": "crucible", "fx": [["draw_type", "fuel", 2], ["burn_charge", 1]], "up": [["draw_type", "fuel", 2], ["burn_charge", 1]]},
 	"golden_flux": {"name": "Flujo Áureo", "type": "fuel", "cost": 0, "icon": "ingot",
 		"rarity": "uncommon", "pack": "crucible", "burn": [["ember_mult", 5], ["draw", 1]], "up_burn": [["ember_mult", 7], ["draw", 1]]},
 	"elixir": {"name": "Elixir Ígneo", "type": "skill", "cost": 1, "icon": "potion", "exhaust": true,
@@ -230,6 +230,8 @@ const CARDS := {
 		"rarity": "status", "pack": "status", "burn": [["ember_mult", 1]]},
 	"frost": {"name": "Escarcha", "type": "status", "cost": 1, "icon": "snowflake", "exhaust": true, "ethereal": true,
 		"rarity": "status", "pack": "status", "fx": [], "playable_status": true},
+	"sodden_ash": {"name": "Ceniza Empapada", "type": "status", "cost": 0, "icon": "wet_ash", "unburnable": true,
+		"rarity": "status", "pack": "status"},
 	"wet_ash": {"name": "Ceniza Húmeda", "type": "status", "cost": 0, "icon": "wet_ash", "ethereal": true, "unburnable": true,
 		"rarity": "status", "pack": "status"},
 }
@@ -330,10 +332,14 @@ static func dyn_value(op: Array) -> int:
 		"dmg_braziers": return int(op[1]) + int(Game.max_floor / maxi(1, int(op[2])))
 		"heal_braziers": return int(op[1]) + int(Game.max_floor / maxi(1, int(op[2])))
 		"block_gens": return int(op[1]) + int(Game.total_generators() / maxi(1, int(op[2])))
-		"dmg_dust": return int(op[1]) + mini(int(Game.stardust_total), int(op[2]))
+		"dmg_dust": return int(op[1]) + int(float(op[2]) * log(1.0 + Game.stardust_total) / log(2.0))
 		"dmg_prod": return int(op[1]) + int(op[2]) * int(floor(log(maxf(Game.production(), 1.0)) / log(10.0)))
 		"block_codex": return int(op[1]) + int(Game.relic_codex.size() / maxi(1, int(op[2])))
 	return 0
+
+
+static func str_mastery_value(op: Array) -> int:
+	return mini(int(op[2]), int(Game.mastered_count(1) / maxi(1, int(op[1]))))
 
 
 ## Texto BBCode de una carta. `engine` (opcional) ajusta el daño mostrado con Fuerza/Débil.
@@ -371,6 +377,47 @@ static func describe(card: Card, engine: Object = null) -> String:
 	return "\n".join(parts)
 
 
+## Rama Brasa del Temple: lo que la carta añade al quemarse (40% de su número principal, mín. 3).
+static func temple_ember_ops(card_id: String) -> Array:
+	var d := get_def(card_id)
+	var main := 0
+	for op: Array in d.get("fx", []):
+		if SCALABLE.has(op[0]):
+			main = int(op[1])
+			break
+	var x := maxi(3, int(round(main * 0.4)))
+	match d["type"]:
+		"attack":
+			return [["dmg_rand_hot", x]] if main > 0 else [["draw", 1]]
+		"skill":
+			return [["block", x]] if main > 0 else [["draw", 1]]
+		"power":
+			return [["energy_once", 1]]
+	return []
+
+
+const TEMPLE_NAMES := {"edge": "Filo", "ember": "Brasa", "forge": "Fragua", "rekindle": "Rescoldo"}
+
+
+static func temple_desc(card_id: String, branch: String) -> String:
+	match branch:
+		"edge": return "Filo: +20% a sus números al jugarla."
+		"ember":
+			var parts: PackedStringArray = []
+			for op: Array in temple_ember_ops(card_id):
+				parts.append(_op_text(op, null))
+			return "Brasa: al quemarla, además: %s" % " ".join(parts)
+		"forge": return "Fragua: al quemarla, gana 1 Quema extra."
+		"rekindle": return "Rescoldo: al quemarla vuelve a tu descarte en vez de exiliarse."
+	return ""
+
+
+static func temple_branches(card_id: String) -> Array[String]:
+	if get_def(card_id)["type"] == "fuel":
+		return ["forge", "rekindle"]
+	return ["edge", "ember"]
+
+
 ## Texto plano (para tooltips y listas).
 static func describe_plain(card: Card) -> String:
 	var rx := RegEx.new()
@@ -405,7 +452,7 @@ static func _op_text(op: Array, engine: Object) -> String:
 		"dmg_strmult": return "Inflige %s de daño. La Fuerza cuenta ×%s." % [_dmg(op[1], engine), _n(op[2])]
 		"dmg_hand": return "Inflige %s de daño por carta en tu mano." % _n(op[1])
 		"dmg_braziers": return "Inflige %s de daño (+1 por cada %d Braseros)." % [_dmg(dyn_value(op), engine), op[2]]
-		"dmg_dust": return "Inflige %s de daño (+1 por Polvo Estelar, máx. +%d)." % [_dmg(dyn_value(op), engine), op[2]]
+		"dmg_dust": return "Inflige %s de daño (crece con tu Polvo Estelar)." % _dmg(dyn_value(op), engine)
 		"dmg_prod": return "Inflige %s de daño (+%d por cada cifra de tu producción)." % [_dmg(dyn_value(op), engine), op[2]]
 		"block": return "Gana %s de Bloqueo." % _n(op[1])
 		"block_per_burned": return "Gana %s de Bloqueo por Calor." % _n(op[1])
@@ -427,13 +474,16 @@ static func _op_text(op: Array, engine: Object) -> String:
 		"weak": return "Aplica %s de Débil." % _n(op[1])
 		"weak_all": return "Aplica %s de Débil a TODOS." % _n(op[1])
 		"str": return "Gana %s de Fuerza." % _n(op[1])
-		"str_mastery": return "Gana 1 de Fuerza por cada %d cartas con Maestría (%s)." % [op[1], _n(int(Game.mastered_count(1) / maxi(1, int(op[1]))))]
+		"str_mastery": return "Gana 1 de Fuerza por cada %d cartas con Maestría, máx. %d (%s)." % [op[1], op[2], _n(str_mastery_value(op))]
 		"heal": return "Cura %s PV." % _n(op[1])
 		"heal_per_burned": return "Cura %s PV por Calor." % _n(op[1])
 		"lose_hp": return "Pierdes %s PV." % _n(op[1])
 		"detonate": return "Inflige la Quemadura del objetivo ×%s como daño." % _n(op[1])
 		"burn_charge": return "Gana %s Quema%s extra." % [_n(op[1]), "" if op[1] == 1 else "s"]
 		"free_burn": return "Quema %s carta al azar de tu mano sin gastar Quemas." % _n(op[1])
+		"free_hot": return "Tu próxima quema en caliente este turno no cuesta Energía."
+		"dmg_rand_hot": return "Inflige %s de daño a un enemigo al azar." % _dmg(op[1], engine)
+		"energy_once": return "Gana %s de Energía (1 vez por turno)." % _n(op[1])
 		"recall": return "Devuelve a tu mano %s carta%s quemada%s este combate." % [_n(op[1]), "" if op[1] == 1 else "s", "" if op[1] == 1 else "s"]
 		"add_hand": return "Añade %s %s a tu mano." % [_n(op[2]), get_def(op[1])["name"]]
 		"upgrade_rand": return "Mejora %s carta%s al azar de tu mano (este combate)." % [_n(op[1]), "" if op[1] == 1 else "s"]

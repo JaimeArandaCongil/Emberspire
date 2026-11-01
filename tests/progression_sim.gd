@@ -10,6 +10,10 @@ const CLICKS_PER_SEC := 2.0       # clics en el horno durante la pausa (sólo im
 
 var hours := 6.0
 var t := 0.0
+## Resplandor en tiempo simulado (el juego real usa el reloj del sistema).
+var glow_left := 0.0
+var glow_val := 0.0
+var src := {}                  # Ascuas por fuente (diagnóstico de la economía)
 var marks := {}
 var runs := 0
 
@@ -20,6 +24,7 @@ func _ready() -> void:
 		hours = float(a[0])
 	Game.autosave_enabled = false
 	Game.reset_all()
+	Game.embers_gained.connect(_on_gain)
 	print("run   t(min)  piso  récord  prod/s      Polvo  Reson. Maestr. Reliq.  Calor")
 	while t < hours * 3600.0:
 		runs += 1
@@ -35,9 +40,39 @@ func _ready() -> void:
 	keys.sort_custom(func(x: String, y: String) -> bool: return float(marks[x]) < float(marks[y]))
 	for k: String in keys:
 		print("  %-34s %6.1f min" % [k, float(marks[k]) / 60.0])
+	var tot := 0.0
+	for k: String in src:
+		tot += float(src[k])
+	var parts: PackedStringArray = []
+	for k: String in src:
+		parts.append("%s %.1f%%" % [k, 100.0 * float(src[k]) / maxf(tot, 1.0)])
+	print("Fuentes de Ascuas: " + ", ".join(parts))
+	print("Polvo sin gastar: %d · Constelaciones: %d · Temples: %d · Quemas en caliente: %d" % [int(Game.stardust), Game.constellations.size(), Game.temples.size(), int(Game.stat_value("hot_burns"))])
 	print("Crónica: %d/%d hitos · Maestría 5: %d cartas · Renacimientos: %d" % [Game.hitos.size(), ForgeDB.HITOS.size(),
 		Game.mastered_count(Game.MASTERY_MAX), Game.rebirths])
 	get_tree().quit()
+
+
+func _on_gain(amount: float, source: String) -> void:
+	var k := source
+	if k in ["burn", "card"]:
+		k = "quema"
+	elif k in ["wave"]:
+		k = "oleada"
+	elif k in ["idle", "offline", "glow"]:
+		k = "idle"
+	elif k in ["kill", "refund"]:
+		k = "combate"
+	src[k] = float(src.get(k, 0.0)) + amount
+
+
+func _idle(secs: float) -> void:
+	var base := Game.production(false)
+	var g := minf(glow_left, secs)
+	Game._add(base * secs, "idle")
+	if g > 0.0:
+		Game._add(base * glow_val * g, "glow")
+	glow_left = maxf(0.0, glow_left - secs)
 
 
 func _mark(key: String) -> void:
@@ -80,7 +115,7 @@ const ARSENAL_WEIGHT := {"vitality": 0.9, "greed": 1.0, "flue": 0.8, "temper": 0
 func _spend() -> void:
 	# Clics en el horno mientras se decide (relevante sólo al principio).
 	Game._add(Game.click_value() * CLICKS_PER_SEC * FORGE_PAUSE * (1.0 if Game.production() < 50.0 else 0.2), "click")
-	Game._add(Game.production() * FORGE_PAUSE, "idle")
+	_idle(FORGE_PAUSE)
 	t += FORGE_PAUSE
 	# Renacer cuando dobla el Polvo total (o da 3 la primera vez).
 	var gain := Game.rebirth_gain()
@@ -88,6 +123,8 @@ func _spend() -> void:
 		Game.rebirth()
 	for talent in ForgeDB.TALENTS:
 		Game.buy_talent(talent["id"])
+	for c in ForgeDB.CONSTELLATIONS:
+		Game.buy_constellation(c["id"])
 	var guard := 0
 	while guard < 400:
 		guard += 1
@@ -151,20 +188,39 @@ func _spend() -> void:
 # --- Torre ------------------------------------------------------------------
 
 func _ascend() -> int:
-	var run := Game.start_run(runs * 7919 + 13)
+	var cps := Game.checkpoints()
+	var run := Game.start_run(runs * 7919 + 13, cps[cps.size() - 1])
+	for i in run.pending_drafts:
+		var offer := run.roll_card_rewards(Game.card_packs(), 3, true)
+		offer.sort_custom(func(x: Card, y: Card) -> bool: return _card_score(x) > _card_score(y))
+		run.deck.append(offer[0])
+	run.pending_drafts = 0
+	for i in run.pending_boss_relics:
+		var ch := RelicDB.choices(run.relics, run.rng, 3, "boss")
+		if not ch.is_empty():
+			run.add_relic(ch[0])
+	run.pending_boss_relics = 0
 	var floors := 0
 	while run.hp > 0 and run.floor_num < 200:
 		var doors := run.roll_doors(1 if Game.talents.has("star_map") else 0)
+		var kind := _choose_door(run, doors)
+		var meta: Dictionary = run.door_meta[doors.find(kind)] if doors.find(kind) < run.door_meta.size() else {}
 		run.floor_num += 1
+		run.floors_climbed += 1
+		run.streak_floors += 1
 		Game.reach_floor(run.floor_num)
 		floors += 1
-		var kind := _choose_door(run, doors)
+		run.combat_mods = {}
+		if meta.has("trait") and meta["trait"] != "none":
+			run.combat_mods[meta["trait"]] = true
 		match kind:
 			"rest":
 				var pct := 30 + 10 * Game.arsenal_level("hearth")
 				if run.has_pact("pact_rest"):
 					pct /= 2
-				if run.hp < run.max_hp * 0.75:
+				if run.pot > Game.production() * 120.0 + 500.0 and run.hp >= run.max_hp * 0.6:
+					Game.cash_pot()
+				elif run.hp < run.max_hp * 0.75:
 					run.heal(int(run.max_hp * pct / 100.0) + (10 if run.has_relic("healing_salve") else 0))
 				else:
 					var ups: Array = run.deck.filter(func(c: Card) -> bool: return c.can_upgrade())
@@ -172,16 +228,18 @@ func _ascend() -> int:
 						(ups[run.rng.randi_range(0, ups.size() - 1)] as Card).upgraded = true
 				continue
 			"treasure":
-				run.add_relic(RelicDB.random_unowned(run.relics, run.rng))
-				Game.gain_tower_embers(Game.production() * 30.0, "treasure")
+				if run.hp > run.max_hp * 0.5:
+					run.hp -= maxi(4, int(run.max_hp * 0.1))
+					run.add_relic(RelicDB.random_unowned(run.relics, run.rng))
+					Game.gain_tower_embers(Game.production() * 15.0 + 40.0 * Game.floor_factor(run.floor_num), "treasure")
 				continue
 			"event":
-				Game.gain_tower_embers(Game.production() * 45.0 + 30.0 * Game.floor_factor(run.floor_num), "event")
+				Game.gain_tower_embers(Game.production() * 22.0 + 30.0 * Game.floor_factor(run.floor_num), "event")
 				continue
 			"shop":
 				continue
 		var eng := CombatEngine.new()
-		eng.setup(run, EnemyDB.pick_encounter(kind, run.floor_num, run.rng), run.floor_num, kind)
+		eng.setup(run, meta["enemies"] if meta.has("enemies") else EnemyDB.pick_encounter(kind, run.floor_num, run.rng), run.floor_num, kind)
 		eng.start()
 		var guard := 0
 		while not eng.over and guard < 80:
@@ -213,9 +271,20 @@ func _ascend() -> int:
 	var reached := run.floor_num
 	# Tiempo de la ascensión: la Forja sigue produciendo mientras tanto.
 	var dur := floors * SECS_PER_FLOOR
-	Game._add(Game.production() * dur, "idle")
+	_idle(dur)
 	t += dur
 	Game.end_run()
+	glow_val = Game.glow_value
+	glow_left = maxf(0.0, Game.glow_until - Time.get_unix_time_from_system())
+	Game.glow_until = 0.0
+	# Temple: Brasa para el relleno inicial y el Combustible (Fragua), Filo para el resto.
+	for id in Game.temples_pending():
+		var br := "edge"
+		if CardDB.get_def(id)["type"] == "fuel":
+			br = "forge"
+		elif id in ["strike", "defend"]:
+			br = "ember"
+		Game.choose_temple(id, br)
 	return reached
 
 
@@ -271,10 +340,12 @@ func _ai_turn(eng: CombatEngine) -> void:
 			if not eng.can_play(c):
 				continue
 			var s := 1.0
+			if c.type() == "skill" and incoming <= eng.player.block and not c.effects().is_empty() and c.effects()[0][0] == "block":
+				continue
 			match c.type():
 				"power": s = 5.0
 				"attack": s = 3.0
-				"skill": s = 4.0 if incoming > eng.player.block else 1.5
+				"skill": s = 4.0 if incoming > eng.player.block else -1.0
 			if s > best_score:
 				best_score = s
 				best = c
@@ -290,6 +361,16 @@ func _ai_turn(eng: CombatEngine) -> void:
 					tgt = e
 			eng.play_card(best, tgt)
 		progressed = true
+	# Quema en caliente: si sobra Energía y queda una carta pagable no urgente, se sacrifica (×2 progreso).
+	while not eng.over and eng.burns_left > 0:
+		var hot: Card = null
+		for c in eng.hand:
+			if eng.can_burn_hot(c) and c.type() != "power":
+				hot = c
+				break
+		if hot == null:
+			break
+		eng.burn_card(hot, true)
 	# Quemas sobrantes: la carta que no se puede pagar (o la más barata) al horno.
 	while not eng.over and eng.burns_left > 0:
 		var victim: Card = null

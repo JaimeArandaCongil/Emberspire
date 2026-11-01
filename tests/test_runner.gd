@@ -23,6 +23,7 @@ func _ready() -> void:
 	_test_new_mechanics()
 	_test_meta()
 	_test_all_cards_play()
+	_test_v03()
 	print("\n== QA: %d comprobaciones, %d fallos ==" % [_checks, _fails])
 	get_tree().quit(1 if _fails > 0 else 0)
 
@@ -364,12 +365,14 @@ func _test_new_mechanics() -> void:
 	check(not eng.hand.has(coal), "carbón quemado")
 	eng.play_card(eng.hand[eng.hand.size() - 1])
 	check(eng.hand.has(coal), "Fénix de Papel recupera la carta quemada")
-	# Quema gratis.
-	eng = _engine_with(["soot_golem"], ["smelt"])
-	eng.burns_left = 0
-	var bc := eng.burned_count
+	# Fundir: la siguiente quema en caliente no cuesta Energía.
+	eng = _engine_with(["soot_golem"], ["strike", "smelt"])
+	var stk: Card = eng.hand[eng.hand.size() - 2]
 	eng.play_card(eng.hand[eng.hand.size() - 1])
-	check(eng.burned_count == bc + 1, "Fundir quema sin gastar Quemas")
+	var en0 := eng.energy
+	eng.burns_left = 1
+	check(eng.hot_burn_cost(stk) == 0, "Fundir: quema en caliente gratis")
+	check(eng.burn_card(stk, true) and eng.energy == en0, "Fundir no gasta Energía")
 	# Mejora temporal que no sobrevive al combate.
 	eng = _engine_with(["ash_slime"], ["reforge"])
 	eng.play_card(eng.hand[eng.hand.size() - 1])
@@ -497,4 +500,145 @@ func _test_all_cards_play() -> void:
 				break
 	check(true, "todos los enemigos actúan")
 	Game.run = null
+	Game.reset_all()
+
+
+func _test_v03() -> void:
+	Game.reset_all()
+	# Quema en caliente: paga el coste, ×2 Ascuas y ×2 Maestría.
+	var eng := _engine_with(["soot_golem"], ["heavy_hammer", "kindling", "bellows"])
+	var hammer: Card = eng.hand[eng.hand.size() - 3]
+	var kind: Card = eng.hand[eng.hand.size() - 2]
+	var zero: Card = eng.hand[eng.hand.size() - 1]
+	check(eng.hot_burn_cost(hammer) == 2, "caliente cuesta lo que la carta")
+	check(eng.hot_burn_cost(kind) == -1, "el Combustible no se quema en caliente")
+	check(eng.hot_burn_cost(zero) == -1, "coste 0 no se quema en caliente")
+	var pv0: Dictionary = eng.burn_preview(hammer, false)
+	var pv1: Dictionary = eng.burn_preview(hammer, true)
+	check(is_equal_approx(float(pv1["embers"]), float(pv0["embers"]) * 2.0), "caliente ×2 Ascuas")
+	var e0 := eng.energy
+	eng.burns_left = 1
+	check(eng.burn_card(hammer, true), "quemar en caliente")
+	check(eng.energy == e0 - 2 and eng.hot_burns == 1, "paga 2 de Energía")
+	eng.energy = 0
+	eng.burns_left = 1
+	var stk := Card.new("strike")
+	eng.hand.append(stk)
+	check(not eng.can_burn_hot(stk) and eng.can_burn(stk), "sin Energía sólo quema normal")
+	# Maestría: jugar da 0.25; caliente da 2.
+	Game.reset_all()
+	var run := Game.start_run(21)
+	var e2 := CombatEngine.new()
+	e2.setup(run, ["soot_golem"], 1, "combat")
+	e2.start()
+	var s2 := Card.new("strike")
+	e2.hand.append(s2)
+	e2.energy = 5
+	e2.play_card(s2, e2.enemies[0])
+	check(is_equal_approx(Game.mastery_xp("strike"), 0.25), "jugar da 0.25 de Maestría")
+	var s3 := Card.new("strike")
+	e2.hand.append(s3)
+	e2.burns_left = 1
+	e2.burn_card(s3, true)
+	check(is_equal_approx(Game.mastery_xp("strike"), 2.25), "caliente da 2 de Maestría")
+	Game.run = null
+	# Temple.
+	Game.reset_all()
+	Game.mastery = {"strike": 15.0, "kindling": 15.0}
+	check(Game.temple_pending("strike"), "Temple pendiente en Maestría 3")
+	Game.choose_temple("strike", "edge")
+	check(Card.new("strike").effects()[0][1] == int(6 + round(6 * 0.1 * 5)), "Filo: +2 niveles de números (%d)" % Card.new("strike").effects()[0][1])
+	Game.choose_temple("strike", "ember")
+	var bops := Card.new("strike").burn_effects()
+	check(not bops.is_empty() and bops[0][0] == "dmg_rand_hot", "Brasa: Golpe inflige daño al quemarse")
+	Game.choose_temple("kindling", "rekindle")
+	var e3 := _engine_with(["soot_golem"], ["kindling"])
+	var kd: Card = e3.hand[e3.hand.size() - 1]
+	e3.burns_left = 1
+	e3.burn_card(kd)
+	check(e3.discard.has(kd), "Rescoldo: el Combustible vuelve al descarte")
+	Game.reset_all()
+	# Resonancias elegibles.
+	Game.generators = {"bellows": 10}
+	Game.perk_choices = {"bellows:0": "b"}
+	check(Game.perk_ids().has("res_bellows1b") and not Game.perk_ids().has("res_bellows1"), "Resonancia B elegida")
+	for gid in ["spark", "bellows", "furnace", "crucible", "blast", "dwarf_sun", "heart_world"]:
+		for tier in 3:
+			check(RelicDB.perk_for(gid, tier, "b") != "", "variante B %s %d" % [gid, tier])
+	Game.reset_all()
+	# Afijos de ciclo y enemigos que reaccionan.
+	var rr := RandomNumberGenerator.new()
+	var cyc := EnemyDB.make("ash_slime", 35, rr)
+	check(cyc.affixes.size() >= 1, "ciclo II: afijo")
+	check(EnemyDB.make("ash_slime", 5, rr).affixes.is_empty(), "ciclo I: sin afijos")
+	var e4 := _engine_with(["flame_moth"], ["strike"])
+	var moth := e4.enemies[0]
+	e4.burns_left = 1
+	e4.burn_card(e4.hand[e4.hand.size() - 1])
+	check(moth.st("str") == 1, "Polilla de Llama: +1 Fuerza al quemar")
+	var e5 := _engine_with(["rival_bellows"], [])
+	e5.end_player_turn()
+	check(e5.enemies[0].block >= 12, "Fuelle Rival se blinda si no quemas")
+	# Brasas Vivas y Resplandor.
+	Game.reset_all()
+	var r6 := Game.start_run(31)
+	r6.streak_floors = 10
+	Game.gain_tower_embers(100.0, "test")
+	check(is_equal_approx(r6.pot, 40.0), "bote +40% con 10 pisos de racha (%f)" % r6.pot)
+	var before := Game.embers
+	check(is_equal_approx(Game.cash_pot(), 40.0) and is_equal_approx(Game.embers, before + 40.0), "cobrar el bote")
+	check(r6.streak_floors == 0, "cobrar reinicia la racha")
+	r6.burned = 40
+	r6.floors_climbed = 12
+	Game.generators = {"spark": 10}
+	var p0 := Game.production()
+	var sm := Game.end_run()
+	check(not (sm["glow"] as Dictionary).is_empty(), "Resplandor al volver")
+	check(is_equal_approx(Game.production(), p0 * 2.0), "Resplandor +100% con 40 quemas (%f)" % (Game.production() / p0))
+	# Puntos de control y Grimorios activos.
+	Game.reset_all()
+	Game.max_floor = 25
+	check(Game.checkpoints() == [1, 11], "puntos de control (%s)" % str(Game.checkpoints()))
+	var r7 := Game.start_run(5, 11)
+	check(r7.floor_num == 10 and r7.pending_drafts == 3 and r7.pending_boss_relics == 1, "compensación del punto de control")
+	Game.run = null
+	Game.grimoires = {"pyre": true, "anvil": true, "ash": true}
+	check(Game.active_grimoire_list().size() == 2, "2 Grimorios activos por defecto")
+	Game.active_grimoires = ["ash"]
+	check(Game.card_packs() == ["base", "ash"], "Grimorios activos elegidos")
+	Game.stardust = 1000.0
+	check(Game.buy_constellation("c_third") and Game.max_active_grimoires() == 3, "Constelación: Tercer Grimorio")
+	# Puertas: sin duplicados salvo combates con rasgo distinto, con datos de encuentro.
+	Game.reset_all()
+	var r8 := Game.start_run(77)
+	var ok := true
+	for f in 60:
+		var doors := r8.roll_doors()
+		check(r8.door_meta.size() == doors.size(), "datos de cada puerta")
+		var seen := {}
+		var traits := {}
+		for i in doors.size():
+			var k: String = doors[i]
+			if k != "combat" and seen.has(k):
+				ok = false
+			seen[k] = true
+			if k == "combat":
+				var t: String = r8.door_meta[i]["trait"]
+				if traits.has(t):
+					ok = false
+				traits[t] = true
+		r8.floor_num += 1
+	check(ok, "puertas sin duplicados")
+	Game.run = null
+	# Guardado v3.
+	Game.temples = {"strike": "edge"}
+	Game.perk_choices = {"spark:0": "b"}
+	Game.constellations = {"c_glow": true}
+	Game.glow_value = 1.5
+	Game.glow_until = Time.get_unix_time_from_system() + 600.0
+	var j: Dictionary = JSON.parse_string(JSON.stringify(Game.to_dict()))
+	Game.reset_all()
+	Game.from_dict(j)
+	check(Game.temples.get("strike", "") == "edge" and Game.perk_choices.get("spark:0", "") == "b", "guardado: Temple y Resonancias")
+	check(Game.constellations.has("c_glow") and is_equal_approx(Game.glow_value, 1.5), "guardado: Constelaciones y Resplandor")
 	Game.reset_all()

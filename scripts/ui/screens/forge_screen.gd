@@ -5,6 +5,7 @@ var _gen_rows: Array[Dictionary] = []       # {g, btn, count, rate, row, pips}
 var _arsenal_rows: Array[Dictionary] = []   # {a, btn, lvl}
 var _grim_rows: Array[Dictionary] = []
 var _talent_rows: Array[Dictionary] = []
+var _const_rows: Array[Dictionary] = []
 var _gen_list: VBoxContainer
 var _arsenal_list: VBoxContainer
 var _grim_list: VBoxContainer
@@ -13,6 +14,7 @@ var _chronicle_list: VBoxContainer
 var _rebirth_box: VBoxContainer
 var _tabs: TabContainer
 var _mode_btn: Button
+var _auto_btn: Button
 var _click_label: Label
 var _breakdown: RichTextLabel
 var _furnace_icon: TextureRect
@@ -44,12 +46,16 @@ func _show_welcome() -> void:
 	if not Game.seen_intro:
 		Game.seen_intro = true
 		main.modal("La Forja", "Eres [color=#ffb43a]la Fogonera[/color]. La ciudad se congela y sólo tu forja late.\n\n" +
-			"• [color=#ffd36a]Aviva el horno[/color] y compra generadores: producen Ascuas incluso con el juego cerrado.\n" +
-			"• Con 10, 50 y 100 unidades, cada generador [color=#d0a8ff]Resuena[/color]: te da una ventaja en la Torre.\n" +
-			"• [color=#ffd36a]Asciende a la Torre[/color]: combate con cartas. Cualquier carta puede [color=#ff8a4a]QUEMARSE[/color]: da Ascuas y gana [color=#ffb0ff]Maestría[/color] para siempre.\n" +
-			"• Cada piso récord enciende un [color=#ffb43a]Brasero[/color]: +10% de producción para siempre.\n" +
-			"• Morir no te quita nada. Todo vuelve a la Forja.",
-			[["Encender la forja", func() -> void: pass]], 680)
+			"Aviva el horno y compra una [color=#ffd36a]Chispa[/color]. Después, [color=#ffd36a]asciende a la Torre[/color].\nMorir no te quita nada: todo vuelve a la Forja.",
+			[["Encender la forja", func() -> void: pass]], 560)
+	elif Game.perk_ids().size() > 0 and not Game.seen_tips.has("resonance"):
+		Game.seen_tips["resonance"] = true
+		main.modal("Resonancia", "Con 10 unidades, un generador [color=#d0a8ff]Resuena[/color]: te da una ventaja en la Torre.\nCada umbral (10, 50 y 100) tiene [color=#ffd36a]dos versiones[/color]: elígelas en la Antesala antes de ascender.",
+			[["Entendido", func() -> void: pass]], 560)
+	elif Game.temples_pending().size() > 0 and not Game.seen_tips.has("temple"):
+		Game.seen_tips["temple"] = true
+		main.modal("Temple", "Una carta ha llegado a [color=#ffb0ff]Maestría 3[/color]. Elige su Temple en [color=#ffd36a]Archivo → Códice[/color]:\n[color=#ffd36a]Filo[/color] (más fuerte al jugarla) o [color=#ff8a4a]Brasa[/color] (un efecto extra al quemarla).",
+			[["Ver Archivo", func() -> void: _tabs.current_tab = 2], ["Luego", func() -> void: pass]], 600)
 	elif Game.pacts_unlocked() and not Game.seen_tips.has("pacts"):
 		Game.seen_tips["pacts"] = true
 		main.modal("Pactos de Brasa", "Has derrotado al primer guardián. En la [color=#ffd36a]Antesala[/color] puedes firmar [color=#ff8a4a]Pactos[/color]:
@@ -173,6 +179,18 @@ func _build_generators() -> void:
 	_mode_btn.custom_minimum_size = Vector2(90, 30)
 	_mode_btn.tooltip_text = "Cantidad a comprar"
 	head.add_child(_mode_btn)
+	_auto_btn = UI.button("", func() -> void:
+		if not Game.autoforge_on:
+			Game.autoforge_on = true
+			Game.autoforge_reserve = 0.5
+		elif Game.autoforge_reserve > 0.1:
+			Game.autoforge_reserve = 0.0
+		else:
+			Game.autoforge_on = false
+		_refresh_dynamic(), 13)
+	_auto_btn.custom_minimum_size = Vector2(110, 30)
+	_auto_btn.tooltip_text = "Autoforja: compra el generador más rentable.\nClic para cambiar: guarda 50% → sin reserva → apagada."
+	head.add_child(_auto_btn)
 	v.add_child(head)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(436, 590)
@@ -346,6 +364,7 @@ func _build_grimoires() -> void:
 		h.add_child(btn)
 		v.add_child(h)
 		v.add_child(UI.rich("[color=#a08878]%s[/color]" % g["desc"], 13))
+		v.add_child(UI.rich("[color=#806860]Elige qué Grimorios llevas (máx. %d) en la Antesala.[/color]" % Game.max_active_grimoires(), 11))
 		var preview_btn := UI.button("Ver cartas (%d)" % CardDB.ids_in_packs([id]).size(), func() -> void:
 			var cs: Array = []
 			for cid in CardDB.ids_in_packs([id]):
@@ -383,14 +402,14 @@ func _build_archive() -> void:
 	_archive_list.add_child(grid)
 	_archive_list.add_child(UI.spacer(8))
 	_archive_list.add_child(UI.label("Códice de Maestría", 18, Color("ffb0ff")))
-	_archive_list.add_child(UI.rich("[color=#a08878]Cada vez que quemas una carta en la Torre gana Maestría (para siempre). Cada nivel: [color=#ffd36a]+10%[/color] a sus números y [color=#ffd36a]+20%[/color] Ascuas al quemarla.[/color]", 13))
-	var packs := Game.card_packs()
+	_archive_list.add_child(UI.rich("[color=#a08878]Quemar una carta le da 1 de Maestría (2 en caliente); jugarla, 0.25. Cada nivel: [color=#ffd36a]+10%[/color] a sus números y [color=#ffd36a]+20%[/color] Ascuas al quemarla. En el nivel 3 eliges su [color=#ffb0ff]Temple[/color].[/color]", 13))
+	var packs := Game.learned_packs()
 	var ids: Array[String] = []
 	for id in CardDB.collectible_ids():
 		ids.append(id)
 	ids.sort_custom(func(a: String, b: String) -> bool:
-		var ma := Game.mastery.get(a, 0) as int
-		var mb := Game.mastery.get(b, 0) as int
+		var ma := (2000.0 if Game.temple_pending(a) else 0.0) + Game.mastery_xp(a)
+		var mb := (2000.0 if Game.temple_pending(b) else 0.0) + Game.mastery_xp(b)
 		if ma != mb:
 			return ma > mb
 		return a < b)
@@ -416,6 +435,30 @@ func _build_archive() -> void:
 		var prog := Game.mastery_progress(id)
 		var xl := UI.label("%d/%d" % [prog.x, prog.y] if lvl < Game.MASTERY_MAX else "MÁX", 11, UI.DIM)
 		row.add_child(xl)
+		if Game.temple_pending(id):
+			for br in CardDB.temple_branches(id):
+				var branch: String = br
+				var tb := UI.button(CardDB.TEMPLE_NAMES[branch], func() -> void:
+					Game.choose_temple(id, branch)
+					Sfx.play("rebirth", 0.0, -4.0)
+					main.toast("%s: Temple de %s" % [d2["name"], CardDB.TEMPLE_NAMES[branch]], Color("ffb0ff"))
+					_build_archive(), 11)
+				tb.tooltip_text = CardDB.temple_desc(id, branch)
+				tb.custom_minimum_size = Vector2(56, 22)
+				row.add_child(tb)
+		elif Game.temples.has(id):
+			var cur: String = Game.temples[id]
+			var tl := UI.label(CardDB.TEMPLE_NAMES.get(cur, ""), 11, Color("ffb0ff"))
+			tl.mouse_filter = Control.MOUSE_FILTER_PASS
+			tl.tooltip_text = CardDB.temple_desc(id, cur) + "\nClic derecho: re-templar (%s Ascuas)" % Num.fmt(Game.retemple_cost())
+			tl.gui_input.connect(func(ev: InputEvent) -> void:
+				if ev is InputEventMouseButton and ev.pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
+					if Game.retemple(id):
+						Sfx.play("burn")
+						_build_archive()
+					else:
+						Sfx.play("deny"))
+			row.add_child(tl)
 		if known:
 			row.tooltip_text = "%s\n%s" % [d2["name"], CardDB.describe_plain(Card.new(id))]
 		_archive_list.add_child(row)
@@ -457,6 +500,7 @@ func _build_chronicle() -> void:
 func _build_rebirth() -> void:
 	UI.clear(_rebirth_box)
 	_talent_rows.clear()
+	_const_rows.clear()
 	_rebirth_box.add_child(UI.label("Renacer en Ceniza", 20, Color("d0b0ff")))
 	_rebirth_box.add_child(UI.rich("[color=#a08878]Reinicia Ascuas y generadores (¡y sus Resonancias!) a cambio de [color=#d0b0ff]Polvo Estelar[/color]. Conservas Arsenal, Grimorios, Maestría, Reliquario y Braseros. Cada Polvo ganado da +10% de producción para siempre.[/color]", 13))
 	var gain_l := UI.rich("", 15)
@@ -478,6 +522,32 @@ func _build_rebirth() -> void:
 	rb.name = "RebirthBtn"
 	rb.custom_minimum_size = Vector2(360, 48)
 	_rebirth_box.add_child(rb)
+	_rebirth_box.add_child(UI.spacer(6))
+	_rebirth_box.add_child(UI.label("Constelaciones", 18, Color("d0b0ff")))
+	_rebirth_box.add_child(UI.rich("[color=#a08878]Sumideros de Polvo que cambian las reglas.[/color]", 12))
+	for c in ForgeDB.CONSTELLATIONS:
+		var crow := UI.panel(Color("161428"), Color("4a3a7a"))
+		var ch := UI.hbox(8)
+		crow.add_child(ch)
+		ch.add_child(UI.icon("star", 3))
+		var cinfo := UI.vbox(0)
+		cinfo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cinfo.add_child(UI.label(c["name"], 15, Color("e0d0ff")))
+		var cd := UI.rich("[color=#a08878]%s[/color]" % c["desc"], 12)
+		cd.custom_minimum_size.x = 180
+		cinfo.add_child(cd)
+		ch.add_child(cinfo)
+		var cid: String = c["id"]
+		var cb := UI.button("", func() -> void:
+			if Game.buy_constellation(cid):
+				Sfx.play("rebirth")
+				main.toast("Constelación: %s" % c["name"], Color("d0a8ff"))
+			else:
+				Sfx.play("deny"), 14)
+		cb.custom_minimum_size = Vector2(90, 44)
+		ch.add_child(cb)
+		_rebirth_box.add_child(crow)
+		_const_rows.append({"c": c, "btn": cb})
 	_rebirth_box.add_child(UI.spacer(6))
 	_rebirth_box.add_child(UI.label("Talentos", 18, Color("d0b0ff")))
 	for t in ForgeDB.TALENTS:
@@ -529,6 +599,8 @@ func _refresh_dynamic() -> void:
 		_furnace_icon.texture = Art.forge_sprite(heat)
 		_furnace_halo.modulate.a = 0.3 + 0.1 * lvl
 	_mode_btn.text = "Comprar: " + ("Máx" if Game.buy_mode < 0 else "x%d" % Game.buy_mode)
+	_auto_btn.visible = Game.talents.has("autoforge")
+	_auto_btn.text = ("Auto: guarda 50%" if Game.autoforge_reserve > 0.1 else "Auto: todo") if Game.autoforge_on else "Auto: apagada"
 	_click_label.text = "Clic en el horno: +%s Ascuas" % Num.fmt(Game.click_value())
 	for r in _gen_rows:
 		var g: Dictionary = r["g"]
@@ -581,6 +653,15 @@ func _refresh_dynamic() -> void:
 		else:
 			btn.text = Num.fmt(g["cost"])
 			btn.disabled = Game.embers < float(g["cost"])
+	for r in _const_rows:
+		var c: Dictionary = r["c"]
+		var cbtn: Button = r["btn"]
+		if Game.constellations.has(c["id"]):
+			cbtn.text = "Activa"
+			cbtn.disabled = true
+		else:
+			cbtn.text = "%s ★" % Num.fmt(float(c["cost"]))
+			cbtn.disabled = Game.stardust < float(c["cost"])
 	for r in _talent_rows:
 		var t: Dictionary = r["t"]
 		var btn: Button = r["btn"]
@@ -601,9 +682,11 @@ func _refresh_dynamic() -> void:
 	var base := 0.0
 	for g in ForgeDB.GENERATORS:
 		base += float(g["rate"]) * Game.gen_count(g["id"]) * ForgeDB.milestone_mult(Game.gen_count(g["id"]))
-	_breakdown.text = "[color=#a08878]Producción[/color]\nBase: [color=#ffd36a]%s/s[/color]\n× Braseros (%d): [color=#ffd36a]×%.1f[/color]\n× Polvo Estelar (%s): [color=#d0b0ff]×%.1f[/color]\n× Reliquario (%d): [color=#ffd36a]×%.2f[/color]\n= [color=#ffb43a]%s/s[/color]\n[color=#806860]Resonancias activas: %d · Maestrías: %d · Hitos: %d/%d\nAscensiones: %d · Renacimientos: %d[/color]" % [
+	_breakdown.text = "[color=#a08878]Producción[/color]\nBase: [color=#ffd36a]%s/s[/color]\n× Braseros (%d): [color=#ffd36a]×%.1f[/color]\n× Polvo Estelar (%s): [color=#d0b0ff]×%.1f[/color]\n× Reliquario (%d): [color=#ffd36a]×%.2f[/color]\n%s= [color=#ffb43a]%s/s[/color]\n[color=#806860]Resonancias activas: %d · Maestrías: %d · Hitos: %d/%d\nAscensiones: %d · Renacimientos: %d[/color]" % [
 		Num.fmt(base), Game.max_floor, 1.0 + Game.BRAZIER_BONUS * Game.max_floor, Num.fmt(Game.stardust_total),
-		1.0 + Game.STARDUST_BONUS * Game.stardust_total, Game.relic_codex.size(), Game.codex_mult(), Num.fmt(Game.production()),
+		1.0 + Game.STARDUST_BONUS * Game.stardust_total, Game.relic_codex.size(), Game.codex_mult(),
+		("× [color=#ff8a4a]Resplandor ×%.2f[/color] (quedan %s)\n" % [1.0 + Game.glow_active(), Num.fmt_time(Game.glow_seconds_left())]) if Game.glow_active() > 0.0 else "",
+		Num.fmt(Game.production()),
 		Game.perk_ids().size(), Game.mastered_count(1), Game.hitos.size(), ForgeDB.HITOS.size(), Game.runs_started, Game.rebirths]
 
 

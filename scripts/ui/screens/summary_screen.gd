@@ -5,6 +5,9 @@ extends Screen
 func build() -> void:
 	var run := Game.run
 	var died: bool = args.get("died", true)
+	var cashed := 0.0
+	if not died:
+		cashed = Game.cash_pot()
 	var floor_reached := run.floor_num if run != null else 0
 	var s := Game.end_run()
 	var bg := UI.tex_rect(Art.background(0, 3, 0), 4.0)
@@ -45,6 +48,13 @@ func build() -> void:
 		tw.tween_interval(0.25 + 0.2 * i)
 		tw.tween_callback(func() -> void: Sfx.play("coin", 0.1, -6.0))
 		tw.tween_property(h, "modulate:a", 1.0, 0.2)
+	var glow: Dictionary = s.get("glow", {})
+	if not glow.is_empty():
+		v.add_child(UI.rich("[center][color=#ff8a4a]Resplandor:[/color] la Forja produce [color=#ffd36a]+%d%%[/color] durante [color=#ffd36a]%s[/color] (también con el juego cerrado).[/center]" % [int(float(glow["value"]) * 100), Num.fmt_time(float(glow["seconds"]))], 17))
+	if cashed > 0.0:
+		v.add_child(UI.rich("[center][color=#ffb43a]Brasas Vivas cobradas: +%s[/color][/center]" % Num.fmt(cashed), 17))
+	elif float(s.get("pot_lost", 0.0)) > 0.0:
+		v.add_child(UI.rich("[center][color=#806860]Bote de Brasas Vivas perdido: %s[/color][/center]" % Num.fmt(float(s["pot_lost"])), 15))
 	var nb: int = s.get("new_braziers", 0)
 	if nb > 0:
 		var bl := UI.rich("[center][color=#ffb43a]¡%d brasero%s nuevo%s encendido%s![/color]\nLa Forja produce ahora un [color=#ffd36a]+%d%%[/color] gracias a la Torre.[/center]" % [nb, "" if nb == 1 else "s", "" if nb == 1 else "s", "" if nb == 1 else "s", int(Game.BRAZIER_BONUS * 100 * Game.max_floor)], 20)
