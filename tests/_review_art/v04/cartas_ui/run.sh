@@ -7,4 +7,3 @@ G="/c/Users/Jaime/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win6
 timeout 120 "$G" --headless --path . --script res://tests/_review_art/v04/cartas_ui/$S > "$L" 2>&1
 echo EXIT $?
 grep -E "ERROR|SCRIPT|ok|at: " "$L" | grep -v "BUG\|leaked\|PagedAlloc\|string_name\|paged_alloc\|thread.cpp\|~PagedAllocator\|unref" | head -20
-git checkout project.godot 2>/dev/null

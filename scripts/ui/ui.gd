@@ -3,26 +3,32 @@ extends RefCounted
 ## Kit de UI: tema, constructores de widgets y efectos reutilizables.
 ## Rejillas: el MUNDO se dibuja a ×4 (PX) y la INTERFAZ a ×2 (UI_PX). Nada de escalas fraccionarias
 ## ni rotaciones sobre pixel art del mundo (ver docs/ART_BIBLE.md).
+## v0.4: paneles y botones son 9-slice teselados (`UIKit`); texto pequeño en Pavesa 6×9 a ×1, etiquetas en Mini 3×5 ×2,
+## títulos en Fragua 5×7 a escala entera. Colores de la paleta maestra (`Palette`).
+
+## Precargas (no dependen de la caché de class_name: el juego arranca aunque no se haya reimportado).
+const _Kit := preload("res://scripts/art/ui_kit.gd")
 
 const PX := 4
 const UI_PX := 2
 
-const BG := Color("140c10")
-const PANEL := Color("231619")
-const PANEL2 := Color("2e1d21")
-const OUTLINE := Color("1a0f12")
-const EDGE := Color("5a4040")
-const TEXT := Color("f4e4c8")
-const DIM := Color("a08878")
-const EMBER := Color("ffb43a")
-const FIRE := Color("ff6a1a")
-const RED := Color("e0442a")
-const BLUE := Color("8ab4d0")
-const GREEN := Color("7ad47a")
-const PURPLE := Color("b07ae0")
+## Colores de interfaz: todos salen de la paleta maestra de DA (`Palette`).
+static var BG: Color = Palette.color(&"plate", 1)
+static var PANEL: Color = Palette.color(&"plate", 2)
+static var PANEL2: Color = Palette.color(&"plate", 3)
+static var OUTLINE: Color = Palette.UI[&"k"]
+static var EDGE: Color = Palette.color(&"stone", 5)
+static var TEXT: Color = Palette.UI[&"text"]
+static var DIM: Color = Palette.UI[&"text_dim"]
+static var EMBER: Color = Palette.color(&"ember_ui", 4)
+static var FIRE: Color = Palette.color(&"ember_ui", 3)
+static var RED: Color = Palette.color(&"blood", 3)
+static var BLUE: Color = Palette.color(&"moon", 3)
+static var GREEN: Color = Palette.color(&"heal", 3)
+static var PURPLE: Color = Palette.color(&"magic", 3)
 
-const TYPE_COLORS := {"attack": Color("c2321e"), "skill": Color("4a6a8a"), "power": Color("d08a20"),
-	"fuel": Color("6a5048"), "status": Color("3a3038")}
+static var TYPE_COLORS := {"attack": Palette.color(&"frame_attack", 3), "skill": Palette.color(&"frame_skill", 4),
+	"power": Palette.color(&"frame_power", 4), "fuel": Palette.color(&"frame_fuel", 4), "status": Palette.color(&"frame_status", 3)}
 
 const FLASH_SHADER := """
 shader_type canvas_item;
@@ -166,73 +172,99 @@ static func dust(rect: Rect2, color: Color, amount: int = 30) -> CPUParticles2D:
 	return p
 
 
-## Panel en la rejilla de interfaz (bordes y sombra en múltiplos de 2 px).
-static func box(bg: Color, border: Color = EDGE, bw: int = 4, shadow: int = 4) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = bg
-	s.border_color = border
-	bw = maxi(2, bw + bw % 2) if bw > 1 else bw
-	s.set_border_width_all(bw)
-	s.set_corner_radius_all(0)
-	s.anti_aliasing = false
-	if shadow > 0:
-		s.shadow_color = Color(0, 0, 0, 0.55)
-		s.shadow_size = 0
-		s.shadow_offset = Vector2(shadow, shadow)
-	s.content_margin_left = 10
-	s.content_margin_right = 10
-	s.content_margin_top = 6
-	s.content_margin_bottom = 6
-	return s
+## Panel en la rejilla de interfaz: placa 9-slice teselada teñida con `bg` (cara) y `border` (canto).
+## v0.4: ya no hay StyleBoxFlat; el grosor `bw` (px de pantalla) se lleva a píxeles nativos ×2.
+static func box(bg: Color, border: Color = EDGE, bw: int = 4, shadow: int = 4) -> StyleBox:
+	var thick := clampi(int(round(bw / 2.0)), 0, 3)
+	if border.a == 0.0 or bw <= 0:
+		thick = 0
+	var sh := clampi(int(round(shadow / 2.0)), 0, 3)
+	return _Kit.sb_plate(bg, border, maxi(thick, 1) if thick > 0 else 0, sh)
 
 
 static func build_theme() -> Theme:
 	var t := Theme.new()
-	t.default_font_size = 16
+	# Tipografía: Pavesa (6×9, ×1) por defecto; Fragua (5×7) en títulos y botones cortos vía pixelize().
+	t.default_font = PixelFont.pavesa()
+	t.default_font_size = PixelFont.P_LINE
+	for cls: String in ["Label", "Button", "RichTextLabel", "TooltipLabel", "TabContainer", "CheckBox", "LineEdit"]:
+		t.set_color("font_shadow_color", cls, OUTLINE)
+		t.set_constant("shadow_offset_x", cls, 1)
+		t.set_constant("shadow_offset_y", cls, 1)
+		t.set_constant("outline_size", cls, 0)
+		t.set_constant("shadow_outline_size", cls, 0)
 	t.set_color("font_color", "Label", TEXT)
 	t.set_color("font_outline_color", "Label", OUTLINE)
-	t.set_constant("outline_size", "Label", 4)
 	t.set_color("default_color", "RichTextLabel", TEXT)
 	t.set_color("font_outline_color", "RichTextLabel", OUTLINE)
-	t.set_constant("outline_size", "RichTextLabel", 3)
-	t.set_stylebox("normal", "Button", box(Color("4a2a22"), Color("8a4a2a")))
-	t.set_stylebox("hover", "Button", box(Color("6a3424"), EMBER))
-	t.set_stylebox("pressed", "Button", box(Color("8a3a1a"), Color("ffe08a"), 3, 1))
-	t.set_stylebox("disabled", "Button", box(Color("2a2024"), Color("3d2b2e")))
+	t.set_font("bold_font", "RichTextLabel", PixelFont.pavesa_bold())
+	t.set_font("normal_font", "RichTextLabel", PixelFont.pavesa())
+	t.set_font_size("normal_font_size", "RichTextLabel", PixelFont.P_LINE)
+	t.set_font_size("bold_font_size", "RichTextLabel", PixelFont.P_LINE)
+	# Botones: botón de forja 9-slice en cuatro estados.
+	t.set_stylebox("normal", "Button", _Kit.sb_button("normal"))
+	t.set_stylebox("hover", "Button", _Kit.sb_button("hover"))
+	t.set_stylebox("pressed", "Button", _Kit.sb_button("pressed"))
+	t.set_stylebox("hover_pressed", "Button", _Kit.sb_button("pressed"))
+	t.set_stylebox("disabled", "Button", _Kit.sb_button("disabled"))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	t.set_color("font_color", "Button", TEXT)
-	t.set_color("font_hover_color", "Button", Color("ffe08a"))
-	t.set_color("font_pressed_color", "Button", Color.WHITE)
-	t.set_color("font_disabled_color", "Button", Color("6a5a58"))
+	t.set_color("font_hover_color", "Button", Palette.color(&"ember_ui", 5))
+	t.set_color("font_pressed_color", "Button", Palette.color(&"ember_ui", 6))
+	t.set_color("font_hover_pressed_color", "Button", Palette.color(&"ember_ui", 6))
+	t.set_color("font_disabled_color", "Button", Palette.color(&"ash", 5))
 	t.set_color("font_outline_color", "Button", OUTLINE)
-	t.set_constant("outline_size", "Button", 4)
-	t.set_stylebox("panel", "PanelContainer", box(PANEL))
-	t.set_stylebox("panel", "Panel", box(PANEL))
-	t.set_stylebox("panel", "TooltipPanel", box(Color("1e1216"), EMBER, 2, 3))
+	# Paneles: chapa de hierro; tooltip de hierro oscuro.
+	t.set_stylebox("panel", "PanelContainer", _Kit.sb_iron(3))
+	t.set_stylebox("panel", "Panel", _Kit.sb_iron(3))
+	t.set_stylebox("panel", "TooltipPanel", _Kit.sb_iron(2, Vector4(10, 6, 10, 6)))
 	t.set_color("font_color", "TooltipLabel", TEXT)
-	t.set_stylebox("tab_selected", "TabContainer", box(Color("4a2a22"), EMBER, 3, 0))
-	t.set_stylebox("tab_unselected", "TabContainer", box(Color("2a1a1e"), EDGE, 3, 0))
-	t.set_stylebox("tab_hovered", "TabContainer", box(Color("3a2226"), Color("8a4a2a"), 3, 0))
-	t.set_stylebox("panel", "TabContainer", box(PANEL, EDGE, 3, 4))
-	t.set_color("font_selected_color", "TabContainer", Color("ffe08a"))
+	# Pestañas.
+	t.set_stylebox("tab_selected", "TabContainer", _Kit.sb_tab(true))
+	t.set_stylebox("tab_unselected", "TabContainer", _Kit.sb_tab(false))
+	t.set_stylebox("tab_hovered", "TabContainer", _Kit.sb_tab(false, true))
+	t.set_stylebox("tab_disabled", "TabContainer", _Kit.sb_tab(false))
+	t.set_stylebox("tab_focus", "TabContainer", StyleBoxEmpty.new())
+	t.set_stylebox("panel", "TabContainer", _Kit.sb_iron(3))
+	t.set_color("font_selected_color", "TabContainer", Palette.color(&"ember_ui", 5))
 	t.set_color("font_unselected_color", "TabContainer", DIM)
-	t.set_stylebox("scroll", "VScrollBar", box(Color("1a1014"), OUTLINE, 1, 0))
-	t.set_stylebox("grabber", "VScrollBar", box(EDGE, OUTLINE, 1, 0))
-	t.set_stylebox("grabber_highlight", "VScrollBar", box(Color("8a4a2a"), OUTLINE, 1, 0))
-	t.set_stylebox("grabber_pressed", "VScrollBar", box(EMBER, OUTLINE, 1, 0))
-	t.set_stylebox("slider", "HSlider", box(Color("1a1014"), EDGE, 2, 0))
+	t.set_color("font_hovered_color", "TabContainer", TEXT)
+	# Barras de desplazamiento y deslizadores: placas finas.
+	t.set_stylebox("scroll", "VScrollBar", _Kit.sb_plate(Palette.color(&"plate", 2), Palette.OUTLINE, 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("grabber", "VScrollBar", _Kit.sb_plate(Palette.color(&"plate", 5), Palette.color(&"plate", 6), 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("grabber_highlight", "VScrollBar", _Kit.sb_plate(Palette.color(&"copper", 5), Palette.color(&"copper", 7), 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("grabber_pressed", "VScrollBar", _Kit.sb_plate(Palette.color(&"ember_ui", 4), Palette.color(&"ember_ui", 5), 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("slider", "HSlider", _Kit.sb_plate(Palette.color(&"plate", 2), EDGE, 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("background", "ProgressBar", _Kit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"stone", 4), 1, 0, Vector4(2, 2, 2, 2)))
+	t.set_stylebox("fill", "ProgressBar", _Kit.sb_plate(Palette.color(&"ember_ui", 2), Palette.color(&"ember_ui", 3), 1, 0, Vector4(2, 2, 2, 2)))
 	return t
 
 
-## Etiqueta. Desde 20 px usa la fuente pixel a escala entera (títulos, cifras); por debajo, la lisa.
+## Etiqueta. Desde 20 px usa Fragua a escala entera (títulos, cifras); por debajo, Pavesa 6×9 a ×1 con sombra de 1 px.
+## Pavesa sólo existe a ×1, así que la jerarquía entre 10 y 19 px se conserva con la negrita: desde 16 px, doble trazo.
 static func label(text: String, size: int = 16, color: Color = TEXT) -> Label:
 	if size >= 20:
 		return plabel(text, pixel_scale(size), color)
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_override("font", PixelFont.pavesa_bold() if size >= 16 else PixelFont.pavesa())
+	l.add_theme_font_size_override("font_size", PixelFont.P_LINE)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_constant_override("outline_size", maxi(3, size / 5))
+	l.add_theme_constant_override("outline_size", 0)
+	l.add_theme_constant_override("line_spacing", 0)
+	return l
+
+
+## Etiqueta pequeña en Mini 3×5 a ×2 (cintas de tipo, intenciones, contadores).
+static func mlabel(text: String, color: Color = TEXT) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", PixelFont.mini())
+	l.add_theme_font_size_override("font_size", PixelFont.mini_size(2))
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_constant_override("outline_size", 0)
+	l.add_theme_constant_override("shadow_offset_x", 2)
+	l.add_theme_constant_override("shadow_offset_y", 2)
 	return l
 
 
@@ -267,8 +299,14 @@ static func rich(text: String, size: int = 15) -> RichTextLabel:
 	r.scroll_active = false
 	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r.add_theme_font_size_override("normal_font_size", size)
-	r.add_theme_font_size_override("bold_font_size", size)
+	# Pavesa a ×1 (o ×2 si se pide un tamaño de título); los tamaños intermedios caen a ×1 (escala entera).
+	var fs := PixelFont.P_LINE * (2 if size >= 26 else 1)
+	r.add_theme_font_override("normal_font", PixelFont.pavesa())
+	r.add_theme_font_override("bold_font", PixelFont.pavesa_bold())
+	r.add_theme_font_size_override("normal_font_size", fs)
+	r.add_theme_font_size_override("bold_font_size", fs)
+	r.add_theme_constant_override("outline_size", 0)
+	r.add_theme_constant_override("line_separation", 1)
 	r.text = text
 	return r
 
@@ -395,7 +433,7 @@ static func sparks(parent: Node, pos: Vector2, color: Color = FIRE, amount: int 
 	var grad := Gradient.new()
 	grad.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
 	grad.offsets = PackedFloat32Array([0.0, 0.25, 0.55, 0.85])
-	grad.colors = PackedColorArray([Color("fff4c8"), Color("ffe08a"), color, Color(color.darkened(0.4), 0.6)])
+	grad.colors = PackedColorArray([Palette.color(&"ember_ui", 6), Palette.color(&"ember_ui", 5), color, Color(Palette.color(&"ember_ui", 2), 0.6)])
 	p.color_ramp = grad
 	p.z_index = 90
 	parent.add_child(p)
@@ -420,7 +458,7 @@ static func fire_emitter(size: Vector2, amount: int = 40) -> CPUParticles2D:
 	var grad := Gradient.new()
 	grad.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
 	grad.offsets = PackedFloat32Array([0.0, 0.2, 0.45, 0.75])
-	grad.colors = PackedColorArray([Color("fff4c8"), Color("ffb43a"), Color("ff6a1a"), Color(0.76, 0.2, 0.12, 0.7)])
+	grad.colors = PackedColorArray([Palette.color(&"ember_ui", 6), Palette.color(&"ember_ui", 4), Palette.color(&"ember_ui", 3), Color(Palette.color(&"ember_ui", 2), 0.7)])
 	p.color_ramp = grad
 	return p
 

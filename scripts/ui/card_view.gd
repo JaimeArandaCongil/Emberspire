@@ -1,14 +1,29 @@
 class_name CardView
 extends Control
-## Representación visual de una carta: marco e ilustración en la MISMA rejilla ×2, cuerpo de pergamino
-## con texto oscuro, nombre y coste en fuente pixel. Sin escalado ni rotación al pasar el ratón.
-## Emite `clicked(view, button)`. `burn_away()` la disuelve en llamas.
+## Vista de carta v0.4: marco 80×112 nativo con su ilustración 68×46 (`CardFrame` + `CardIllus`) mostrado a ×2
+## (160×224). Nombre en Fragua ×2 (o Pavesa ×1 si no cabe), tipo en Mini ×2, cuerpo en Pavesa ×1 (tinta sobre
+## pergamino, cifras en negrita). Auras animadas: jugable, quemable, en caliente (Mayús) y seleccionada.
+## Brillo de rara (6 fotogramas cada 4 s). Emite `clicked(view, button)` y `hover_changed(view, hovering)`.
+## `burn_away()` la disuelve en llamas.
+##
+## Métricas para la mano (combate): tamaño 160×224; el orbe sobresale 12 px arriba-izquierda; el aura 18 px por
+## cada lado; en reposo asoman 128 px (64 nativos: placa + ilustración); al pasar el ratón sube entera.
 
 signal clicked(view: CardView, button: int)
 signal hover_changed(view: CardView, hovering: bool)
 
-const SIZE := Vector2(150, 210)
-const INK := Color("2a1418")
+const _Frame := preload("res://scripts/art/cards/frame.gd")
+const _Illus := preload("res://scripts/art/cards/illus/card_illus.gd")
+
+const SIZE := Vector2(160, 224)
+const PEEK := 128.0                      # px visibles en reposo (placa + ilustración)
+const S := 2
+const HINT_H := 38.0                     # alto de la placa "QUEMAR" que aparece sobre la carta
+const NAME_X0 := 28.0                    # el orbe de coste llega hasta aquí
+const NAME_MAX := 122                    # ancho máximo del nombre en Fragua ×2 (px de pantalla)
+const BODY := Rect2(18, 144, 124, 64)    # caja del texto sobre el pergamino (px de pantalla, relativos a la carta)
+
+static var _tex_cache := {}
 
 var card: Card
 var engine: CombatEngine
@@ -21,9 +36,8 @@ var hovering := false
 var home_pos := Vector2.ZERO
 var home_rot := 0.0
 
-var _glow: Panel
+var _aura: TextureRect
 var _frame: TextureRect
-var _art: TextureRect
 var _orb: TextureRect
 var _cost: Label
 var _name: Label
@@ -31,8 +45,10 @@ var _type: Label
 var _desc: RichTextLabel
 var _burn_hint: Label
 var _frame_mat: ShaderMaterial
-var _art_mat: ShaderMaterial
 var _frame_key := ""
+var _shimmer: Array = []
+var _aura_kind := ""
+var _t := 0.0
 
 
 func _init(p_card: Card = null, p_engine: CombatEngine = null) -> void:
@@ -47,76 +63,69 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
-	_glow = Panel.new()
-	_glow.position = Vector2(-5, -5)
-	_glow.size = SIZE + Vector2(10, 10)
-	_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_glow.visible = false
-	add_child(_glow)
+	_aura = _texrect(Vector2(-(_Frame.M + 4) * S, -(_Frame.M + 4) * S))
+	_aura.visible = false
+	add_child(_aura)
 
-	_frame = TextureRect.new()
-	_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_frame.stretch_mode = TextureRect.STRETCH_SCALE
-	_frame.size = SIZE
-	_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_frame_mat = UI.dissolve_material(Vector2(75, 105))
+	_frame = _texrect(Vector2(-_Frame.M * S, -_Frame.M * S))
+	_frame_mat = UI.dissolve_material(Vector2(_Frame.CW + _Frame.M * 2, _Frame.CH + _Frame.M * 2))
 	_frame.material = _frame_mat
 	add_child(_frame)
 
-	_art = TextureRect.new()
-	_art.texture = Art.card_art(card.id, card.type(), card.def()["icon"])
-	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_art.stretch_mode = TextureRect.STRETCH_SCALE
-	_art.position = Vector2(14, 32)
-	_art.size = Vector2(120, 60)
-	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_art_mat = UI.dissolve_material(Vector2(30, 15))
-	_art.material = _art_mat
-	add_child(_art)
-
-	_name = UI.plabel("", 1)
-	_name.position = Vector2(18, 6)
-	_name.size = Vector2(SIZE.x - 26, 22)
+	_name = Label.new()
+	_name.position = Vector2(12, 10)
+	_name.size = Vector2(SIZE.x - 24, 22)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_name.clip_text = true
+	_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_name)
 
-	_type = UI.label(CardDB.TYPE_NAMES.get(card.type(), ""), 10, Color("f4e4c8"))
-	_type.position = Vector2(0, 95)
-	_type.size = Vector2(SIZE.x, 12)
+	_type = UI.mlabel(String(CardDB.TYPE_NAMES.get(card.type(), "")).to_upper())
+	_type.position = Vector2(0, _Frame.RIBBON_Y * S)
+	_type.size = Vector2(SIZE.x, 14)
 	_type.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_type.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_type.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_type)
 
-	# Texto sobre pergamino: tinta oscura sin contorno.
-	_desc = UI.rich("", 13)
-	_desc.position = Vector2(16, 114)
-	_desc.size = Vector2(SIZE.x - 32, 82)
+	_desc = RichTextLabel.new()
+	_desc.bbcode_enabled = true
 	_desc.fit_content = false
+	_desc.scroll_active = false
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_desc.position = BODY.position
+	_desc.size = BODY.size
 	_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_desc.add_theme_color_override("default_color", INK)
+	_desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_desc.add_theme_font_override("normal_font", PixelFont.pavesa())
+	_desc.add_theme_font_override("bold_font", PixelFont.pavesa_bold())
+	_desc.add_theme_font_size_override("normal_font_size", PixelFont.P_LINE)
+	_desc.add_theme_font_size_override("bold_font_size", PixelFont.P_LINE)
+	_desc.add_theme_color_override("default_color", Palette.UI[&"ink"])
+	_desc.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	_desc.add_theme_constant_override("outline_size", 0)
-	_desc.add_theme_constant_override("line_separation", -1)
+	_desc.add_theme_constant_override("line_separation", -2)
 	add_child(_desc)
 
-	_orb = TextureRect.new()
-	_orb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_orb.stretch_mode = TextureRect.STRETCH_SCALE
-	_orb.position = Vector2(-10, -10)
-	_orb.size = Vector2(32, 32)
-	_orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_orb = _texrect(Vector2(-6 * S, -6 * S))
 	add_child(_orb)
 	_cost = UI.plabel("", 2)
-	_cost.position = Vector2(0, 1)
-	_cost.size = Vector2(32, 32)
+	_cost.position = Vector2(0, 0)
+	_cost.size = Vector2(19 * S, 19 * S)
 	_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_orb.add_child(_cost)
 
-	_burn_hint = UI.label("CLIC DCHO: QUEMAR", 10, UI.EMBER)
-	_burn_hint.position = Vector2(0, SIZE.y + 1)
-	_burn_hint.size = Vector2(SIZE.x, 30)
+	_burn_hint = UI.label("CLIC DCHO: QUEMAR", 12, UI.EMBER)
+	# Encima de la carta: al pasar el ratón la carta sube entera y debajo ya no queda pantalla.
+	_burn_hint.position = Vector2(-30, -HINT_H - 16)
+	_burn_hint.size = Vector2(SIZE.x + 60, HINT_H)
 	_burn_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_burn_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_burn_hint.add_theme_stylebox_override("normal", UIKit.sb_plate(Palette.color(&"plate", 2), Palette.color(&"copper", 5), 1, 0, Vector4(4, 2, 4, 2)))
+	_burn_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_burn_hint.visible = false
 	add_child(_burn_hint)
 
@@ -124,6 +133,32 @@ func _ready() -> void:
 	mouse_entered.connect(_on_enter)
 	mouse_exited.connect(_on_exit)
 	refresh()
+
+
+func _texrect(pos: Vector2) -> TextureRect:
+	var r := TextureRect.new()
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	r.position = pos
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+func _set_tex(r: TextureRect, t: Texture2D) -> void:
+	r.texture = t
+	if t != null:
+		r.size = Vector2(t.get_width(), t.get_height())
+
+
+static func _tex(key: String, img: Image) -> ImageTexture:
+	if _tex_cache.has(key):
+		return _tex_cache[key]
+	var big := img.duplicate() as Image
+	big.resize(img.get_width() * S, img.get_height() * S, Image.INTERPOLATE_NEAREST)
+	var t := ImageTexture.create_from_image(big)
+	_tex_cache[key] = t
+	return t
 
 
 func _tooltip() -> String:
@@ -138,80 +173,156 @@ func _tooltip() -> String:
 		t += "\nMaestría %d · %d/%d quemas para el nivel %d" % [lvl, prog.x, prog.y, lvl + 1]
 		if lvl > 0:
 			t += "\n(+%d%% números, +%d%% Ascuas al quemar)" % [lvl * 10, lvl * 20]
+	var tb: String = Game.temples.get(card.id, "")
+	if tb != "":
+		t += "\n" + CardDB.temple_desc(card.id, tb)
 	return t
+
+
+## Estado visual del marco (lo que cambia la textura).
+func frame_state() -> Dictionary:
+	return {"type": card.type(), "rarity": card.rarity(), "up": card.is_up(), "mastery": card.mastery(),
+		"temple": Game.temples.get(card.id, "")}
 
 
 func refresh() -> void:
 	if _desc == null:
 		return
-	var lvl := card.mastery()
-	var key := "%s:%s:%s:%d" % [card.type(), card.rarity(), card.is_up(), lvl]
+	var st := frame_state()
+	var key := "%s:%s:%s:%s:%d:%s" % [card.id, st["type"], st["rarity"], st["up"], st["mastery"], st["temple"]]
 	if key != _frame_key:
 		_frame_key = key
-		_frame.texture = Art.card_frame(card.type(), card.rarity(), card.is_up(), lvl)
+		var img: Image = _Frame.build(st, _Illus.image(card.id, card.type(), card.def().get("icon", "")))
+		_set_tex(_frame, _tex("f:" + key, img))
+		_shimmer.clear()
+		if card.rarity() == "rare":
+			var frames: Array[Image] = _Frame.shimmer_frames(img)
+			for i in frames.size():
+				_shimmer.append(_tex("f:%s:sh%d" % [key, i], frames[i]))
 	var title := card.title()
 	_name.text = title
-	# Nombre en fuente pixel ×2 si cabe en la banda (67 px de arte); si no, fuente lisa seminegrita.
-	if PixelFont.text_width(title) * 2 <= 114:
+	# El nombre se centra en la carta salvo que choque con el orbe (hasta x = 28): entonces se apoya a su derecha.
+	var big := PixelFont.text_width(title) * 2 <= NAME_MAX
+	var tw := PixelFont.text_width(title) * 2 if big else PixelFont.pavesa_width(title)
+	if big:
 		UI.pixelize(_name, 2)
+		_name.remove_theme_color_override("font_shadow_color")
+		_name.position = Vector2(maxf(NAME_X0, (SIZE.x - tw) * 0.5 - 2.0), 7)
+		_name.size = Vector2(tw + 6, 26)
 	else:
-		_name.remove_theme_font_override("font")
-		_name.add_theme_font_size_override("font_size", 14 if title.length() <= 18 else 12)
-		_name.add_theme_constant_override("outline_size", 4)
-	_name.add_theme_color_override("font_color", Color("ffe08a") if card.is_up() else UI.TEXT)
-	_desc.text = _ink(CardDB.describe(card, engine))
-	var plain_len := _desc.get_parsed_text().length()
-	var fs := 13 if plain_len <= 56 else (12 if plain_len <= 74 else 11)
-	_desc.add_theme_font_size_override("normal_font_size", fs)
-	_desc.add_theme_font_size_override("bold_font_size", fs)
+		_name.add_theme_font_override("font", PixelFont.pavesa())
+		_name.add_theme_font_size_override("font_size", PixelFont.P_LINE)
+		_name.add_theme_constant_override("outline_size", 0)
+		_name.add_theme_color_override("font_shadow_color", Palette.UI[&"k"])
+		_name.add_theme_constant_override("shadow_offset_x", 1)
+		_name.add_theme_constant_override("shadow_offset_y", 1)
+		_name.position = Vector2(maxf(NAME_X0, (SIZE.x - tw) * 0.5 - 1.0), 12)
+		_name.size = Vector2(tw + 4, 18)
+	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_name.add_theme_color_override("font_color", Palette.color(&"ember_ui", 5) if card.is_up() else UI.TEXT)
+	_desc.text = ink(CardDB.describe(card, engine))
 	var playable := card.is_playable()
 	_orb.visible = playable or card.type() == "status"
 	_cost.text = "X" if card.is_x_cost() else str(card.cost())
 	var affordable := true
 	if engine != null and playable:
 		affordable = engine.can_play(card)
-	_orb.texture = Art.cost_orb(affordable, card.is_up())
-	_cost.add_theme_color_override("font_color", UI.TEXT if affordable else Color("c0a0a0"))
+	var gem_state := "status" if card.type() == "status" else ("no" if not affordable else ("up" if card.is_up() else "ok"))
+	_set_tex(_orb, _tex("gem:" + gem_state, _Frame.cost_gem(gem_state)))
+	_cost.add_theme_color_override("font_color", UI.TEXT if affordable else Palette.color(&"ash", 7))
 	_update_glow()
 
 
-## Los colores de resalte del texto están pensados para fondo oscuro: sobre pergamino se oscurecen.
-static func _ink(t: String) -> String:
-	for pair: Array in [["#ffd36a", "#a8400c"], ["#ff9a4a", "#9a2a0c"], ["#7dff7d", "#1e7a1e"], ["#ff7d7d", "#a81a1a"], ["#ffb43a", "#a8400c"], ["#ff8a4a", "#b03a10"], ["#8ab4d0", "#2a5a8a"],
-			["#b07ae0", "#6a2a9a"], ["#7ad47a", "#2a7a2a"], ["#ff6a4a", "#b02a1a"], ["#ff8ad8", "#a02a80"], ["#a08878", "#6a5048"],
-			["#f4e4c8", "#2a1418"], ["#ffe08a", "#8a5a0c"]]:
-		t = t.replace(pair[0], pair[1]).replace(pair[0].to_upper(), pair[1])
-	return t
+## Los colores de resalte de `CardDB.describe` están pensados para fondo oscuro: sobre pergamino pasan a tinta
+## de la paleta, y las cifras van en negrita (Pavesa doble trazo).
+static func ink(t: String) -> String:
+	var num := Palette.UI[&"num"].to_html(false)
+	var up := Palette.UI[&"upgraded"].to_html(false)
+	var down := Palette.color(&"blood", 2).to_html(false)
+	var key := Palette.UI[&"keyword"].to_html(false)
+	var cold := Palette.color(&"wool_blue", 2).to_html(false)
+	var mag := Palette.color(&"magic", 1).to_html(false)
+	var base := Palette.UI[&"ink"].to_html(false)
+	var rx := RegEx.new()
+	rx.compile("\\[color=(#[0-9a-fA-F]{6})\\]([^\\[]*)\\[/color\\]")
+	var out := ""
+	var last := 0
+	for m in rx.search_all(t):
+		out += t.substr(last, m.get_start() - last)
+		var c := m.get_string(1).to_lower()
+		var body := m.get_string(2)
+		var col := base
+		var bold := false
+		match c:
+			"#ffd36a", "#ffb43a":
+				col = num
+				bold = true
+			"#7dff7d", "#7ad47a":
+				col = up
+				bold = true
+			"#ff7d7d", "#ff6a4a":
+				col = down
+				bold = true
+			"#ff9a4a", "#ff8a4a":
+				col = key
+			"#8ab4d0":
+				col = cold
+			"#ffb0ff", "#ff8ad8", "#b07ae0":
+				col = mag
+		var seg := "[color=#%s]%s[/color]" % [col, body]
+		out += ("[b]%s[/b]" % seg) if bold else seg
+		last = m.get_end()
+	out += t.substr(last)
+	return out
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	if _aura_kind == "burn" or _aura_kind == "hot":
+		var f := int(_t * 8.0) % 4
+		_set_tex(_aura, _tex("aura:%s:%d:%s" % [_aura_kind, f, _orb.visible], _Frame.aura(_aura_kind, f, _orb.visible)))
+	if not _shimmer.is_empty():
+		var cyc := fmod(_t, 4.0)
+		var i := int(cyc * 12.0)
+		var tex: Texture2D = _shimmer[i] if i < _shimmer.size() else _tex_cache.get("f:" + _frame_key)
+		if _frame.texture != tex:
+			_frame.texture = tex
+	if hovering and engine != null and interactive:
+		var want_hot := Input.is_key_pressed(KEY_SHIFT) and engine.can_burn_hot(card)
+		if want_hot != (_aura_kind == "hot"):
+			_update_glow()
 
 
 func _update_glow() -> void:
-	if _glow == null:
+	if _aura == null:
 		return
-	var vis := selected
-	var col := Color("ffffff")
-	if not vis and engine != null and interactive and engine.hand.has(card):
-		if engine.can_play(card):
-			vis = true
-			col = Color("ffd36a")
-		elif card.type() == "fuel" and engine.can_burn(card):
-			vis = true
-			col = Color("ff6a1a")
-	_glow.visible = vis
-	if vis:
-		_glow.add_theme_stylebox_override("panel", UI.box(Color(0, 0, 0, 0), Color(col, 0.75 if selected else 0.45), 3, 0))
+	var kind := ""
+	if selected:
+		kind = "select"
+	elif engine != null and interactive and engine.hand.has(card):
+		if hovering and Input.is_key_pressed(KEY_SHIFT) and engine.can_burn_hot(card):
+			kind = "hot"
+		elif engine.can_play(card):
+			kind = "play"
+		elif engine.can_burn(card):
+			kind = "burn"
+	_aura_kind = kind
+	_aura.visible = kind != ""
+	if kind != "":
+		_set_tex(_aura, _tex("aura:%s:0:%s" % [kind, _orb.visible], _Frame.aura(kind, 0, _orb.visible)))
 
 
 ## Se quema: el texto se apaga y marco e ilustración se deshacen en brasas.
 func burn_away(duration: float = 0.55) -> Tween:
 	interactive = false
 	_burn_hint.visible = false
-	_glow.visible = false
+	_aura.visible = false
+	_shimmer.clear()
 	var tw := create_tween().set_parallel()
 	for n: CanvasItem in [_name, _type, _desc, _orb]:
 		tw.tween_property(n, "modulate:a", 0.0, duration * 0.3)
 	tw.tween_method(func(v: float) -> void:
-		_frame_mat.set_shader_parameter("progress", v)
-		_art_mat.set_shader_parameter("progress", v), 0.0, 1.0, duration).set_ease(Tween.EASE_IN)
+		_frame_mat.set_shader_parameter("progress", v), 0.0, 1.0, duration).set_ease(Tween.EASE_IN)
 	return tw
 
 
@@ -227,12 +338,14 @@ func _on_enter() -> void:
 				var hc := engine.hot_burn_cost(card)
 				t += "\nMAYÚS: EN CALIENTE ×2 (%s)" % ("gratis" if hc == 0 else "−%d Energía" % hc)
 			_burn_hint.text = t
+	_update_glow()
 	hover_changed.emit(self, true)
 
 
 func _on_exit() -> void:
 	hovering = false
 	_burn_hint.visible = false
+	_update_glow()
 	hover_changed.emit(self, false)
 
 

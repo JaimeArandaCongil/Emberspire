@@ -1,0 +1,141 @@
+{
+	"engine": 1,
+	"entries": {
+		"ash_slime": {
+			"src": "res://scripts/art/defs/creatures/ash_slime.gd",
+			"hash": "788d1e998986446dcd519dde4663e733361f4bb9ae24d6ea3541c7fc7c1c18cf",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/ash_slime_idx.png",
+				"res://assets/baked/creatures/ash_slime_prev.png",
+				"res://assets/baked/creatures/ash_slime.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/ash_slime_idx.png": "3b7b7021ee2d36610bce127342faa979",
+				"res://assets/baked/creatures/ash_slime_prev.png": "f1a7c228b40f40b5b753ba799a767410"
+			}
+		},
+		"boss_example": {
+			"src": "res://scripts/art/rig/examples/boss_example.gd",
+			"hash": "f52b1b110f1efb1562cdf9d6741507344b89daf6ea0b40089f49a200c8766ba5",
+			"group": "examples",
+			"files": [
+				"res://assets/baked/examples/boss_example_idx.png",
+				"res://assets/baked/examples/boss_example_prev.png",
+				"res://assets/baked/examples/boss_example.boss_door_idx.png",
+				"res://assets/baked/examples/boss_example.boss_door_prev.png",
+				"res://assets/baked/examples/boss_example.boss_door@phase2_idx.png",
+				"res://assets/baked/examples/boss_example.boss_door@phase2_prev.png",
+				"res://assets/baked/examples/boss_example.boss_stack_idx.png",
+				"res://assets/baked/examples/boss_example.boss_stack_prev.png",
+				"res://assets/baked/examples/boss_example.json"
+			],
+			"md5": {
+				"res://assets/baked/examples/boss_example_idx.png": "294939f1f80aa7f4a70b9b537e4c0f21",
+				"res://assets/baked/examples/boss_example_prev.png": "294939f1f80aa7f4a70b9b537e4c0f21",
+				"res://assets/baked/examples/boss_example.boss_door_idx.png": "bdaea56e58b535de42837226dd5ea7fe",
+				"res://assets/baked/examples/boss_example.boss_door_prev.png": "3009f4cff22d34e8fdc802e14c1d2258",
+				"res://assets/baked/examples/boss_example.boss_door@phase2_idx.png": "b957d8e5e145bf057dac46104dd1d7d8",
+				"res://assets/baked/examples/boss_example.boss_door@phase2_prev.png": "98402c21588b5fd9aa79af55e558ba91",
+				"res://assets/baked/examples/boss_example.boss_stack_idx.png": "2a75e6ed4e0149d5d475bbe81640949a",
+				"res://assets/baked/examples/boss_example.boss_stack_prev.png": "bd9045beb1a145734aa65083eee8da5d"
+			}
+		},
+		"candle_mite": {
+			"src": "res://scripts/art/defs/creatures/candle_mite.gd",
+			"hash": "81865657bcb2718ed86ee872c7477de770300044d323c252a5e7a2f82274c80b",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/candle_mite_idx.png",
+				"res://assets/baked/creatures/candle_mite_prev.png",
+				"res://assets/baked/creatures/candle_mite.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/candle_mite_idx.png": "a82184ecdf0e5beec91d6ca5694085aa",
+				"res://assets/baked/creatures/candle_mite_prev.png": "05ba72f7ca9032ceab2f78d52f8e784a"
+			}
+		},
+		"cinder_bat": {
+			"src": "res://scripts/art/defs/creatures/cinder_bat.gd",
+			"hash": "63767c7ce5d09361edfb256215f0c59bba7e30b64f10922c02ab376f632c2de4",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/cinder_bat_idx.png",
+				"res://assets/baked/creatures/cinder_bat_prev.png",
+				"res://assets/baked/creatures/cinder_bat.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/cinder_bat_idx.png": "f011b1727c0db24b9cf894c003eb36a6",
+				"res://assets/baked/creatures/cinder_bat_prev.png": "b54d8bdb63ab5b165bff85b74b8151bd"
+			}
+		},
+		"ember_magpie": {
+			"src": "res://scripts/art/defs/creatures/ember_magpie.gd",
+			"hash": "11147b4f59cb3d7c703a63a34d398442a2d083f6a33f2b9d2167dfeb17522136",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/ember_magpie_idx.png",
+				"res://assets/baked/creatures/ember_magpie_prev.png",
+				"res://assets/baked/creatures/ember_magpie.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/ember_magpie_idx.png": "563dfb47514b0540fe5f69bc16a069fa",
+				"res://assets/baked/creatures/ember_magpie_prev.png": "a6dd1a6c03cdc6b3c55c4ea30749a920"
+			}
+		},
+		"fogonera": {
+			"src": "res://scripts/art/defs/hero/fogonera.gd",
+			"hash": "db0a086d3374ddba03e56fd6c4b5fa7ae1b27e651491e8fc0897c0e6b9c5700d",
+			"group": "hero",
+			"files": [
+				"res://assets/baked/hero/fogonera_idx.png",
+				"res://assets/baked/hero/fogonera_prev.png",
+				"res://assets/baked/hero/fogonera.json"
+			],
+			"md5": {
+				"res://assets/baked/hero/fogonera_idx.png": "7675c56eb0facfbb013e13e226f86249",
+				"res://assets/baked/hero/fogonera_prev.png": "8d68580e3de31057c9739712ca65870c"
+			}
+		},
+		"golem_example": {
+			"src": "res://scripts/art/rig/examples/golem_example.gd",
+			"hash": "759c63760c39d112143d163b5f60a0de8a7016ec82b44098b56ad34cb73ae20c",
+			"group": "examples",
+			"files": [
+				"res://assets/baked/examples/golem_example_idx.png",
+				"res://assets/baked/examples/golem_example_prev.png",
+				"res://assets/baked/examples/golem_example@chained_idx.png",
+				"res://assets/baked/examples/golem_example@chained_prev.png",
+				"res://assets/baked/examples/golem_example@sooty_idx.png",
+				"res://assets/baked/examples/golem_example@sooty_prev.png",
+				"res://assets/baked/examples/golem_example.json"
+			],
+			"md5": {
+				"res://assets/baked/examples/golem_example_idx.png": "104f0c874281850a820f3f9539ab5816",
+				"res://assets/baked/examples/golem_example_prev.png": "93d2e8ec790e69d1ecf25c980d1f3b5e",
+				"res://assets/baked/examples/golem_example@chained_idx.png": "904282f7b71799708fd54ec1c029afea",
+				"res://assets/baked/examples/golem_example@chained_prev.png": "10f237577b4feac45d170860370f7457",
+				"res://assets/baked/examples/golem_example@sooty_idx.png": "d550609086da88a017fd444c4e766195",
+				"res://assets/baked/examples/golem_example@sooty_prev.png": "2b8a09d87cb49c4b793361738bd7156e"
+			}
+		},
+		"soot_golem": {
+			"src": "res://scripts/art/defs/creatures/soot_golem.gd",
+			"hash": "b164ff52ca5b9751035a6a45530e7f1210861a51bbc8568d69872c618a05d7e3",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/soot_golem_idx.png",
+				"res://assets/baked/creatures/soot_golem_prev.png",
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png",
+				"res://assets/baked/creatures/soot_golem.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/soot_golem_idx.png": "c2f0af0ad08ba4d4e8b2ca015f1d51a6",
+				"res://assets/baked/creatures/soot_golem_prev.png": "9e96e70a4a3e4de83a45ade76ceca91a",
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "e5080d0dab020e8bf9a3a5bc721c393f",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "c24a53221ee4e3c8cf5996efea0c0132"
+			}
+		}
+	}
+}

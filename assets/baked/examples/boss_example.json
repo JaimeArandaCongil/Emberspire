@@ -1,0 +1,96 @@
+{
+	"id": "boss_example",
+	"group": "examples",
+	"size": [
+		120,
+		96
+	],
+	"origin": [
+		60,
+		90
+	],
+	"facing": -1,
+	"engine": 1,
+	"anims": {},
+	"variants": [],
+	"parts": [
+		{
+			"id": "boss_door",
+			"offset": [
+				10,
+				20
+			],
+			"phase": 0,
+			"anims": {
+				"idle": {
+					"row": 0,
+					"frames": 6,
+					"ms": [
+						160,
+						160,
+						160,
+						160,
+						160,
+						160
+					],
+					"loop": true,
+					"sockets": [
+						{},
+						{},
+						{},
+						{},
+						{},
+						{}
+					]
+				}
+			},
+			"size": [
+				64,
+				72
+			],
+			"origin": [
+				32,
+				36
+			],
+			"variants": [
+				"phase2"
+			]
+		},
+		{
+			"id": "boss_stack",
+			"offset": [
+				70,
+				8
+			],
+			"phase": 3,
+			"anims": {
+				"idle": {
+					"row": 0,
+					"frames": 4,
+					"ms": [
+						200,
+						200,
+						200,
+						200
+					],
+					"loop": true,
+					"sockets": [
+						{},
+						{},
+						{},
+						{}
+					]
+				}
+			},
+			"size": [
+				40,
+				64
+			],
+			"origin": [
+				20,
+				50
+			],
+			"variants": []
+		}
+	]
+}
