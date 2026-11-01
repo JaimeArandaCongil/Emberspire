@@ -273,7 +273,7 @@ class TowerColumn extends Control:
 			draw_string(font, r.position + Vector2(28, 30), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
 			if f == cur:
 				var pt := Art.player()
-				draw_texture_rect(pt, Rect2(Vector2(14, y + 2), Vector2(36, 48)), false)
+				draw_texture_rect(pt, Rect2(Vector2(26, y + 12), Vector2(pt.get_width(), pt.get_height())), false)
 			if f == cur + 1:
 				var a := 0.5 + 0.5 * sin(_t * 4.0)
 				draw_rect(r.grow(2), Color(1.0, 0.7, 0.3, a), false, 3.0)

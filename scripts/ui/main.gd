@@ -26,6 +26,8 @@ var _brazier_label: Label
 var _dust_label: Label
 var _ember_icon: TextureRect
 var _shake := 0.0
+var _shake_dir := Vector2.ZERO
+var _shake_t := 0.0
 var _shown_embers := 0.0
 
 
@@ -149,8 +151,14 @@ func _process(delta: float) -> void:
 		_shown_embers = Game.embers
 	_embers_label.text = Num.fmt(_shown_embers)
 	if _shake > 0.0:
-		_shake = maxf(0.0, _shake - delta * 40.0)
-		screen_layer.position = Vector2(randf_range(-_shake, _shake), randf_range(-_shake, _shake))
+		# Sacudida direccional con caída exponencial (~180 ms), cuantizada a la rejilla de 4 px.
+		_shake_t += delta
+		_shake *= exp(-delta * 16.0)
+		if _shake < 1.0:
+			_shake = 0.0
+		var dir := _shake_dir if _shake_dir != Vector2.ZERO else Vector2(1, 0.5).normalized()
+		var off := dir * _shake * cos(_shake_t * 55.0)
+		screen_layer.position = (off / UI.PX).round() * UI.PX
 	else:
 		screen_layer.position = Vector2.ZERO
 	if Engine.get_process_frames() % 30 == 0:
@@ -167,8 +175,12 @@ func ember_target() -> Vector2:
 
 # --- Efectos globales -----------------------------------------------------
 
-func shake(amount: float) -> void:
-	_shake = maxf(_shake, amount)
+## Sacudida de pantalla. `dir`: dirección del golpe (vacía = vertical/diagonal genérica).
+func shake(amount: float, dir: Vector2 = Vector2.ZERO) -> void:
+	if amount >= _shake:
+		_shake_dir = dir.normalized()
+		_shake_t = 0.0
+	_shake = maxf(_shake, minf(amount, 24.0))
 
 
 ## Lanza chispas desde un punto hasta el contador de Ascuas.
@@ -176,6 +188,7 @@ func fly_embers(from: Vector2, count: int = 6) -> void:
 	var target := ember_target()
 	for i in count:
 		var e := UI.icon("ember", 2)
+		e.size = Vector2(24, 24)
 		e.z_index = 200
 		overlay_layer.add_child(e)
 		e.position = from + Vector2(randf_range(-30, 30), randf_range(-30, 30))
@@ -186,7 +199,7 @@ func fly_embers(from: Vector2, count: int = 6) -> void:
 		var curve := func(t: float) -> void:
 			var a := start.lerp(mid, t)
 			var b := mid.lerp(target - e.size * 0.5, t)
-			e.position = a.lerp(b, t)
+			e.position = (a.lerp(b, t) / 2.0).round() * 2.0
 		tw.tween_method(curve, 0.0, 1.0, 0.55).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 		tw.tween_callback(func() -> void:
 			UI.punch(_embers_label, 0.08)
@@ -203,7 +216,7 @@ var _toast_slot := 0
 
 func toast(text: String, color: Color = UI.TEXT) -> void:
 	var p := UI.panel(Color("1e1216"), color.darkened(0.3))
-	var l := UI.label(text, 18, color)
+	var l := UI.plabel(text, 2, color) if text.length() <= 60 else UI.label(text, 18, color)
 	p.add_child(l)
 	overlay_layer.add_child(p)
 	p.reset_size()
@@ -215,7 +228,7 @@ func toast(text: String, color: Color = UI.TEXT) -> void:
 	p.modulate.a = 0.0
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
-	tw.parallel().tween_property(p, "position:y", y, 0.15)
+	tw.parallel().tween_method(func(v: float) -> void: p.position.y = roundf(v / 2.0) * 2.0, y - 6.0, y, 0.15)
 	tw.tween_interval(1.6)
 	tw.tween_property(p, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(p.queue_free)

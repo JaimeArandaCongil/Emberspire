@@ -98,18 +98,18 @@ func _build_left() -> void:
 	var htw := _furnace_halo.create_tween().set_loops()
 	htw.tween_property(_furnace_halo, "scale", Vector2(1.08, 1.08), 0.9).set_trans(Tween.TRANS_SINE)
 	htw.tween_property(_furnace_halo, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_SINE)
-	_furnace_icon = UI.tex_rect(Art.forge_sprite(0.0), 5.0)
-	_furnace_icon.position = Vector2(170 - 120, 20)
+	_furnace_icon = UI.tex_rect(Art.forge_sprite(0.0), UI.PX)
+	_furnace_icon.position = Vector2(170 - 112, 0)
 	_furnace_icon.pivot_offset = _furnace_icon.size * Vector2(0.5, 1.0)
 	holder.add_child(_furnace_icon)
 	var fire := UI.fire_emitter(Vector2(80, 10), 60)
-	fire.position = Vector2(170, 170)
+	fire.position = Vector2(170, 168)
 	fire.initial_velocity_max = 120.0
 	holder.add_child(fire)
 	var smoke := CPUParticles2D.new()
 	smoke.amount = 14
 	smoke.lifetime = 2.4
-	smoke.position = Vector2(170, 20)
+	smoke.position = Vector2(210, 4)
 	smoke.direction = Vector2.UP
 	smoke.spread = 20.0
 	smoke.gravity = Vector2(10, -20)
@@ -684,7 +684,7 @@ func _refresh_dynamic() -> void:
 		base += float(g["rate"]) * Game.gen_count(g["id"]) * ForgeDB.milestone_mult(Game.gen_count(g["id"]))
 	_breakdown.text = "[color=#a08878]Producción[/color]\nBase: [color=#ffd36a]%s/s[/color]\n× Braseros (%d): [color=#ffd36a]×%.1f[/color]\n× Polvo Estelar (%s): [color=#d0b0ff]×%.1f[/color]\n× Reliquario (%d): [color=#ffd36a]×%.2f[/color]\n%s= [color=#ffb43a]%s/s[/color]\n[color=#806860]Resonancias activas: %d · Maestrías: %d · Hitos: %d/%d\nAscensiones: %d · Renacimientos: %d[/color]" % [
 		Num.fmt(base), Game.max_floor, 1.0 + Game.BRAZIER_BONUS * Game.max_floor, Num.fmt(Game.stardust_total),
-		1.0 + Game.STARDUST_BONUS * Game.stardust_total, Game.relic_codex.size(), Game.codex_mult(),
+		Game.stardust_mult(), Game.relic_codex.size(), Game.codex_mult(),
 		("× [color=#ff8a4a]Resplandor ×%.2f[/color] (quedan %s)\n" % [1.0 + Game.glow_active(), Num.fmt_time(Game.glow_seconds_left())]) if Game.glow_active() > 0.0 else "",
 		Num.fmt(Game.production()),
 		Game.perk_ids().size(), Game.mastered_count(1), Game.hitos.size(), ForgeDB.HITOS.size(), Game.runs_started, Game.rebirths]

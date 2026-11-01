@@ -1,6 +1,11 @@
 class_name UI
 extends RefCounted
 ## Kit de UI: tema, constructores de widgets y efectos reutilizables.
+## Rejillas: el MUNDO se dibuja a ×4 (PX) y la INTERFAZ a ×2 (UI_PX). Nada de escalas fraccionarias
+## ni rotaciones sobre pixel art del mundo (ver docs/ART_BIBLE.md).
+
+const PX := 4
+const UI_PX := 2
 
 const BG := Color("140c10")
 const PANEL := Color("231619")
@@ -152,8 +157,8 @@ static func dust(rect: Rect2, color: Color, amount: int = 30) -> CPUParticles2D:
 	p.gravity = Vector2(0, -4)
 	p.initial_velocity_min = 4.0
 	p.initial_velocity_max = 14.0
-	p.scale_amount_min = 2.0
-	p.scale_amount_max = 4.0
+	p.scale_amount_min = float(PX)
+	p.scale_amount_max = float(PX)
 	var grad := Gradient.new()
 	grad.offsets = PackedFloat32Array([0.0, 0.2, 0.8, 1.0])
 	grad.colors = PackedColorArray([Color(color, 0.0), Color(color, 0.7), Color(color, 0.5), Color(color, 0.0)])
@@ -161,10 +166,12 @@ static func dust(rect: Rect2, color: Color, amount: int = 30) -> CPUParticles2D:
 	return p
 
 
-static func box(bg: Color, border: Color = EDGE, bw: int = 3, shadow: int = 4) -> StyleBoxFlat:
+## Panel en la rejilla de interfaz (bordes y sombra en múltiplos de 2 px).
+static func box(bg: Color, border: Color = EDGE, bw: int = 4, shadow: int = 4) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.border_color = border
+	bw = maxi(2, bw + bw % 2) if bw > 1 else bw
 	s.set_border_width_all(bw)
 	s.set_corner_radius_all(0)
 	s.anti_aliasing = false
@@ -217,13 +224,40 @@ static func build_theme() -> Theme:
 	return t
 
 
+## Etiqueta. Desde 20 px usa la fuente pixel a escala entera (títulos, cifras); por debajo, la lisa.
 static func label(text: String, size: int = 16, color: Color = TEXT) -> Label:
+	if size >= 20:
+		return plabel(text, pixel_scale(size), color)
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_constant_override("outline_size", maxi(3, size / 5))
 	return l
+
+
+## Escala entera de la fuente pixel equivalente a un tamaño de fuente liso.
+static func pixel_scale(size: int) -> int:
+	return clampi(int(round(size / 11.0)), 1, 8)
+
+
+## Etiqueta con la fuente pixel a escala entera `scale` (contorno horneado en el glifo).
+static func plabel(text: String, scale: int = 2, color: Color = TEXT) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", PixelFont.font())
+	l.add_theme_font_size_override("font_size", PixelFont.px_size(scale))
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_constant_override("outline_size", 0)
+	l.add_theme_constant_override("line_spacing", 0)
+	return l
+
+
+## Aplica la fuente pixel a un control con texto (Button, Label…).
+static func pixelize(c: Control, scale: int = 2) -> void:
+	c.add_theme_font_override("font", PixelFont.font())
+	c.add_theme_font_size_override("font_size", PixelFont.px_size(scale))
+	c.add_theme_constant_override("outline_size", 0)
 
 
 static func rich(text: String, size: int = 15) -> RichTextLabel:
@@ -243,6 +277,9 @@ static func button(text: String, cb: Callable, size: int = 18) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.add_theme_font_size_override("font_size", size)
+	# Botones cortos con la fuente pixel (los largos conservan la lisa para no desbordar).
+	if text.length() <= 26 and size >= 16:
+		pixelize(b, 2 if size < 30 else 3)
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.pressed.connect(func() -> void:
@@ -307,25 +344,32 @@ static func expand(c: Control) -> Control:
 
 
 ## Texto flotante (daño, ascuas...).
+## Texto flotante (daño, ascuas...) con la fuente pixel: aparece con "pop" de escala entera
+## (×s−1 → ×s+1 → ×s en 120 ms), sube y se apaga. Alto máximo ≈ 40 px.
 static func float_text(parent: Node, pos: Vector2, text: String, color: Color, size: int = 30, rise: float = 70.0) -> void:
-	var l := label(text, size, color)
+	var s := clampi(pixel_scale(size), 2, 3)
+	var l := plabel(text, s + 1, color)
 	l.z_index = 100
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	l.reset_size()
-	l.position = pos - l.size * 0.5 + Vector2(randf_range(-12, 12), 0)
-	l.pivot_offset = l.size * 0.5
-	l.scale = Vector2(0.4, 0.4)
+	var p0 := (pos - l.size * 0.5 + Vector2(randf_range(-12, 12), 0)).round()
+	l.position = p0
 	var tw := l.create_tween()
-	tw.tween_property(l, "scale", Vector2(1.15, 1.15), 0.09)
-	tw.tween_property(l, "scale", Vector2.ONE, 0.08)
-	tw.parallel().tween_property(l, "position:y", l.position.y - rise, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.55)
+	tw.tween_interval(0.06)
+	tw.tween_callback(func() -> void:
+		l.add_theme_font_size_override("font_size", PixelFont.px_size(s))
+		l.reset_size()
+		l.position = (pos - l.size * 0.5).round())
+	var y0 := pos.y
+	tw.tween_method(func(v: float) -> void: l.position.y = roundf((y0 - l.size.y * 0.5 - rise * v) / 2.0) * 2.0, 0.0, 1.0, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.45)
 	tw.tween_callback(l.queue_free)
 
 
+## Pulso de escala para elementos de INTERFAZ (nunca para sprites del mundo: usar FighterView).
 static func punch(c: CanvasItem, amount: float = 0.15) -> void:
-	if not (c is Control or c is Node2D):
+	if not (c is Control or c is Node2D) or c is FighterView:
 		return
 	var tw := c.create_tween()
 	tw.tween_property(c, "scale", Vector2.ONE * (1.0 + amount), 0.06)
@@ -345,11 +389,13 @@ static func sparks(parent: Node, pos: Vector2, color: Color = FIRE, amount: int 
 	p.initial_velocity_min = 120.0
 	p.initial_velocity_max = 320.0
 	p.gravity = Vector2(0, 500)
-	p.scale_amount_min = 3.0
-	p.scale_amount_max = 6.0
+	p.scale_amount_min = float(PX)
+	p.scale_amount_max = float(PX * 2)
+	# Rampa escalonada de la paleta de fuego (sin degradado continuo).
 	var grad := Gradient.new()
-	grad.set_color(0, Color("ffe08a"))
-	grad.set_color(1, Color(color, 0.0))
+	grad.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	grad.offsets = PackedFloat32Array([0.0, 0.25, 0.55, 0.85])
+	grad.colors = PackedColorArray([Color("fff4c8"), Color("ffe08a"), color, Color(color.darkened(0.4), 0.6)])
 	p.color_ramp = grad
 	p.z_index = 90
 	parent.add_child(p)
@@ -369,11 +415,12 @@ static func fire_emitter(size: Vector2, amount: int = 40) -> CPUParticles2D:
 	p.gravity = Vector2(0, -60)
 	p.initial_velocity_min = 30.0
 	p.initial_velocity_max = 90.0
-	p.scale_amount_min = 3.0
-	p.scale_amount_max = 7.0
+	p.scale_amount_min = float(PX)
+	p.scale_amount_max = float(PX * 2)
 	var grad := Gradient.new()
-	grad.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-	grad.colors = PackedColorArray([Color("ffe08a"), Color("ff6a1a"), Color(0.76, 0.2, 0.12, 0.0)])
+	grad.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	grad.offsets = PackedFloat32Array([0.0, 0.2, 0.45, 0.75])
+	grad.colors = PackedColorArray([Color("fff4c8"), Color("ffb43a"), Color("ff6a1a"), Color(0.76, 0.2, 0.12, 0.7)])
 	p.color_ramp = grad
 	return p
 

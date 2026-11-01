@@ -1,12 +1,14 @@
 class_name CardView
 extends Control
-## Representación visual de una carta: marco pixel art ×2, escena ×4, orbe de coste y Maestría.
+## Representación visual de una carta: marco e ilustración en la MISMA rejilla ×2, cuerpo de pergamino
+## con texto oscuro, nombre y coste en fuente pixel. Sin escalado ni rotación al pasar el ratón.
 ## Emite `clicked(view, button)`. `burn_away()` la disuelve en llamas.
 
 signal clicked(view: CardView, button: int)
 signal hover_changed(view: CardView, hovering: bool)
 
 const SIZE := Vector2(150, 210)
+const INK := Color("2a1418")
 
 var card: Card
 var engine: CombatEngine
@@ -72,24 +74,29 @@ func _ready() -> void:
 	_art.material = _art_mat
 	add_child(_art)
 
-	_name = UI.label("", 15)
-	_name.position = Vector2(10, 7)
-	_name.size = Vector2(SIZE.x - 20, 20)
+	_name = UI.plabel("", 1)
+	_name.position = Vector2(18, 6)
+	_name.size = Vector2(SIZE.x - 26, 22)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_name.clip_text = true
 	add_child(_name)
 
 	_type = UI.label(CardDB.TYPE_NAMES.get(card.type(), ""), 10, Color("f4e4c8"))
-	_type.position = Vector2(0, 94)
-	_type.size = Vector2(SIZE.x, 14)
+	_type.position = Vector2(0, 95)
+	_type.size = Vector2(SIZE.x, 12)
 	_type.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_type)
 
+	# Texto sobre pergamino: tinta oscura sin contorno.
 	_desc = UI.rich("", 13)
-	_desc.position = Vector2(12, 110)
-	_desc.size = Vector2(SIZE.x - 24, 88)
+	_desc.position = Vector2(16, 114)
+	_desc.size = Vector2(SIZE.x - 32, 82)
 	_desc.fit_content = false
 	_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_desc.add_theme_color_override("default_color", INK)
+	_desc.add_theme_constant_override("outline_size", 0)
+	_desc.add_theme_constant_override("line_separation", -1)
 	add_child(_desc)
 
 	_orb = TextureRect.new()
@@ -99,7 +106,8 @@ func _ready() -> void:
 	_orb.size = Vector2(32, 32)
 	_orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_orb)
-	_cost = UI.label("", 18)
+	_cost = UI.plabel("", 2)
+	_cost.position = Vector2(0, 1)
 	_cost.size = Vector2(32, 32)
 	_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -107,7 +115,7 @@ func _ready() -> void:
 
 	_burn_hint = UI.label("CLIC DCHO: QUEMAR", 10, UI.EMBER)
 	_burn_hint.position = Vector2(0, SIZE.y + 1)
-	_burn_hint.size = Vector2(SIZE.x, 14)
+	_burn_hint.size = Vector2(SIZE.x, 30)
 	_burn_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_burn_hint.visible = false
 	add_child(_burn_hint)
@@ -143,11 +151,17 @@ func refresh() -> void:
 		_frame.texture = Art.card_frame(card.type(), card.rarity(), card.is_up(), lvl)
 	var title := card.title()
 	_name.text = title
-	_name.add_theme_font_size_override("font_size", 15 if title.length() <= 14 else (13 if title.length() <= 18 else 12))
+	# Nombre en fuente pixel ×2 si cabe en la banda (67 px de arte); si no, fuente lisa seminegrita.
+	if PixelFont.text_width(title) * 2 <= 114:
+		UI.pixelize(_name, 2)
+	else:
+		_name.remove_theme_font_override("font")
+		_name.add_theme_font_size_override("font_size", 14 if title.length() <= 18 else 12)
+		_name.add_theme_constant_override("outline_size", 4)
 	_name.add_theme_color_override("font_color", Color("ffe08a") if card.is_up() else UI.TEXT)
-	_desc.text = CardDB.describe(card, engine)
+	_desc.text = _ink(CardDB.describe(card, engine))
 	var plain_len := _desc.get_parsed_text().length()
-	var fs := 13 if plain_len <= 70 else (12 if plain_len <= 92 else 11)
+	var fs := 13 if plain_len <= 56 else (12 if plain_len <= 74 else 11)
 	_desc.add_theme_font_size_override("normal_font_size", fs)
 	_desc.add_theme_font_size_override("bold_font_size", fs)
 	var playable := card.is_playable()
@@ -159,6 +173,15 @@ func refresh() -> void:
 	_orb.texture = Art.cost_orb(affordable, card.is_up())
 	_cost.add_theme_color_override("font_color", UI.TEXT if affordable else Color("c0a0a0"))
 	_update_glow()
+
+
+## Los colores de resalte del texto están pensados para fondo oscuro: sobre pergamino se oscurecen.
+static func _ink(t: String) -> String:
+	for pair: Array in [["#ffd36a", "#a8400c"], ["#ff9a4a", "#9a2a0c"], ["#7dff7d", "#1e7a1e"], ["#ff7d7d", "#a81a1a"], ["#ffb43a", "#a8400c"], ["#ff8a4a", "#b03a10"], ["#8ab4d0", "#2a5a8a"],
+			["#b07ae0", "#6a2a9a"], ["#7ad47a", "#2a7a2a"], ["#ff6a4a", "#b02a1a"], ["#ff8ad8", "#a02a80"], ["#a08878", "#6a5048"],
+			["#f4e4c8", "#2a1418"], ["#ffe08a", "#8a5a0c"]]:
+		t = t.replace(pair[0], pair[1]).replace(pair[0].to_upper(), pair[1])
+	return t
 
 
 func _update_glow() -> void:
@@ -196,6 +219,14 @@ func _on_enter() -> void:
 	hovering = true
 	if engine != null and interactive:
 		_burn_hint.visible = engine.can_burn(card)
+		if _burn_hint.visible:
+			var pv: Dictionary = engine.burn_preview(card, false)
+			var prog := Game.mastery_progress(card.id)
+			var t := "QUEMAR +%s · Maestría %d/%d" % [Num.fmt(float(pv["embers"])), prog.x, prog.y]
+			if engine.can_burn_hot(card):
+				var hc := engine.hot_burn_cost(card)
+				t += "\nMAYÚS: EN CALIENTE ×2 (%s)" % ("gratis" if hc == 0 else "−%d Energía" % hc)
+			_burn_hint.text = t
 	hover_changed.emit(self, true)
 
 

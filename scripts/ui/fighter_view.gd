@@ -1,8 +1,9 @@
 class_name FighterView
 extends Control
 ## Sprite + barra de vida + bloqueo + estados + intención de un combatiente.
-## La heroína tiene el brazo del martillo como pieza aparte (golpes animados);
-## los monstruos tienen una capa emisiva (ojos y venas) que late.
+## Reglas de píxel (ver docs/ART_BIBLE.md): el sprite se dibuja SIEMPRE a ×4 (UI.PX), sin escalar ni rotar;
+## todo movimiento pasa por `_off` (desplazamiento lógico) que se ajusta a la rejilla de 4 px cada fotograma.
+## Los gestos (golpe, embestida, respiración) se hacen con fotogramas, no con transformaciones.
 
 signal clicked(view: FighterView)
 
@@ -19,17 +20,23 @@ const STATUS_DESC := {
 	"regen": "Cura estos PV al inicio de su turno.",
 	"choke": "Tu horno se ahoga: tendrás menos Quemas el próximo turno.",
 }
-const ARM_REST := -0.12
+## Compatibilidad: el brazo ya no rota (las poses vienen dibujadas).
+const ARM_REST := 0.0
+const SPRITE_TOP := 44
 
 var fighter: Fighter
 var engine: CombatEngine
+## Clave de arte del monstruo (forma, o "forma@2" para élites ampliados). Vacía = fighter.shape.
+var art_shape := ""
 var sprite: TextureRect
-var arm: TextureRect
+var arm: TextureRect = null
 var glow: TextureRect
 var targetable := false:
 	set(v):
 		targetable = v
 		queue_redraw()
+## Desplazamiento lógico del sprite (px de pantalla); se ajusta a múltiplos de UI.PX al dibujar.
+var _off := Vector2.ZERO
 var _hover := false
 var _hp_label: Label
 var _block_label: Label
@@ -43,79 +50,87 @@ var _stolen_label: Label
 var _mat: ShaderMaterial
 var _shown_hp := 0.0
 var _sprite_base := Vector2.ZERO
-var _bob_tween: Tween
-var _scale := 6.0
 var _t := 0.0
 var _dead := false
+var _busy_pose := 0.0          # segundos en los que una pose manda sobre la respiración
+var _idle_phase := 0.0
+var _idle_period := 0.6
+var _idle_b := false
+var _lift := 0
+var _flash_tween: Tween
+var _act_tween: Tween
 
 
-func setup(f: Fighter, eng: CombatEngine, tex: Texture2D, px_scale: float, glow_tex: Texture2D = null) -> void:
+func setup(f: Fighter, eng: CombatEngine, tex: Texture2D, _px_scale: float = 4.0, glow_tex: Texture2D = null) -> void:
 	fighter = f
 	engine = eng
-	_scale = px_scale
-	var spr_size := Vector2(tex.get_width(), tex.get_height()) * px_scale
-	size = Vector2(maxf(spr_size.x, 150.0), spr_size.y + 92)
+	var px := float(UI.PX)
+	if f.is_player:
+		tex = Art.player_pose("idle")
+	else:
+		if art_shape == "":
+			art_shape = f.shape
+		_lift = Art.monster_lift(art_shape)
+	var spr_size := Vector2(tex.get_width(), tex.get_height()) * px
+	# Ancho de la vista: el margen a cada lado debe ser múltiplo de UI.PX.
+	var extra := maxf(0.0, ceilf((152.0 - spr_size.x) / (2.0 * px)) * 2.0 * px)
+	size = Vector2(spr_size.x + extra, spr_size.y + SPRITE_TOP + 52)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	sprite = UI.tex_rect(tex, px_scale)
+	sprite = UI.tex_rect(tex, px)
 	_mat = UI.dissolve_material(Vector2(tex.get_width(), tex.get_height()))
 	_mat.set_shader_parameter("edge_a", Color("ffe08a"))
 	sprite.material = _mat
-	_sprite_base = Vector2((size.x - spr_size.x) * 0.5, 42)
+	_sprite_base = Vector2(extra * 0.5, SPRITE_TOP)
 	sprite.position = _sprite_base
-	sprite.pivot_offset = Vector2(spr_size.x * 0.5, spr_size.y)
 	add_child(sprite)
 	_shown_hp = f.hp
-	if f.is_player:
-		arm = UI.tex_rect(Art.player_arm(), px_scale)
-		arm.position = Vector2(12, 13) * px_scale
-		arm.pivot_offset = Vector2(3.5, 1.5) * px_scale
-		arm.rotation = ARM_REST
-		sprite.add_child(arm)
-	elif glow_tex != null:
-		glow = UI.tex_rect(glow_tex, px_scale)
+	if not f.is_player and glow_tex != null:
+		glow = UI.tex_rect(glow_tex, px)
 		glow.material = UI.add_material(1.0)
 		sprite.add_child(glow)
+	_idle_phase = randf() * 2.0
+	_idle_period = 0.55 + randf() * 0.25
 
 	_intent_box = UI.hbox(4)
 	_intent_box.position = Vector2(size.x * 0.5 - 40, 0)
 	_intent_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_intent_icon = UI.icon("sword", 3)
-	_intent_label = UI.label("", 22, Color("ffd36a"))
+	_intent_label = UI.plabel("", 3, Color("ffd36a"))
 	_intent_box.add_child(_intent_icon)
 	_intent_box.add_child(_intent_label)
 	_intent_box.visible = not f.is_player
 	add_child(_intent_box)
 
-	var base_y := 42 + spr_size.y + 6
+	var base_y := SPRITE_TOP + spr_size.y + 6
 	_block_icon = UI.icon("shield", 2)
-	_block_icon.position = Vector2(size.x * 0.5 - 75 - 22, base_y - 6)
+	_block_icon.position = Vector2(size.x * 0.5 - 75 - 26, base_y - 4)
 	add_child(_block_icon)
-	_block_label = UI.label("", 16, UI.BLUE)
-	_block_label.position = _block_icon.position + Vector2(2, 2)
-	_block_label.size = Vector2(24, 20)
+	_block_label = UI.plabel("", 2, UI.BLUE)
+	_block_label.position = _block_icon.position + Vector2(-2, -1)
+	_block_label.size = Vector2(28, 26)
 	_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_block_label)
 
-	_hp_label = UI.label("", 14)
-	_hp_label.position = Vector2(size.x * 0.5 - 75, base_y - 1)
-	_hp_label.size = Vector2(150, 16)
+	_hp_label = UI.plabel("", 2)
+	_hp_label.position = Vector2(size.x * 0.5 - 75, base_y - 4)
+	_hp_label.size = Vector2(150, 26)
 	_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_hp_label)
 
 	_name_label = UI.label(f.display_name, 13, UI.EMBER if f.is_boss else (Color("ff9a7a") if f.is_elite else UI.DIM))
-	_name_label.position = Vector2(0, base_y + 18)
+	_name_label.position = Vector2(0, base_y + 20)
 	_name_label.size = Vector2(size.x, 16)
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_name_label)
 
 	_stolen_label = UI.label("", 12, UI.EMBER)
-	_stolen_label.position = Vector2(0, base_y + 52)
+	_stolen_label.position = Vector2(0, base_y + 54)
 	_stolen_label.size = Vector2(size.x, 14)
 	_stolen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_stolen_label)
 
 	_status_row = UI.hbox(2)
-	_status_row.position = Vector2(size.x * 0.5 - 75, base_y + 34)
+	_status_row.position = Vector2(size.x * 0.5 - 75, base_y + 36)
 	add_child(_status_row)
 
 	mouse_entered.connect(func() -> void:
@@ -124,52 +139,48 @@ func setup(f: Fighter, eng: CombatEngine, tex: Texture2D, px_scale: float, glow_
 	mouse_exited.connect(func() -> void:
 		_hover = false
 		queue_redraw())
-	_start_bob()
 	refresh()
 
 
-func _start_bob() -> void:
-	if _bob_tween:
-		_bob_tween.kill()
-	_bob_tween = create_tween().set_loops()
-	var dur := 0.9 + randf() * 0.4
-	# Respiración: squash & stretch sutil anclado en los pies.
-	_bob_tween.tween_property(sprite, "scale", Vector2(1.03, 0.97), dur).set_trans(Tween.TRANS_SINE)
-	_bob_tween.tween_property(sprite, "scale", Vector2(0.98, 1.02), dur).set_trans(Tween.TRANS_SINE)
+## Distancia (px) desde el borde superior de la vista hasta la línea de los pies (incluye vuelo).
+func feet_offset() -> float:
+	return SPRITE_TOP + sprite.size.y - float(UI.PX) + _lift * UI.PX
 
 
 func hp_bar_rect() -> Rect2:
-	return Rect2(size.x * 0.5 - 75, 42 + sprite.size.y + 4, 150, 18)
+	return Rect2(size.x * 0.5 - 75, SPRITE_TOP + sprite.size.y + 4, 150, 18)
 
 
 func _draw() -> void:
 	if fighter == null:
 		return
-	# Sombra en el suelo.
+	# Sombra en el suelo (escalonada en píxeles de arte).
 	if not _dead:
-		var foot := Vector2(sprite.position.x + sprite.size.x * 0.5, 42 + sprite.size.y - 2)
-		var sw := sprite.size.x * 0.42
-		for i in 3:
-			draw_rect(Rect2(foot.x - sw + i * 8, foot.y - 4 + i * 2, (sw - i * 8) * 2, 6 - i * 2), Color(0, 0, 0, 0.18))
+		var px := float(UI.PX)
+		var foot := Vector2(_sprite_base.x + sprite.size.x * 0.5, SPRITE_TOP + sprite.size.y - px + _lift * px)
+		var sw := floorf(sprite.size.x * 0.42 / px) * px
+		for i in 2:
+			draw_rect(Rect2(foot.x - sw + i * px * 2, foot.y - px * 0.5 + i * px * 0.5, (sw - i * px * 2) * 2, px), Color(0, 0, 0, 0.28 - i * 0.08))
 	var r := hp_bar_rect()
 	draw_rect(r.grow(2), UI.OUTLINE)
 	draw_rect(r, Color("2a1418"))
 	var ratio := clampf(_shown_hp / maxf(1.0, fighter.max_hp), 0.0, 1.0)
 	var real := clampf(float(fighter.hp) / maxf(1.0, fighter.max_hp), 0.0, 1.0)
-	draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("ffe08a"))
+	draw_rect(Rect2(r.position, Vector2(floorf(r.size.x * ratio / 2.0) * 2.0, r.size.y)), Color("ffe08a"))
 	var col := Color("c2321e") if fighter.block <= 0 else Color("4a7aaa")
-	draw_rect(Rect2(r.position, Vector2(r.size.x * real, r.size.y)), col)
-	draw_rect(Rect2(r.position, Vector2(r.size.x * real, 3)), col.lightened(0.3))
-	draw_rect(Rect2(r.position + Vector2(0, r.size.y - 3), Vector2(r.size.x * real, 3)), col.darkened(0.3))
+	var rw := floorf(r.size.x * real / 2.0) * 2.0
+	draw_rect(Rect2(r.position, Vector2(rw, r.size.y)), col)
+	draw_rect(Rect2(r.position, Vector2(rw, 4)), col.lightened(0.3))
+	draw_rect(Rect2(r.position + Vector2(0, r.size.y - 4), Vector2(rw, 4)), col.darkened(0.3))
 	if fighter.st("scorch") > 0:
 		var sw2 := r.size.x * minf(float(fighter.st("scorch")) / maxf(1.0, fighter.max_hp), real)
-		draw_rect(Rect2(r.position + Vector2(r.size.x * real - sw2, 0), Vector2(sw2, r.size.y)), Color(1, 0.6, 0.1, 0.55))
+		draw_rect(Rect2(r.position + Vector2(rw - sw2, 0), Vector2(sw2, r.size.y)), Color(1, 0.6, 0.1, 0.55))
 	if targetable and _hover:
-		var sr := Rect2(sprite.position - Vector2(10, 10), sprite.size + Vector2(20, 20))
+		var sr := Rect2(_sprite_base - Vector2(8, 8), sprite.size + Vector2(16, 16))
 		_corner_brackets(sr, Color("ffe08a"), 4.0)
 	elif targetable:
 		var a := 0.35 + 0.25 * sin(_t * 6.0)
-		_corner_brackets(Rect2(sprite.position - Vector2(6, 6), sprite.size + Vector2(12, 12)), Color(1, 0.85, 0.5, a), 3.0)
+		_corner_brackets(Rect2(_sprite_base - Vector2(4, 4), sprite.size + Vector2(8, 8)), Color(1, 0.85, 0.5, a), 4.0)
 
 
 func _corner_brackets(r: Rect2, c: Color, w: float) -> void:
@@ -185,21 +196,69 @@ func _process(delta: float) -> void:
 	if fighter == null:
 		return
 	_t += delta
+	var px := float(UI.PX)
+	sprite.position = _sprite_base + (_off / px).round() * px
 	if absf(_shown_hp - fighter.hp) > 0.05:
 		_shown_hp = move_toward(_shown_hp, fighter.hp, maxf(1.0, fighter.max_hp) * delta * 0.8)
 		queue_redraw()
 	if targetable:
 		queue_redraw()
-	if glow != null and not _dead:
-		glow.modulate.a = 0.45 + 0.35 * sin(_t * 2.6 + fighter.max_hp)
+	if _dead:
+		return
+	if glow != null:
+		# Pulso en 4 pasos (no un degradado continuo).
+		glow.modulate.a = 0.45 + 0.1 * floorf(2.0 + 2.0 * sin(_t * 2.6 + fighter.max_hp))
 	if _intent_box.visible:
-		_intent_box.position.y = -4.0 + 3.0 * sin(_t * 3.0)
+		_intent_box.position.y = -4.0 + 2.0 * roundf(sin(_t * 3.0))
+	# Respiración: alterna 2 fotogramas (base / aplastado 1 px).
+	if _busy_pose > 0.0:
+		_busy_pose -= delta
+		if _busy_pose <= 0.0:
+			_set_pose("idle")
+	else:
+		var b := fposmod(_t + _idle_phase, _idle_period * 2.0) > _idle_period
+		if b != _idle_b:
+			_idle_b = b
+			_set_pose("idle_b" if b else "idle")
+
+
+## Cambia el fotograma del sprite (y de su capa emisiva).
+func _set_pose(pose: String) -> void:
+	if fighter.is_player:
+		sprite.texture = Art.player_pose(pose)
+		return
+	var mp := "base"
+	match pose:
+		"idle_b", "crouch", "windup":
+			mp = "crouch"
+		"stretch", "strike":
+			mp = "stretch"
+	sprite.texture = Art.monster_pose(art_shape, fighter.sprite_seed, fighter.biome, _cycle(), mp)
+	if glow != null:
+		glow.texture = Art.monster_pose_glow(art_shape, fighter.sprite_seed, fighter.biome, _cycle(), mp)
+
+
+func _cycle() -> int:
+	return EnemyDB.cycle(engine.floor_num) if engine != null else 0
+
+
+## Muestra una secuencia de poses: [[pose, segundos], ...]; vuelve a la respiración al final.
+func _pose_seq(seq: Array) -> void:
+	var total := 0.0
+	for step: Array in seq:
+		total += float(step[1])
+	_busy_pose = total + 0.02
+	var tw := create_tween()
+	for step: Array in seq:
+		var p: String = step[0]
+		tw.tween_callback(func() -> void: _set_pose(p))
+		tw.tween_interval(float(step[1]))
 
 
 func refresh() -> void:
 	if fighter == null:
 		return
-	_hp_label.text = "%d / %d" % [fighter.hp, fighter.max_hp]
+	_hp_label.text = "%d/%d" % [fighter.hp, fighter.max_hp]
 	_block_icon.visible = fighter.block > 0
 	_block_label.visible = fighter.block > 0
 	_block_label.text = str(fighter.block)
@@ -210,25 +269,25 @@ func refresh() -> void:
 		if v == 0:
 			continue
 		var b := Control.new()
-		b.custom_minimum_size = Vector2(30, 30)
+		b.custom_minimum_size = Vector2(32, 30)
 		b.tooltip_text = "%s %d\n%s" % [STATUS_NAMES[id], v, STATUS_DESC[id]]
 		b.mouse_filter = Control.MOUSE_FILTER_PASS
 		var ic := UI.icon(STATUS_ICONS[id], 2)
 		b.add_child(ic)
-		var l := UI.label(str(v), 13, Color("ffd36a"))
-		l.position = Vector2(14, 12)
+		var l := UI.plabel(str(v), 1, Color("ffd36a"))
+		l.position = Vector2(16, 12)
 		b.add_child(l)
 		_status_row.add_child(b)
 	if fighter.is_player:
 		for pid: String in fighter.powers:
 			var pb := Control.new()
-			pb.custom_minimum_size = Vector2(30, 30)
+			pb.custom_minimum_size = Vector2(32, 30)
 			var txt: String = CardDB.POWERS.get(pid, "")
 			pb.tooltip_text = "Poder\n" + txt.replace("%d", str(fighter.pw(pid)))
 			pb.mouse_filter = Control.MOUSE_FILTER_PASS
 			pb.add_child(UI.icon(CardDB.POWER_ICONS.get(pid, "star"), 2))
-			var pl := UI.label(str(fighter.pw(pid)), 13, Color("ffd36a"))
-			pl.position = Vector2(14, 12)
+			var pl := UI.plabel(str(fighter.pw(pid)), 1, Color("ffd36a"))
+			pl.position = Vector2(16, 12)
 			pb.add_child(pl)
 			_status_row.add_child(pb)
 	_refresh_intent()
@@ -238,7 +297,7 @@ func refresh() -> void:
 func _refresh_intent() -> void:
 	if fighter.is_player:
 		return
-	_intent_box.visible = fighter.alive() and not fighter.intent.is_empty()
+	_intent_box.visible = fighter.alive() and not fighter.intent.is_empty() and not _dead
 	if not _intent_box.visible:
 		return
 	var k: String = fighter.intent.get("kind", "attack")
@@ -261,7 +320,7 @@ func _refresh_intent() -> void:
 	_intent_box.tooltip_text = _intent_tooltip()
 	_intent_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	_intent_box.reset_size()
-	_intent_box.position.x = size.x * 0.5 - _intent_box.size.x * 0.5
+	_intent_box.position.x = roundf((size.x * 0.5 - _intent_box.size.x * 0.5) / 2.0) * 2.0
 
 
 func _intent_tooltip() -> String:
@@ -285,94 +344,119 @@ func _intent_tooltip() -> String:
 
 
 func center() -> Vector2:
-	return global_position + sprite.position + sprite.size * 0.5
+	return global_position + _sprite_base + _off + sprite.size * 0.5
 
 
+## Destello de impacto: 1 fotograma blanco (33 ms) y luego el color dado, que se apaga en 100 ms.
 func flash(color: Color = Color.WHITE) -> void:
-	_mat.set_shader_parameter("flash_color", color)
+	if _flash_tween:
+		_flash_tween.kill()
+	_mat.set_shader_parameter("flash_color", Color.WHITE)
 	_mat.set_shader_parameter("flash", 1.0)
-	var tw := create_tween()
-	tw.tween_method(func(v: float) -> void: _mat.set_shader_parameter("flash", v), 1.0, 0.0, 0.18)
+	_flash_tween = create_tween()
+	_flash_tween.tween_interval(0.033)
+	_flash_tween.tween_callback(func() -> void: _mat.set_shader_parameter("flash_color", color))
+	_flash_tween.tween_method(func(v: float) -> void: _mat.set_shader_parameter("flash", v), 0.85, 0.0, 0.1)
 
 
-## Golpe recibido: retroceso en la dirección del impacto + aplastamiento.
+func _tween_off(seq: Array) -> Tween:
+	if _act_tween:
+		_act_tween.kill()
+	_act_tween = create_tween()
+	for st: Array in seq:
+		var tr: Tween.TransitionType = st[2] if st.size() > 2 else Tween.TRANS_QUAD
+		var ea: Tween.EaseType = st[3] if st.size() > 3 else Tween.EASE_OUT
+		if st[0] is Vector2:
+			_act_tween.tween_property(self, "_off", st[0], float(st[1])).set_trans(tr).set_ease(ea)
+		else:
+			_act_tween.tween_interval(float(st[1]))
+	return _act_tween
+
+
+## Golpe recibido: empuje direccional de 3–5 px de arte y vuelta con rebote. Sin temblor aleatorio.
 func shake(strength: float = 8.0) -> void:
 	var dir := -1.0 if fighter.is_player else 1.0
-	var tw := create_tween()
-	tw.tween_property(sprite, "position:x", _sprite_base.x + dir * minf(strength * 1.6, 26.0), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "rotation", dir * 0.06, 0.05)
-	for i in 3:
-		tw.tween_property(sprite, "position:x", _sprite_base.x + dir * strength * 0.5 + randf_range(-strength, strength) * 0.4, 0.03)
-	tw.tween_property(sprite, "position:x", _sprite_base.x, 0.12).set_trans(Tween.TRANS_BACK)
-	tw.parallel().tween_property(sprite, "rotation", 0.0, 0.12)
+	var push := clampf(roundf(strength / 4.0), 3.0, 5.0) * UI.PX
+	if fighter.is_player:
+		_pose_seq([["hurt", 0.22]])
+	else:
+		_pose_seq([["crouch", 0.12]])
+	_tween_off([[Vector2(dir * push, 0), 0.05], [Vector2.ZERO, 0.15, Tween.TRANS_BACK, Tween.EASE_OUT]])
 
 
-## Embestida con anticipación (los enemigos se encogen antes de saltar).
+## Embestida enemiga: anticipación agachado (160 ms) → estirado al lanzarse (60 ms) → impacto → vuelta.
 func lunge(dir: float) -> void:
-	var tw := create_tween()
-	if not fighter.is_player:
-		tw.tween_property(sprite, "position:x", _sprite_base.x - 14.0 * dir, 0.1).set_trans(Tween.TRANS_SINE)
-		tw.parallel().tween_property(sprite, "rotation", -0.08 * dir, 0.1)
-	tw.tween_property(sprite, "position:x", _sprite_base.x + 46.0 * dir, 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "rotation", 0.1 * dir, 0.07)
-	tw.tween_property(sprite, "position:x", _sprite_base.x, 0.2).set_trans(Tween.TRANS_QUAD)
-	tw.parallel().tween_property(sprite, "rotation", 0.0, 0.2)
+	var px := float(UI.PX)
+	_pose_seq([["crouch", 0.16], ["stretch", 0.1], ["base", 0.26]])
+	_tween_off([[Vector2(-4.0 * px * dir, 0), 0.16, Tween.TRANS_SINE, Tween.EASE_OUT],
+		[Vector2(12.0 * px * dir, 0), 0.06, Tween.TRANS_QUAD, Tween.EASE_IN],
+		[null, 0.06],
+		[Vector2.ZERO, 0.24, Tween.TRANS_QUAD, Tween.EASE_OUT]])
 
 
-## Martillazo de la heroína: carga hacia atrás, golpe adelante y vuelta.
+## Martillazo: carga 140 ms → pausa 40 ms → estela 33 ms → impacto 50 ms → recuperación 220 ms.
 func swing() -> void:
-	if arm == null:
+	if not fighter.is_player:
 		lunge(1.0)
 		return
-	var tw := create_tween()
-	tw.tween_property(arm, "rotation", 2.7, 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "rotation", -0.06, 0.09)
-	tw.tween_property(arm, "rotation", -1.45, 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(sprite, "position:x", _sprite_base.x + 42.0, 0.07)
-	tw.parallel().tween_property(sprite, "rotation", 0.08, 0.07)
-	tw.tween_interval(0.05)
-	tw.tween_property(arm, "rotation", ARM_REST, 0.26).set_trans(Tween.TRANS_BACK)
-	tw.parallel().tween_property(sprite, "position:x", _sprite_base.x, 0.22).set_trans(Tween.TRANS_QUAD)
-	tw.parallel().tween_property(sprite, "rotation", 0.0, 0.22)
+	var px := float(UI.PX)
+	_pose_seq([["windup", 0.18], ["smear", 0.033], ["strike", 0.09], ["recover", 0.12], ["idle", 0.1]])
+	_tween_off([[Vector2(-2.0 * px, 0), 0.14, Tween.TRANS_SINE, Tween.EASE_OUT],
+		[null, 0.04],
+		[Vector2(6.0 * px, 0), 0.033, Tween.TRANS_LINEAR, Tween.EASE_IN],
+		[null, 0.09],
+		[Vector2.ZERO, 0.22, Tween.TRANS_BACK, Tween.EASE_OUT]])
 
 
-## Gesto de habilidad/poder: alza el martillo.
+## Gesto enemigo sin ataque (defenderse, fortalecerse…): agacharse y estirarse.
+func gesture() -> void:
+	_pose_seq([["crouch", 0.1], ["stretch", 0.12], ["base", 0.06]])
+	_tween_off([[Vector2(0, -1.0 * UI.PX), 0.1], [Vector2.ZERO, 0.12, Tween.TRANS_BACK, Tween.EASE_OUT]])
+
+
+## Habilidad/poder: alza el martillo.
 func cast() -> void:
-	if arm == null:
+	if not fighter.is_player:
 		return
-	var tw := create_tween()
-	tw.tween_property(arm, "rotation", -2.4, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "scale", Vector2(0.96, 1.06), 0.12)
-	tw.tween_interval(0.12)
-	tw.tween_property(arm, "rotation", ARM_REST, 0.25).set_trans(Tween.TRANS_QUAD)
-	tw.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.2)
+	_pose_seq([["cast", 0.3], ["recover", 0.08]])
+	_tween_off([[Vector2(0, -1.0 * UI.PX), 0.08], [null, 0.18], [Vector2.ZERO, 0.12]])
 
 
-## Gesto de quemar: echa la carta al horno (hacia atrás).
+## Quemar: echa la carta al horno, que está detrás (a la izquierda).
 func toss() -> void:
-	if arm == null:
+	if not fighter.is_player:
 		return
-	var tw := create_tween()
-	tw.tween_property(arm, "rotation", -0.9, 0.08)
-	tw.tween_property(arm, "rotation", 1.3, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(arm, "rotation", ARM_REST, 0.3).set_trans(Tween.TRANS_BACK)
+	_pose_seq([["toss_back", 0.1], ["toss", 0.22], ["recover", 0.08]])
 
 
 func die() -> void:
 	_dead = true
 	_intent_box.visible = false
 	_stolen_label.text = ""
-	if _bob_tween:
-		_bob_tween.kill()
 	if glow != null:
 		glow.visible = false
 	flash(Color("ffe08a"))
+	_set_pose("crouch")
 	var tw := create_tween()
 	tw.tween_interval(0.1)
-	tw.tween_property(sprite, "scale", Vector2(1.12, 0.9), 0.12)
 	tw.tween_method(func(v: float) -> void: _mat.set_shader_parameter("progress", v), 0.0, 1.0, 0.7).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(sprite, "position:y", _sprite_base.y + 10.0, 0.7)
+	tw.parallel().tween_property(self, "_off", Vector2(0, 2.0 * UI.PX), 0.7)
 	tw.tween_property(self, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(func() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE)
+	queue_redraw()
+
+
+## Huida (Urraca): salta hacia atrás y se desvanece en humo, sin chispas de Ascuas.
+func flee() -> void:
+	_dead = true
+	_intent_box.visible = false
+	_stolen_label.text = ""
+	_pose_seq([["crouch", 0.12], ["stretch", 0.4]])
+	var px := float(UI.PX)
+	var tw := create_tween()
+	tw.tween_property(self, "_off", Vector2(-2.0 * px, 0), 0.12)
+	tw.tween_property(self, "_off", Vector2(30.0 * px, -16.0 * px), 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(self, "modulate:a", 0.0, 0.4).set_delay(0.1)
 	tw.tween_callback(func() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE)
 	queue_redraw()
 

@@ -3,7 +3,7 @@ extends Screen
 
 
 func build() -> void:
-	var bg := UI.tex_rect(Art.background(0, 7, 0), 4.0)
+	var bg := UI.tex_rect(Art.background(0, 7, 0), UI.PX)
 	bg.modulate = Color(0.5, 0.42, 0.42)
 	add_child(bg)
 	var embers := CPUParticles2D.new()
@@ -17,8 +17,8 @@ func build() -> void:
 	embers.gravity = Vector2(8, -10)
 	embers.initial_velocity_min = 40.0
 	embers.initial_velocity_max = 110.0
-	embers.scale_amount_min = 2.0
-	embers.scale_amount_max = 5.0
+	embers.scale_amount_min = float(UI.PX)
+	embers.scale_amount_max = float(UI.PX)
 	var grad := Gradient.new()
 	grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
 	grad.colors = PackedColorArray([Color("ffe08a"), Color("ff6a1a"), Color(0.76, 0.2, 0.12, 0.0)])
@@ -26,42 +26,43 @@ func build() -> void:
 	embers.preprocess = 4.0
 	add_child(embers)
 
-	var halo := UI.halo(Color("ff7a2a"), 220.0, 0.4)
-	halo.position = Vector2(1060, 560) - halo.size * 0.5
-	add_child(halo)
-	var hero := UI.tex_rect(Art.player(), 9.0)
-	hero.position = Vector2(140, 380)
-	hero.pivot_offset = hero.size * Vector2(0.5, 1.0)
-	add_child(hero)
-	var arm := UI.tex_rect(Art.player_arm(), 9.0)
-	arm.position = Vector2(12, 13) * 9.0
-	arm.pivot_offset = Vector2(3.5, 1.5) * 9.0
-	arm.rotation = FighterView.ARM_REST
-	hero.add_child(arm)
-	var htw := hero.create_tween().set_loops()
-	htw.tween_property(hero, "scale", Vector2(1.015, 0.985), 1.1).set_trans(Tween.TRANS_SINE)
-	htw.tween_property(hero, "scale", Vector2(0.995, 1.01), 1.1).set_trans(Tween.TRANS_SINE)
-	var furnace := UI.tex_rect(Art.forge_sprite(0.75), 5.0)
-	furnace.position = Vector2(940, 440)
+	# Forja y heroína en la rejilla del mundo (×4), sobre el suelo del fondo.
+	var furnace := UI.tex_rect(Art.forge_sprite(0.75), UI.PX)
+	furnace.position = Vector2(880, 476 - 224)
 	add_child(furnace)
-	var fire := UI.fire_emitter(Vector2(70, 8), 60)
-	fire.position = Vector2(1060, 600)
+	var halo := UI.halo(Color("ff7a2a"), 220.0, 0.4)
+	halo.position = Vector2(992, 412) - halo.size * 0.5
+	add_child(halo)
+	var fire := UI.fire_emitter(Vector2(40, 8), 30)
+	fire.position = Vector2(992, 420)
 	add_child(fire)
+	var frame := [0]
+	var ftw := furnace.create_tween().set_loops()
+	ftw.tween_interval(0.14)
+	ftw.tween_callback(func() -> void:
+		frame[0] = (frame[0] + 1) % 4
+		furnace.texture = Art.forge_sprite(0.75, frame[0]))
+	var hero := UI.tex_rect(Art.player_pose("idle"), UI.PX)
+	hero.position = Vector2(152, 476 - hero.size.y)
+	add_child(hero)
+	var htw := hero.create_tween().set_loops()
+	htw.tween_interval(0.7)
+	htw.tween_callback(func() -> void: hero.texture = Art.player_pose("idle_b"))
+	htw.tween_interval(0.7)
+	htw.tween_callback(func() -> void: hero.texture = Art.player_pose("idle"))
 
-	var title := UI.label("EMBERSPIRE", 96, UI.EMBER)
-	title.add_theme_color_override("font_outline_color", Color("5a1a0a"))
-	title.add_theme_constant_override("outline_size", 18)
-	title.size = Vector2(1280, 120)
-	title.position = Vector2(0, 120)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.pivot_offset = Vector2(640, 60)
+	# Logotipo dibujado (×6, rejilla de interfaz) con un pulso de luz en 3 pasos.
+	var logo_tex := Art.logo()
+	var title := UI.tex_rect(logo_tex, 6.0)
+	title.position = Vector2(roundf((1280 - title.size.x) / 4.0) * 2.0, 96)
 	add_child(title)
 	var tw := title.create_tween().set_loops()
-	tw.tween_property(title, "modulate", Color(1.2, 1.0, 0.85), 1.4).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(title, "modulate", Color(1.0, 0.85, 0.75), 1.4).set_trans(Tween.TRANS_SINE)
-	var sub := UI.label("Tu mazo es combustible", 26, UI.TEXT)
-	sub.size = Vector2(1280, 40)
-	sub.position = Vector2(0, 238)
+	for m: Color in [Color(1.1, 1.0, 0.9), Color(1.2, 1.05, 0.9), Color(1.1, 1.0, 0.9), Color.WHITE]:
+		tw.tween_callback(func() -> void: title.modulate = m)
+		tw.tween_interval(0.35)
+	var sub := UI.plabel("Tu mazo es combustible", 2, UI.TEXT)
+	sub.size = Vector2(1280, 30)
+	sub.position = Vector2(0, 232)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(sub)
 

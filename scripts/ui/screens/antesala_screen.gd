@@ -48,7 +48,7 @@ func build() -> void:
 			cb.text = "Piso %d" % fl
 			cb.focus_mode = Control.FOCUS_NONE
 			cb.add_theme_font_size_override("font_size", 13)
-			cb.tooltip_text = "Empieza en el piso %d.\nCompensación: 1 carta a elegir por cada 3 pisos saltados y 1 reliquia de jefe por cada jefe saltado.\nLos pisos saltados no dan Ascuas." % fl if fl > 1 else "Desde el principio."
+			cb.tooltip_text = "Empieza en el piso %d.\nCompensación: 1 carta a elegir por cada 4 pisos saltados y 1 reliquia de jefe por cada jefe saltado.\nLos pisos saltados no dan Ascuas." % fl if fl > 1 else "Desde el principio."
 			cb.add_theme_stylebox_override("pressed", UI.box(Color("5a3a14"), Color("ffd36a"), 2, 0))
 			cb.pressed.connect(func() -> void:
 				_start_floor = fl
@@ -88,18 +88,9 @@ func _build_hero() -> void:
 	var row := UI.hbox(12)
 	v.add_child(row)
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(110, 160)
-	var pl := UI.tex_rect(Art.player(), 5.0)
+	holder.custom_minimum_size = Vector2(100, 150)
+	var pl := UI.tex_rect(Art.player(), 4.0)
 	holder.add_child(pl)
-	var arm := UI.tex_rect(Art.player_arm(), 5.0)
-	arm.position = Vector2(12, 13) * 5.0
-	arm.pivot_offset = Vector2(3.5, 1.5) * 5.0
-	arm.rotation = FighterView.ARM_REST
-	pl.add_child(arm)
-	var tw := pl.create_tween().set_loops()
-	pl.pivot_offset = pl.size * Vector2(0.5, 1.0)
-	tw.tween_property(pl, "scale", Vector2(1.02, 0.98), 1.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(pl, "scale", Vector2(0.99, 1.01), 1.0).set_trans(Tween.TRANS_SINE)
 	row.add_child(holder)
 	_stats = UI.rich("", 15)
 	_stats.custom_minimum_size = Vector2(230, 150)
