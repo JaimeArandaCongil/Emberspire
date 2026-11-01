@@ -25,7 +25,7 @@ para siempre. Los generadores de la Forja **Resuenan** y te dan ventajas en la T
 ## Contenido v0.2
 - **94 cartas** (90 coleccionables + 4 iniciales) en 7 colecciones (Base, Pira, Yunque, Forja, Ceniza, Crisol, Solar) + 1 ficha y 3 estados
 - **14 enemigos, 7 élites y 6 jefes** (dos por acto) con robo de Ascuas, ahogo del horno, invocaciones, espinas y regeneración
-- **40 reliquias** (6 de jefe, a elegir 1 de 3) + **21 Resonancias** de generadores
+- **40 reliquias** (5 de jefe: eliges 1 de 3) + **21 Resonancias** de generadores
 - **16 misterios**, tienda, hogueras, tesoros
 - 7 generadores, 11 mejoras de Arsenal, 6 Grimorios, 12 Talentos, Renacer en Ceniza
 - **Maestría** de cartas (5 niveles), **Pactos de Brasa** (8), **Reliquario**, **Crónica** de 26 hitos
