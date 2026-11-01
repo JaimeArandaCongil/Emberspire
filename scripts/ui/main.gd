@@ -4,6 +4,7 @@ extends Control
 const SCREENS := {
 	"title": preload("res://scripts/ui/screens/title_screen.gd"),
 	"forge": preload("res://scripts/ui/screens/forge_screen.gd"),
+	"antesala": preload("res://scripts/ui/screens/antesala_screen.gd"),
 	"map": preload("res://scripts/ui/screens/map_screen.gd"),
 	"combat": preload("res://scripts/ui/screens/combat_screen.gd"),
 	"rest": preload("res://scripts/ui/screens/rest_screen.gd"),
@@ -52,6 +53,7 @@ func _ready() -> void:
 	add_child(fade)
 	Game.embers_gained.connect(_on_gain)
 	Game.forge_changed.connect(_refresh_hud)
+	Game.hito_unlocked.connect(_on_hito)
 	_shown_embers = Game.embers
 	go("title")
 
@@ -191,17 +193,29 @@ func fly_embers(from: Vector2, count: int = 6) -> void:
 			e.queue_free())
 
 
+func _on_hito(h: Dictionary) -> void:
+	Sfx.play("rebirth", 0.0, -3.0)
+	toast("Hito: %s  ·  %s" % [h["name"], Game.hito_reward_text(h)], Color("d0a8ff") if h.has("dust") else UI.EMBER)
+
+
+var _toast_slot := 0
+
+
 func toast(text: String, color: Color = UI.TEXT) -> void:
 	var p := UI.panel(Color("1e1216"), color.darkened(0.3))
 	var l := UI.label(text, 18, color)
 	p.add_child(l)
 	overlay_layer.add_child(p)
 	p.reset_size()
-	p.position = Vector2(640 - p.size.x * 0.5, 60)
+	# Los avisos simultáneos se apilan en lugar de taparse.
+	var y := 60.0 + 48.0 * (_toast_slot % 4)
+	_toast_slot += 1
+	get_tree().create_timer(1.2).timeout.connect(func() -> void: _toast_slot = maxi(0, _toast_slot - 1))
+	p.position = Vector2(640 - p.size.x * 0.5, y - 6)
 	p.modulate.a = 0.0
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
-	tw.tween_property(p, "position:y", 66.0, 0.15)
+	tw.parallel().tween_property(p, "position:y", y, 0.15)
 	tw.tween_interval(1.6)
 	tw.tween_property(p, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(p.queue_free)

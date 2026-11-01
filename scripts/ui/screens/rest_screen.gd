@@ -17,9 +17,21 @@ func build() -> void:
 	var logs := UI.icon("log", 10)
 	logs.position = Vector2(580, 300)
 	add_child(logs)
+	var glow := UI.halo(Color("ff8a3a"), 220.0, 0.45)
+	glow.position = Vector2(640, 330) - glow.size * 0.5
+	add_child(glow)
+	var gtw := glow.create_tween().set_loops()
+	gtw.tween_property(glow, "modulate:a", 0.3, 0.4)
+	gtw.tween_property(glow, "modulate:a", 0.5, 0.3)
+	add_child(UI.dust(Rect2(300, 100, 700, 400), Color("ffb070"), 30))
 	var pl := UI.tex_rect(Art.player(), 6.0)
-	pl.position = Vector2(380, 230)
+	pl.position = Vector2(390, 216)
 	add_child(pl)
+	var arm := UI.tex_rect(Art.player_arm(), 6.0)
+	arm.position = Vector2(12, 13) * 6.0
+	arm.pivot_offset = Vector2(3.5, 1.5) * 6.0
+	arm.rotation = FighterView.ARM_REST
+	pl.add_child(arm)
 
 	var title := UI.label("Hoguera", 44, UI.EMBER)
 	title.position = Vector2(0, 70)
@@ -34,6 +46,10 @@ func build() -> void:
 
 	var heal_pct := 30 + 10 * Game.arsenal_level("hearth")
 	var heal_amt := int(ceil(run.max_hp * heal_pct / 100.0))
+	if run.has_pact("pact_rest"):
+		heal_amt = int(heal_amt / 2)
+	if run.has_relic("healing_salve"):
+		heal_amt += 10
 	var row := UI.hbox(28)
 	row.position = Vector2(220, 470)
 	row.size = Vector2(840, 120)

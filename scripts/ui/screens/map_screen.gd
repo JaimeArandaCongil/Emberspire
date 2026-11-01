@@ -18,6 +18,7 @@ func build() -> void:
 	Game.save_game()
 	if run.pending_doors.is_empty():
 		run.pending_doors = run.roll_doors(1 if Game.talents.has("star_map") else 0)
+	add_child(UI.dust(Rect2(0, 60, 1280, 660), Color("ffb070"), 18))
 
 	var tower := TowerColumn.new()
 	tower.run = run
@@ -134,6 +135,22 @@ func _build_info() -> void:
 	v.add_child(hp)
 	v.add_child(UI.rich("Energía [color=#ffd36a]%d[/color] · Robo [color=#ffd36a]%d[/color]\nQuemas/turno [color=#ffd36a]%d[/color]" % [run.max_energy, run.draw_per_turn, run.burns_per_turn], 15))
 	v.add_child(UI.rich("Ascuas en esta ascensión:\n[color=#ffd36a]%s[/color]" % Num.fmt(run.embers_earned), 15))
+	if run.heat() > 0:
+		var names: PackedStringArray = []
+		for id in run.pacts:
+			names.append(ForgeDB.pact(id)["name"])
+		var hl := UI.rich("Calor de Pacto [color=#ff8a4a]%d[/color] (×%.2f Ascuas)" % [run.heat(), 1.0 + Game.heat_bonus_each() * run.heat()], 14)
+		hl.mouse_filter = Control.MOUSE_FILTER_PASS
+		hl.tooltip_text = "\n".join(names)
+		v.add_child(hl)
+	if not run.perks.is_empty():
+		var pl := UI.rich("Resonancias activas: [color=#d0a8ff]%d[/color]" % run.perks.size(), 14)
+		pl.mouse_filter = Control.MOUSE_FILTER_PASS
+		var pn: PackedStringArray = []
+		for id in run.perks:
+			pn.append("%s: %s" % [RelicDB.get_def(id)["name"], RelicDB.get_def(id)["desc"]])
+		pl.tooltip_text = "\n".join(pn)
+		v.add_child(pl)
 	v.add_child(UI.button("Ver mazo (%d)" % run.deck.size(), func() -> void: main.show_deck(run.deck), 16))
 	if not run.relics.is_empty():
 		v.add_child(UI.label("Reliquias", 16, UI.DIM))

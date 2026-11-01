@@ -20,7 +20,7 @@ func build() -> void:
 	bg.modulate = Color(0.45, 0.42, 0.45)
 	add_child(bg)
 	_offers = run.roll_card_rewards(Game.card_packs(), 5, true)
-	_relic = RelicDB.random_unowned(run.relics, run.rng)
+	_relic = RelicDB.random_unowned(run.relics, run.rng, "rare" if run.rng.randf() < 0.3 else "")
 	_body = Control.new()
 	_body.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_body)
@@ -36,7 +36,8 @@ func _on_embers(_v: float) -> void:
 
 
 func _price(base: float, secs: float) -> float:
-	return roundf(base * (1.0 + 0.15 * run.floor_num) + Game.production() * secs)
+	var mult := 0.7 if run.has_relic("merchant_seal") else 1.0
+	return roundf((base * (1.0 + 0.15 * run.floor_num) + Game.production() * secs) * mult)
 
 
 func _rebuild() -> void:

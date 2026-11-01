@@ -29,7 +29,51 @@ void fragment() {
 }
 """
 
+## Disolución pixelada con borde incandescente: cartas quemadas y enemigos muertos.
+## `cells` = resolución de la rejilla de ruido (en píxeles de arte, no de pantalla).
+const DISSOLVE_SHADER := """
+shader_type canvas_item;
+uniform float progress : hint_range(0.0, 1.0) = 0.0;
+uniform float flash : hint_range(0.0, 1.0) = 0.0;
+uniform vec4 flash_color : source_color = vec4(1.0);
+uniform vec2 cells = vec2(75.0, 105.0);
+uniform vec4 edge_a : source_color = vec4(1.0, 0.88, 0.45, 1.0);
+uniform vec4 edge_b : source_color = vec4(1.0, 0.35, 0.08, 1.0);
+float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float n(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	float a = h(i); float b = h(i + vec2(1.0, 0.0)); float c = h(i + vec2(0.0, 1.0)); float d = h(i + vec2(1.0, 1.0));
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	c.rgb = mix(c.rgb, flash_color.rgb, flash);
+	vec2 cell = floor(UV * cells);
+	float v = n(cell / 6.0) * 0.7 + h(cell) * 0.3;
+	// La llama sube desde abajo.
+	v = v * 0.75 + (1.0 - UV.y) * 0.25;
+	float p = progress * 1.15;
+	if (v < p - 0.0) { discard; }
+	if (v < p + 0.06) { c.rgb = mix(edge_b.rgb, edge_a.rgb, step(p + 0.03, v)); }
+	COLOR = vec4(c.rgb, c.a * COLOR.a);
+}
+"""
+
+## Mezcla aditiva para capas de brillo (ojos y venas de los monstruos, halos).
+const ADD_SHADER := """
+shader_type canvas_item;
+render_mode blend_add;
+uniform float strength = 1.0;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	COLOR = vec4(c.rgb * strength * COLOR.a, c.a);
+}
+"""
+
 static var _flash_shader: Shader
+static var _dissolve_shader: Shader
+static var _add_shader: Shader
 
 
 static func flash_material() -> ShaderMaterial:
@@ -39,6 +83,82 @@ static func flash_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = _flash_shader
 	return m
+
+
+static func dissolve_material(cells: Vector2) -> ShaderMaterial:
+	if _dissolve_shader == null:
+		_dissolve_shader = Shader.new()
+		_dissolve_shader.code = DISSOLVE_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _dissolve_shader
+	m.set_shader_parameter("cells", cells)
+	return m
+
+
+static func add_material(strength: float = 1.0) -> ShaderMaterial:
+	if _add_shader == null:
+		_add_shader = Shader.new()
+		_add_shader.code = ADD_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _add_shader
+	m.set_shader_parameter("strength", strength)
+	return m
+
+
+## Halo suave (textura radial) para luces de antorchas, horno, etc.
+static var _halo: Texture2D
+
+
+static func halo_texture() -> Texture2D:
+	if _halo == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.25), Color(1, 1, 1, 0.0)])
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 64
+		t.height = 64
+		_halo = t
+	return _halo
+
+
+static func halo(color: Color, radius: float, strength: float = 0.6) -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = halo_texture()
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.size = Vector2(radius, radius) * 2.0
+	r.pivot_offset = r.size * 0.5
+	r.modulate = Color(color, strength)
+	r.material = add_material(1.0)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+## Motas de polvo/ceniza flotando en el aire de una sala.
+static func dust(rect: Rect2, color: Color, amount: int = 30) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.position = rect.get_center()
+	p.amount = amount
+	p.lifetime = 6.0
+	p.preprocess = 6.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = rect.size * 0.5
+	p.direction = Vector2(0.3, -1)
+	p.spread = 60.0
+	p.gravity = Vector2(0, -4)
+	p.initial_velocity_min = 4.0
+	p.initial_velocity_max = 14.0
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 4.0
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.2, 0.8, 1.0])
+	grad.colors = PackedColorArray([Color(color, 0.0), Color(color, 0.7), Color(color, 0.5), Color(color, 0.0)])
+	p.color_ramp = grad
+	return p
 
 
 static func box(bg: Color, border: Color = EDGE, bw: int = 3, shadow: int = 4) -> StyleBoxFlat:

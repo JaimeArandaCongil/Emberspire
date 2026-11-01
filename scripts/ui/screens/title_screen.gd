@@ -26,15 +26,27 @@ func build() -> void:
 	embers.preprocess = 4.0
 	add_child(embers)
 
-	var hero := UI.tex_rect(Art.player(), 11.0)
-	hero.position = Vector2(150, 300)
+	var halo := UI.halo(Color("ff7a2a"), 220.0, 0.4)
+	halo.position = Vector2(1060, 560) - halo.size * 0.5
+	add_child(halo)
+	var hero := UI.tex_rect(Art.player(), 9.0)
+	hero.position = Vector2(140, 380)
+	hero.pivot_offset = hero.size * Vector2(0.5, 1.0)
 	add_child(hero)
-	var fire := UI.fire_emitter(Vector2(60, 8), 60)
-	fire.position = Vector2(1060, 560)
-	add_child(fire)
-	var furnace := UI.icon("furnace", 14)
-	furnace.position = Vector2(976, 430)
+	var arm := UI.tex_rect(Art.player_arm(), 9.0)
+	arm.position = Vector2(12, 13) * 9.0
+	arm.pivot_offset = Vector2(3.5, 1.5) * 9.0
+	arm.rotation = FighterView.ARM_REST
+	hero.add_child(arm)
+	var htw := hero.create_tween().set_loops()
+	htw.tween_property(hero, "scale", Vector2(1.015, 0.985), 1.1).set_trans(Tween.TRANS_SINE)
+	htw.tween_property(hero, "scale", Vector2(0.995, 1.01), 1.1).set_trans(Tween.TRANS_SINE)
+	var furnace := UI.tex_rect(Art.forge_sprite(0.75), 5.0)
+	furnace.position = Vector2(940, 440)
 	add_child(furnace)
+	var fire := UI.fire_emitter(Vector2(70, 8), 60)
+	fire.position = Vector2(1060, 600)
+	add_child(fire)
 
 	var title := UI.label("EMBERSPIRE", 96, UI.EMBER)
 	title.add_theme_color_override("font_outline_color", Color("5a1a0a"))
@@ -76,7 +88,7 @@ func build() -> void:
 		stats.position = Vector2(0, 640)
 		stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(stats)
-	var credit := UI.label("Estudio Brasa · v0.1 · Godot 4.7", 13, Color("6a5a58"))
+	var credit := UI.label("Estudio Brasa · v0.2 · Godot 4.7", 13, Color("6a5a58"))
 	credit.position = Vector2(0, 690)
 	credit.size = Vector2(1270, 20)
 	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

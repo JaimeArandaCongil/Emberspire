@@ -26,7 +26,11 @@ func build() -> void:
 		["ember", "Ascuas ganadas", Num.fmt(float(s.get("embers", 0.0)))],
 		["skull", "Enemigos derrotados", str(s.get("kills", 0))],
 		["furnace", "Cartas quemadas", str(s.get("burned", 0))],
+		["book", "Niveles de Maestría ganados", str(s.get("mastery_ups", 0))],
+		["chest", "Reliquias", str(s.get("relics", 0))],
 	]
+	if int(s.get("heat", 0)) > 0:
+		rows.append(["fang", "Calor de Pacto", str(s.get("heat", 0))])
 	for i in rows.size():
 		var r: Array = rows[i]
 		var h := UI.hbox(12)
