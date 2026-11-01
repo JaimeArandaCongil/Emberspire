@@ -18,6 +18,11 @@ func _ready() -> void:
 	_test_doors()
 	_test_save_roundtrip()
 	_test_art()
+	_test_mastery()
+	_test_resonance_and_pacts()
+	_test_new_mechanics()
+	_test_meta()
+	_test_all_cards_play()
 	print("\n== QA: %d comprobaciones, %d fallos ==" % [_checks, _fails])
 	get_tree().quit(1 if _fails > 0 else 0)
 
@@ -52,6 +57,28 @@ func _test_data_integrity() -> void:
 					check(EnemyDB.ENEMIES.has(eid), "encuentro referencia enemigo válido: %s" % eid)
 	for id: String in RelicDB.RELICS:
 		check(Art.has_icon(RelicDB.RELICS[id]["icon"]), "icono de reliquia: %s" % id)
+	for id: String in RelicDB.PERKS:
+		check(Art.has_icon(RelicDB.PERKS[id]["icon"]), "icono de resonancia: %s" % id)
+	for g in ForgeDB.GENERATORS:
+		for tier in 3:
+			check(RelicDB.perk_for(g["id"], tier) != "", "resonancia %s nivel %d" % [g["id"], tier])
+	for pact in ForgeDB.PACTS:
+		check(Art.has_icon(pact["icon"]), "icono de pacto: %s" % pact["id"])
+	for pid: String in CardDB.POWER_ICONS:
+		check(Art.has_icon(CardDB.POWER_ICONS[pid]), "icono de poder: %s" % pid)
+	for act: Dictionary in EnemyDB.ACTS:
+		for enc: Array in act["boss"]:
+			for eid: String in enc:
+				check(EnemyDB.ENEMIES.has(eid), "jefe válido: %s" % eid)
+	for eid: String in EnemyDB.ENEMIES:
+		for mv: Array in EnemyDB.ENEMIES[eid]["moves"]:
+			for op: Array in mv:
+				if op[0] == "summon" or op[0] == "add_card":
+					check(EnemyDB.ENEMIES.has(op[1]) or CardDB.CARDS.has(op[1]), "referencia válida en %s: %s" % [eid, op[1]])
+	for h in ForgeDB.HITOS:
+		check(h.has("dust") or h.has("secs"), "hito con recompensa: %s" % h["id"])
+	check(CardDB.CARDS.size() >= 90, "al menos 90 cartas (%d)" % CardDB.CARDS.size())
+	check(RelicDB.RELICS.size() >= 40, "al menos 40 reliquias (%d)" % RelicDB.RELICS.size())
 
 
 func _test_economy() -> void:
@@ -218,3 +245,240 @@ func _test_art() -> void:
 		var t := Art.monster(s, "test", 0)
 		check(t != null and t.get_width() > 8, "monstruo generado: %s" % s)
 	check(Art.background(0, 1) != null, "fondo generado")
+
+
+func _test_mastery() -> void:
+	Game.reset_all()
+	check(Game.mastery_level("strike") == 0, "maestría inicial 0")
+	check(Game.add_mastery("strike", 2) == 1, "2 quemas → nivel 1")
+	check(Card.new("strike").effects()[0][1] == 7, "maestría 1: Golpe 6 → 7 (%d)" % Card.new("strike").effects()[0][1])
+	Game.add_mastery("strike", 200)
+	check(Game.mastery_level("strike") == Game.MASTERY_MAX, "maestría máxima")
+	check(Card.new("strike").effects()[0][1] == 9, "maestría 5: Golpe ×1.5 = 9")
+	check(Game.burn_value(1, 1, 1, 5) > Game.burn_value(1, 1, 1, 0) * 1.9, "maestría 5 dobla Ascuas al quemar")
+	check(Game.add_mastery("soot", 5) == 0, "los estados no ganan maestría")
+	# Quemar en combate da maestría si el motor ingresa en Game.
+	Game.reset_all()
+	var run := Game.start_run(11)
+	var eng := CombatEngine.new()
+	eng.setup(run, ["soot_golem"], 1, "combat")
+	eng.start()
+	var k := Card.new("kindling")
+	eng.hand.append(k)
+	eng.burn_card(k)
+	check(int(Game.mastery.get("kindling", 0)) == 1, "quemar suma maestría")
+	check(Game.stat_value("burns") == 1.0, "estadística de quemas")
+	Game.run = null
+	Game.reset_all()
+
+
+func _test_resonance_and_pacts() -> void:
+	Game.reset_all()
+	Game.generators = {"spark": 10, "bellows": 50}
+	var perks := Game.perk_ids()
+	check(perks.has("res_spark1") and not perks.has("res_spark2"), "resonancia chispa 1")
+	check(perks.has("res_bellows1") and perks.has("res_bellows2"), "resonancia fuelle 1 y 2")
+	Game.talents["echoes"] = true
+	check(not Game.perk_ids().has("res_spark2") and Game.resonance_threshold(1) == 25, "Ecos reduce umbrales")
+	Game.talents.erase("echoes")
+	Game.generators = {"furnace": 10}
+	var r := Game.start_run(5)
+	check(r.has_relic("res_furnace1") and r.max_hp == 68, "Ladrillo Cálido +8 PV (%d)" % r.max_hp)
+	var eng := CombatEngine.new()
+	eng.bank_embers = false
+	Game.generators = {"bellows": 10}
+	r = Game.start_run(5)
+	eng.setup(r, ["ash_slime"], 1, "combat")
+	eng.start()
+	check(eng.player.block == 5, "Corriente: 5 de bloqueo inicial (%d)" % eng.player.block)
+	# Pactos
+	Game.reset_all()
+	Game.max_floor = 10
+	Game.active_pacts = ["pact_hp", "pact_boss"]
+	r = Game.start_run(5)
+	check(r.heat() == 3, "calor 3")
+	var e1 := CombatEngine.new()
+	e1.bank_embers = false
+	e1.setup(r, ["coalfather"], 10, "boss")
+	check(e1.enemies[0].max_hp == int(round(int(round(130 * (1.0 + 0.06 * 9))) * 1.25 * 1.5)), "pactos escalan PV del jefe (%d)" % e1.enemies[0].max_hp)
+	var before := Game.embers
+	Game.gain_tower_embers(100.0, "test")
+	check(is_equal_approx(Game.embers - before, 175.0), "calor 3 → ×1.75 Ascuas (%f)" % (Game.embers - before))
+	Game.max_floor = 0
+	r = Game.start_run(5)
+	check(r.pacts.is_empty(), "sin piso 10 no hay pactos")
+	Game.run = null
+	Game.reset_all()
+
+
+func _engine_with(enemies: Array, cards: Array) -> CombatEngine:
+	var run := Game.start_run(3)
+	run.floor_num = 3
+	var eng := CombatEngine.new()
+	eng.bank_embers = false
+	eng.setup(run, enemies, 3, "combat")
+	eng.start()
+	for id: String in cards:
+		eng.hand.append(Card.new(id))
+	eng.energy = 10
+	return eng
+
+
+func _test_new_mechanics() -> void:
+	Game.reset_all()
+	# Robo de la Urraca y devolución doble.
+	var run := Game.start_run(9)
+	var eng := CombatEngine.new()
+	eng.setup(run, ["ember_magpie"], 2, "combat")
+	eng.start()
+	Game.embers = 1000.0
+	var mag := eng.enemies[0]
+	eng._enemy_op(mag, ["steal", 6])
+	check(mag.stolen > 0.0 and Game.embers < 1000.0, "la Urraca roba Ascuas (%f)" % mag.stolen)
+	var stolen := mag.stolen
+	var before := Game.embers
+	eng._damage(mag, 999, false)
+	check(Game.embers >= before + stolen * 2.0 - 0.01, "al morir devuelve el doble")
+	Game.run = null
+	# Ahogo: menos Quemas el próximo turno.
+	eng = _engine_with(["ash_slime"], [])
+	eng._enemy_op(eng.enemies[0], ["choke", 1])
+	eng.end_player_turn()
+	eng.begin_enemy_phase()
+	eng.end_enemy_phase()
+	check(eng.burns_left == 0, "Ahogo resta una Quema (%d)" % eng.burns_left)
+	# Invocación.
+	eng = _engine_with(["great_bellows"], [])
+	eng._enemy_op(eng.enemies[0], ["summon", "candle_mite", 2])
+	check(eng.enemies.size() == 3, "invoca 2 ácaros")
+	# Explosión al morir del ácaro.
+	var hp0 := eng.player.hp
+	eng.player.block = 0
+	eng._damage(eng.enemies[1], 999, false)
+	check(eng.player.hp < hp0, "el ácaro explota al morir")
+	# Recuperar carta quemada.
+	eng = _engine_with(["soot_golem"], ["coal", "phoenix_paper"])
+	var coal: Card = eng.hand[eng.hand.size() - 2]
+	eng.burns_left = 1
+	eng.burn_card(coal)
+	check(not eng.hand.has(coal), "carbón quemado")
+	eng.play_card(eng.hand[eng.hand.size() - 1])
+	check(eng.hand.has(coal), "Fénix de Papel recupera la carta quemada")
+	# Quema gratis.
+	eng = _engine_with(["soot_golem"], ["smelt"])
+	eng.burns_left = 0
+	var bc := eng.burned_count
+	eng.play_card(eng.hand[eng.hand.size() - 1])
+	check(eng.burned_count == bc + 1, "Fundir quema sin gastar Quemas")
+	# Mejora temporal que no sobrevive al combate.
+	eng = _engine_with(["ash_slime"], ["reforge"])
+	eng.play_card(eng.hand[eng.hand.size() - 1])
+	var any_up := false
+	for c in eng.hand:
+		if c.temp_up:
+			any_up = true
+	check(any_up, "Reforjar mejora la mano")
+	eng._damage(eng.enemies[0], 999, false)
+	eng._check_end()
+	var leftover := false
+	for c in eng.run.deck:
+		if c.temp_up:
+			leftover = true
+	check(not leftover, "las mejoras temporales se limpian al acabar")
+	# Espinas del enemigo.
+	eng = _engine_with(["slag_serpent"], ["strike"])
+	hp0 = eng.player.hp
+	eng.player.block = 0
+	eng.play_card(eng.hand[eng.hand.size() - 1], eng.enemies[0])
+	check(eng.player.hp == hp0 - 3, "espinas de la Sierpe (%d)" % (hp0 - eng.player.hp))
+	# Brasa (retener) y Etérea.
+	eng = _engine_with(["ash_slime"], ["anvil_ward", "quicksilver"])
+	var ward: Card = eng.hand[eng.hand.size() - 2]
+	var qs: Card = eng.hand[eng.hand.size() - 1]
+	eng.end_player_turn()
+	check(eng.hand.has(ward), "Brasa: se queda en la mano")
+	check(eng.exhaust_pile.has(qs), "Etérea: se agota")
+	# Ceniza Húmeda no se quema.
+	eng = _engine_with(["ash_slime"], ["wet_ash"])
+	check(not eng.can_burn(eng.hand[eng.hand.size() - 1]), "Ceniza Húmeda no se quema")
+	# Transmutar.
+	eng = _engine_with(["ash_slime"], ["transmute"])
+	var n0 := eng.hand.size()
+	eng.play_card(eng.hand[eng.hand.size() - 1])
+	check(eng.hand.size() == n0 - 1, "Transmutar conserva el tamaño de mano")
+	Game.run = null
+	Game.reset_all()
+
+
+func _test_meta() -> void:
+	Game.reset_all()
+	var r := Game.start_run(4)
+	r.add_relic("whetstone")
+	check(Game.relic_codex.has("whetstone"), "reliquia al Reliquario")
+	check(is_equal_approx(Game.codex_mult(), 1.02), "Reliquario +2%")
+	Game.run = null
+	Game.max_floor = 5
+	Game.check_hitos()
+	check(Game.hitos.has("floor5"), "hito del piso 5")
+	Game.max_floor = 10
+	var dust0 := Game.stardust_total
+	Game.check_hitos()
+	check(Game.stardust_total == dust0 + 1, "hito del piso 10 da Polvo")
+	Game.mastery = {"strike": 3}
+	Game.active_pacts = ["pact_dmg"]
+	Game.heirloom_picks = ["whetstone"]
+	var j: Dictionary = JSON.parse_string(JSON.stringify(Game.to_dict()))
+	Game.reset_all()
+	Game.from_dict(j)
+	check(Game.mastery_level("strike") == 1, "guardado: maestría")
+	check(Game.relic_codex.has("whetstone"), "guardado: reliquario")
+	check(Game.hitos.has("floor10"), "guardado: hitos")
+	check(Game.active_pacts == ["pact_dmg"], "guardado: pactos")
+	check(Game.heirloom_picks == ["whetstone"], "guardado: herencia")
+	Game.arsenal = {"heirloom": 1}
+	r = Game.start_run(4)
+	check(r.has_relic("whetstone"), "herencia elegida del Reliquario")
+	Game.run = null
+	Game.reset_all()
+
+
+## Juega y quema cada carta del juego contra enemigos variados: ninguna debe romper el motor.
+func _test_all_cards_play() -> void:
+	Game.reset_all()
+	var ok := 0
+	for id: String in CardDB.CARDS:
+		for up: bool in [false, true]:
+			var eng := _engine_with(["slag_crawler", "ash_slime"], [])
+			var c := Card.new(id, up)
+			eng.hand.append(c)
+			eng.enemies[0].add_status("scorch", 3)
+			if c.is_playable():
+				eng.play_card(c, eng.enemies[0])
+			elif eng.can_burn(c):
+				eng.burn_card(c)
+			var c2 := Card.new(id, up)
+			eng.hand.append(c2)
+			eng.burns_left = 2
+			if eng.can_burn(c2):
+				eng.burn_card(c2)
+			eng.end_player_turn()
+			eng.begin_enemy_phase()
+			for e in eng.enemies.duplicate():
+				eng.enemy_act(e)
+			eng.end_enemy_phase()
+			ok += 1
+	check(ok == CardDB.CARDS.size() * 2, "todas las cartas jugadas y quemadas")
+	# Cada enemigo actúa varios turnos sin romper nada.
+	for eid: String in EnemyDB.ENEMIES:
+		var eng2 := _engine_with([eid], [])
+		for t in 5:
+			eng2.end_player_turn()
+			eng2.begin_enemy_phase()
+			for e in eng2.enemies.duplicate():
+				eng2.enemy_act(e)
+			eng2.end_enemy_phase()
+			if eng2.over:
+				break
+	check(true, "todos los enemigos actúan")
+	Game.run = null
+	Game.reset_all()

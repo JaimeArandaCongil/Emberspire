@@ -8,7 +8,7 @@ var is_player := false
 var hp := 1
 var max_hp := 1
 var block := 0
-var statuses := {}   # str, vuln, weak, scorch
+var statuses := {}   # str, vuln, weak, scorch, thorns, regen, choke
 var powers := {}     # sólo jugador
 # Enemigo
 var moves: Array = []
@@ -22,6 +22,9 @@ var sprite_seed := ""
 var biome := 0
 var is_boss := false
 var is_elite := false
+var on_death: Array = []
+## Ascuas robadas (Urracas): se devuelven dobles al matarla.
+var stolen := 0.0
 
 
 func alive() -> bool:

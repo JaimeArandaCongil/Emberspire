@@ -5,8 +5,8 @@ extends RefCounted
 const DOOR_INFO := {
 	"combat": {"name": "Combate", "icon": "sword", "desc": "Enemigos comunes. Recompensa: carta y Ascuas."},
 	"elite": {"name": "Élite", "icon": "skull", "desc": "Enemigo poderoso. Recompensa: reliquia."},
-	"rest": {"name": "Hoguera", "icon": "flame", "desc": "Descansa o templa una carta."},
-	"shop": {"name": "Yunque Errante", "icon": "anvil", "desc": "Gasta Ascuas en cartas y servicios."},
+	"rest": {"name": "Hoguera", "icon": "bonfire", "desc": "Descansa, templa una carta o haz una ofrenda."},
+	"shop": {"name": "Yunque Errante", "icon": "anvil", "desc": "Gasta Ascuas en cartas, reliquias y servicios."},
 	"event": {"name": "Misterio", "icon": "eye", "desc": "Algo se mueve entre el humo..."},
 	"treasure": {"name": "Tesoro", "icon": "chest", "desc": "Un cofre olvidado."},
 	"boss": {"name": "JEFE", "icon": "crown", "desc": "El guardián del acto."},
@@ -14,6 +14,11 @@ const DOOR_INFO := {
 
 var deck: Array[Card] = []
 var relics: Array[String] = []
+## Resonancias activas (ventajas de los generadores de la Forja).
+var perks: Array[String] = []
+## Pactos de Brasa activos en esta ascensión.
+var pacts: Array[String] = []
+var seen_events: Array[String] = []
 var hp := 60
 var max_hp := 60
 var floor_num := 0
@@ -26,6 +31,7 @@ var ember_mult := 1.0
 var embers_earned := 0.0
 var kills := 0
 var burned := 0
+var mastery_ups := 0
 var phoenix_available := false
 var pending_doors: Array[String] = []
 ## true mientras se está dentro de una sala (combate, tienda...). Al cargar se repite el piso.
@@ -33,8 +39,20 @@ var in_room := false
 var rng := RandomNumberGenerator.new()
 
 
+## Reliquia o Resonancia activa.
 func has_relic(id: String) -> bool:
-	return relics.has(id)
+	return relics.has(id) or perks.has(id)
+
+
+func has_pact(id: String) -> bool:
+	return pacts.has(id)
+
+
+func heat() -> int:
+	var h := 0
+	for id in pacts:
+		h += int(ForgeDB.pact(id).get("heat", 0))
+	return h
 
 
 func add_relic(id: String) -> void:
@@ -47,6 +65,23 @@ func add_relic(id: String) -> void:
 			hp += 12
 		"moneylender_lens":
 			ember_mult *= 1.3
+		"ember_coin":
+			ember_mult *= 1.2
+		"phoenix_ash":
+			phoenix_available = true
+		"ember_lantern":
+			draw_per_turn += 1
+		"cracked_core":
+			max_energy += 1
+		"leather_bellows":
+			pass  # Se aplica en CombatEngine (Quemas por turno).
+	if is_inside_codex_hook():
+		Game.collect_relic(id)
+
+
+## Las reliquias de ascensiones reales entran en el Reliquario (los tests usan runs sueltas).
+func is_inside_codex_hook() -> bool:
+	return Game.run == self
 
 
 func heal(n: int) -> void:
@@ -67,12 +102,12 @@ func roll_doors(extra: int = 0) -> Array[String]:
 		return ["rest", "shop"]
 	if next == 1:
 		return ["combat", "combat"]
-	var weights := {"combat": 46, "elite": 0 if in_act < 4 else 13, "rest": 10 if in_act > 2 else 0,
-		"shop": 10, "event": 13, "treasure": 6}
-	var count := 3 + extra
+	var weights := {"combat": 44, "elite": 0 if in_act < 4 else 13, "rest": 10 if in_act > 2 else 0,
+		"shop": 10, "event": 16, "treasure": 6}
+	var count := 3 + extra + (1 if has_relic("scorched_map") else 0)
 	var out: Array[String] = []
 	var guard := 0
-	while out.size() < count and guard < 50:
+	while out.size() < count and guard < 60:
 		guard += 1
 		var pick := _weighted(weights)
 		# Evita repetir tipos no combativos en el mismo piso.
@@ -94,8 +129,11 @@ func _weighted(weights: Dictionary) -> String:
 	return "combat"
 
 
-## Tres cartas para elegir tras un combate.
+## Cartas para elegir tras un combate.
 func roll_card_rewards(packs: Array, count: int = 3, elite: bool = false) -> Array[Card]:
+	if has_relic("res_crucible1"):
+		count += 1
+	var up_chance := 0.08 + floor_num * 0.006 + (0.15 if has_relic("res_crucible2") else 0.0)
 	var out: Array[Card] = []
 	var used: Array[String] = []
 	for i in count:
@@ -114,7 +152,7 @@ func roll_card_rewards(packs: Array, count: int = 3, elite: bool = false) -> Arr
 			id = pool[rng.randi_range(0, pool.size() - 1)]
 			tries += 1
 		used.append(id)
-		out.append(Card.new(id, rng.randf() < 0.08 + floor_num * 0.006))
+		out.append(Card.new(id, rng.randf() < up_chance))
 	return out
 
 
@@ -124,9 +162,10 @@ func to_dict() -> Dictionary:
 	var cards: Array = []
 	for c in deck:
 		cards.append([c.id, c.upgraded])
-	return {"deck": cards, "relics": relics, "hp": hp, "max_hp": max_hp, "floor": floor_num,
+	return {"deck": cards, "relics": relics, "perks": perks, "pacts": pacts, "seen_events": seen_events,
+		"hp": hp, "max_hp": max_hp, "floor": floor_num,
 		"energy": max_energy, "draw": draw_per_turn, "burns": burns_per_turn, "str": start_str, "dmg_mult": dmg_mult,
-		"ember_mult": ember_mult, "embers": embers_earned, "kills": kills, "burned": burned,
+		"ember_mult": ember_mult, "embers": embers_earned, "kills": kills, "burned": burned, "mastery_ups": mastery_ups,
 		"phoenix": phoenix_available, "doors": pending_doors, "in_room": in_room, "seed": str(rng.seed), "state": str(rng.state)}
 
 
@@ -137,6 +176,12 @@ static func from_dict(d: Dictionary) -> RunState:
 			r.deck.append(Card.new(str(e[0]), bool(e[1])))
 	for id in d.get("relics", []):
 		r.relics.append(str(id))
+	for id in d.get("perks", []):
+		r.perks.append(str(id))
+	for id in d.get("pacts", []):
+		r.pacts.append(str(id))
+	for id in d.get("seen_events", []):
+		r.seen_events.append(str(id))
 	r.hp = int(d.get("hp", 60))
 	r.max_hp = int(d.get("max_hp", 60))
 	r.floor_num = int(d.get("floor", 0))
@@ -149,6 +194,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.embers_earned = float(d.get("embers", 0.0))
 	r.kills = int(d.get("kills", 0))
 	r.burned = int(d.get("burned", 0))
+	r.mastery_ups = int(d.get("mastery_ups", 0))
 	r.phoenix_available = bool(d.get("phoenix", false))
 	for k in d.get("doors", []):
 		r.pending_doors.append(str(k))

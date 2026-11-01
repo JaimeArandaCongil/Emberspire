@@ -1,11 +1,14 @@
 class_name Card
 extends RefCounted
 ## Instancia de carta dentro de un mazo. La definición vive en CardDB.
+## La Maestría (Game.mastery) escala sus números: las cartas que quemas recuerdan el fuego.
 
 static var _next_uid := 1
 
 var id: String
 var upgraded: bool
+## Mejora temporal (sólo este combate): Reforjar, Aleación, Tenazas...
+var temp_up := false
 var uid: int
 
 
@@ -20,17 +23,29 @@ func def() -> Dictionary:
 	return CardDB.get_def(id)
 
 
+func is_up() -> bool:
+	return upgraded or temp_up
+
+
 func title() -> String:
-	return def()["name"] + ("+" if upgraded else "")
+	return def()["name"] + ("+" if is_up() else "")
 
 
 func type() -> String:
 	return def()["type"]
 
 
+func rarity() -> String:
+	return def()["rarity"]
+
+
+func mastery() -> int:
+	return Game.mastery_level(id)
+
+
 func cost() -> int:
 	var d := def()
-	if upgraded and d.has("up_cost"):
+	if is_up() and d.has("up_cost"):
 		return d["up_cost"]
 	return d["cost"]
 
@@ -52,22 +67,28 @@ func is_playable() -> bool:
 	return true
 
 
+func is_burnable() -> bool:
+	return not def().get("unburnable", false)
+
+
 func exhausts() -> bool:
 	return def().get("exhaust", false)
 
 
+func has_kw(key: String) -> bool:
+	return def().get(key, false)
+
+
 func effects() -> Array:
 	var d := def()
-	if upgraded and d.has("up"):
-		return d["up"]
-	return d.get("fx", [])
+	var ops: Array = d["up"] if is_up() and d.has("up") else d.get("fx", [])
+	return CardDB.scale_ops(ops, mastery())
 
 
 func burn_effects() -> Array:
 	var d := def()
-	if upgraded and d.has("up_burn"):
-		return d["up_burn"]
-	return d.get("burn", [])
+	var ops: Array = d["up_burn"] if is_up() and d.has("up_burn") else d.get("burn", [])
+	return CardDB.scale_ops(ops, mastery())
 
 
 func can_upgrade() -> bool:
