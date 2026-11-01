@@ -445,7 +445,7 @@ static func _op_text(op: Array, engine: Object) -> String:
 		"dmg": return "Inflige %s de daño." % _dmg(op[1], engine)
 		"dmg_x": return "Inflige %s de daño %s veces." % [_dmg(op[1], engine), _n(op[2])]
 		"dmg_all": return "Inflige %s de daño a TODOS." % _dmg(op[1], engine)
-		"dmg_rand": return "Inflige %s de daño a un enemigo al azar%s." % [_dmg(op[1], engine), "" if op[2] == 1 else " %s veces" % _n(op[2])]
+		"dmg_rand": return "%s de daño a un enemigo al azar%s." % [_dmg(op[1], engine), "" if op[2] == 1 else " %s veces" % _n(op[2])]
 		"dmg_xcost": return "Inflige %s de daño X veces." % _dmg(op[1], engine)
 		"dmg_per_burned": return "Inflige %s de daño, +%s por Calor." % [_dmg(op[1], engine), _n(op[2])]
 		"dmg_all_per_burned": return "Inflige %s de daño a TODOS, +%s por Calor." % [_dmg(op[1], engine), _n(op[2])]

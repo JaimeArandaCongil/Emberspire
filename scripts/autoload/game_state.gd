@@ -97,13 +97,18 @@ func _notification(what: int) -> void:
 # --- Economía -------------------------------------------------------------
 
 func global_mult(with_glow := true) -> float:
-	var m := (1.0 + BRAZIER_BONUS * max_floor) * (1.0 + STARDUST_BONUS * stardust_total) * codex_mult()
+	var m := (1.0 + BRAZIER_BONUS * max_floor) * stardust_mult() * codex_mult()
 	if with_glow:
 		m *= 1.0 + glow_active()
 	return m
 
 
 ## Bonificación de Resplandor activa ahora (0 si ha caducado).
+## Polvo Estelar: +10% por punto hasta 100; después, +3% por punto (rendimiento decreciente).
+func stardust_mult() -> float:
+	return 1.0 + STARDUST_BONUS * minf(stardust_total, 100.0) + 0.03 * maxf(0.0, stardust_total - 100.0)
+
+
 func glow_active() -> float:
 	return glow_value if Time.get_unix_time_from_system() < glow_until else 0.0
 
@@ -575,7 +580,7 @@ func buy_talent(id: String) -> bool:
 # --- Renacer --------------------------------------------------------------
 
 func rebirth_gain() -> int:
-	var g := sqrt(life_embers / 1.0e6) * (1.0 + max_floor / 50.0)
+	var g := pow(life_embers / 1.0e6, 0.45) * (1.0 + max_floor / 50.0)
 	if talents.has("stellar_greed"):
 		g *= 1.5
 	return int(floor(g))
@@ -689,7 +694,7 @@ func start_run(seed_value: int = -1, from_floor: int = 1) -> RunState:
 		add_stat("checkpoint_runs", 1)
 		var skipped := from_floor - 1
 		r.floor_num = skipped
-		r.pending_drafts = mini(10, int(skipped / 3))
+		r.pending_drafts = mini(8, int(skipped / 4))
 		var bosses := int(skipped / 10)
 		r.pending_boss_relics = bosses
 		for i in bosses:

@@ -98,8 +98,8 @@ func _test_economy() -> void:
 	check(ForgeDB.max_affordable(g, 0, sum) == 10, "max asequible = 10")
 	Game.max_floor = 10
 	check(is_equal_approx(Game.production(), 0.5 * 2.0), "braseros duplican a piso 10")
-	Game.life_embers = 6.25e6
-	check(Game.rebirth_gain() == 3, "polvo estelar (√6.25 × 1.2 = 3): %d" % Game.rebirth_gain())
+	Game.life_embers = 8.0e6
+	check(Game.rebirth_gain() == 3, "polvo estelar (8^0.45 × 1.2 = 3): %d" % Game.rebirth_gain())
 	check(Game.rebirth(), "renacer")
 	check(Game.gen_count("spark") == 0 and Game.stardust_total == 3.0, "renacer reinicia y otorga polvo")
 	Game.reset_all()
@@ -301,7 +301,7 @@ func _test_resonance_and_pacts() -> void:
 	var e1 := CombatEngine.new()
 	e1.bank_embers = false
 	e1.setup(r, ["coalfather"], 10, "boss")
-	check(e1.enemies[0].max_hp == int(round(int(round(130 * (1.0 + 0.06 * 9))) * 1.25 * 1.5)), "pactos escalan PV del jefe (%d)" % e1.enemies[0].max_hp)
+	check(e1.enemies[0].max_hp == int(round(int(round(130 * (1.0 + 0.08 * 9))) * 1.25 * 1.5)), "pactos escalan PV del jefe (%d)" % e1.enemies[0].max_hp)
 	var before := Game.embers
 	Game.gain_tower_embers(100.0, "test")
 	check(is_equal_approx(Game.embers - before, 160.0), "calor 3 → ×1.6 Ascuas (%f)" % (Game.embers - before))
@@ -535,12 +535,12 @@ func _test_v03() -> void:
 	e2.hand.append(s2)
 	e2.energy = 5
 	e2.play_card(s2, e2.enemies[0])
-	check(is_equal_approx(Game.mastery_xp("strike"), 0.25), "jugar da 0.25 de Maestría")
+	check(is_equal_approx(Game.mastery_xp("strike"), 0.15), "jugar da 0.15 de Maestría")
 	var s3 := Card.new("strike")
 	e2.hand.append(s3)
 	e2.burns_left = 1
 	e2.burn_card(s3, true)
-	check(is_equal_approx(Game.mastery_xp("strike"), 2.25), "caliente da 2 de Maestría")
+	check(is_equal_approx(Game.mastery_xp("strike"), 2.15), "caliente da 2 de Maestría")
 	Game.run = null
 	# Temple.
 	Game.reset_all()
@@ -600,7 +600,7 @@ func _test_v03() -> void:
 	Game.max_floor = 25
 	check(Game.checkpoints() == [1, 11], "puntos de control (%s)" % str(Game.checkpoints()))
 	var r7 := Game.start_run(5, 11)
-	check(r7.floor_num == 10 and r7.pending_drafts == 3 and r7.pending_boss_relics == 1, "compensación del punto de control")
+	check(r7.floor_num == 10 and r7.pending_drafts == 2 and r7.pending_boss_relics == 1, "compensación del punto de control")
 	Game.run = null
 	Game.grimoires = {"pyre": true, "anvil": true, "ash": true}
 	check(Game.active_grimoire_list().size() == 2, "2 Grimorios activos por defecto")

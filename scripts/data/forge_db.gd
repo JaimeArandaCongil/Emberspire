@@ -72,7 +72,7 @@ const PACTS: Array[Dictionary] = [
 	{"id": "pact_dmg", "name": "Colmillos", "heat": 1, "icon": "fang", "desc": "Los enemigos infligen +20% de daño."},
 	{"id": "pact_elite", "name": "Élites Coronadas", "heat": 1, "icon": "crown", "desc": "Élites y jefes empiezan con 3 de Fuerza."},
 	{"id": "pact_rest", "name": "Hogueras Mortecinas", "heat": 1, "icon": "bonfire", "desc": "Las Hogueras curan la mitad."},
-	{"id": "pact_frost", "name": "Mazo Empapado", "heat": 1, "icon": "wet_ash", "desc": "Empiezas la ascensión con 2 Cenizas Empapadas en el mazo (no se pueden quemar)."},
+	{"id": "pact_frost", "name": "Mazo Empapado", "heat": 1, "icon": "wet_ash", "desc": "Empiezas con 2 Cenizas Empapadas (no se queman)."},
 	{"id": "pact_burn", "name": "Horno Avaro", "heat": 2, "icon": "furnace", "desc": "−1 Quema en el primer turno de cada combate."},
 	{"id": "pact_boss", "name": "Guardianes Antiguos", "heat": 2, "icon": "skull", "desc": "Los jefes tienen +50% PV."},
 	{"id": "pact_hunger", "name": "Hambre", "heat": 2, "icon": "goblet", "desc": "Derrotar a un jefe no te cura."},

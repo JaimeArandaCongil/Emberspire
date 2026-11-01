@@ -25,7 +25,7 @@ El script falla si aparece cualquier `SCRIPT ERROR` o `Parse Error`, no sólo si
 - [ ] Ceniza Húmeda no se puede quemar (aviso) y desaparece al acabar el turno.
 
 ## Evidencia de esta versión
-- `tests/run_tests.sh`: **1581 comprobaciones, 0 fallos**.
+- `tests/run_tests.sh`: **1745 comprobaciones, 0 fallos** (v0.3).
 - `tests/smoke.tscn`: 23 capturas en `screenshots/`, `SMOKE OK`, sin errores de script.
 - `tests/progression_sim.tscn`: 8 h simuladas sin errores de script.
 - Limitación: el input con ratón se ejercita por script (`_try_burn`, `_play`, `_on_enter`), no con clics reales.

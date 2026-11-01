@@ -18,9 +18,19 @@ para siempre. Los generadores de la Forja **Resuenan** y te dan ventajas en la T
 |---|---|
 | Jugar carta | Clic izquierdo (ataques con varios enemigos: clic en carta y luego en enemigo) |
 | **Quemar carta** | Clic derecho (o seleccionar y pulsar el horno) |
+| **Quemar en caliente** (×2, paga su Energía) | Mayús + clic derecho |
 | Fin de turno | Botón, `Espacio` o `E` |
 | Ver mazo de robo / descarte | Clic en las pilas (abajo a izquierda y derecha) |
 | Cancelar selección | `Esc` o clic derecho fuera de las cartas |
+
+## Novedades v0.3 (tras revisión de expertos de diseño y arte)
+- **Quema en caliente** (Mayús + clic derecho): pagas la Energía de la carta y la quema vale ×2. Vista previa al pasar el ratón.
+- **Temple** en Maestría 3 (Filo o Brasa), **Resplandor** de la Forja al volver de la Torre, **Brasas Vivas** (bote de racha)
+- **Resonancias elegibles** (42), **Constelaciones**, **Grimorios activos**, **puntos de control**, puertas con enemigos y rasgo
+- Afijos de ciclo, enemigos que reaccionan a la quema, Urracas que huyen
+- Arte rehecho a una única rejilla ×4: heroína nueva, monstruos y jefes dibujados a mano, fondos por acto, cartas con
+  pergamino y ventana por tipo, fuente pixel, animación por fotogramas con hitstop
+- Revisiones y debate en [docs/reviews/](docs/reviews/debate.md)
 
 ## Contenido v0.2
 - **94 cartas** (90 coleccionables + 4 iniciales) en 7 colecciones (Base, Pira, Yunque, Forja, Ceniza, Crisol, Solar) + 1 ficha y 3 estados

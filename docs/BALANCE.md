@@ -1,4 +1,27 @@
-# Balance — informe de Diseño (v0.2)
+# Balance — informe de Diseño (v0.3)
+
+## v0.3 — tras la revisión de diseño
+Cambios económicos acordados en el debate (`docs/reviews/debate.md`) y medidos con `progression_sim` (8 h, IA que ya
+quema en caliente, elige Temple, usa puntos de control y cobra Brasas Vivas):
+
+| Métrica | v0.2 | v0.3 |
+|---|---|---|
+| Ascuas del idle (incl. Resplandor) | 10.9% | **~35%** |
+| Quemar | 52.5% | ~37% |
+| Oleadas de victoria | 30.2% | ~11% |
+| Récord piso 10 / 30 / 60 | 13 / 93 / 390 min | 13 / 112 / 163 min |
+| Polvo Estelar a las 4 h | ~140 (sin nada en qué gastarlo) | ~550 con 8 Constelaciones como sumidero |
+
+Iteración: la primera versión de v0.3 (ciclo ×3.5, Maestría al jugar 0.25, Renacer √) dejó el récord saltando del 13 al 50
+en una ascensión y 480.000 de Polvo sin gastar a las 7.5 h. Ajustes: ciclo **×4** (con afijos encima), PV por piso del acto
+**+8%**, Maestría al jugar **0.15**, Renacer **^0.45**, Polvo con rendimiento decreciente desde 100 (**+3%/punto**),
+compensación del punto de control **1 carta cada 4 pisos (máx. 8)**.
+
+Pendiente de vigilar: el salto del 30 al 60 en una sola ascensión empezando desde punto de control (minuto ~160).
+
+---
+
+# Informe v0.2 (histórico)
 
 Dos simulaciones headless. Las IA juegan peor que una persona (no compran en la tienda, eligen cartas por rareza):
 los resultados son un **suelo**, no un techo.

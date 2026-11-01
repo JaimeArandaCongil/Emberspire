@@ -349,7 +349,7 @@ func play_card(card: Card, target: Fighter = null) -> bool:
 			_play_mult *= 1.5
 		_attacks_this_turn += 1
 	if bank_embers:
-		var lvl := Game.add_mastery(card.id, 0.25)
+		var lvl := Game.add_mastery(card.id, 0.15)
 		if lvl > 0:
 			run.mastery_ups += 1
 			event.emit("mastery", {"card": card, "level": lvl})

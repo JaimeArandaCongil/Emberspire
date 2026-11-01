@@ -18,10 +18,16 @@ Participantes: dirección (implementación), agente de game design (`design_revi
 - Monstruos: plantillas a mano por bloques de prioridad (gólem, caballero, urraca, sabueso, murciélago, jefes acto 1 → acto 2 → acto 3); formas frontales siguen simétricas.
 - Reparto de archivos: el agente de arte implementa `art.gd`, `ui.gd`, `card_view.gd`, `fighter_view.gd`, título, hoguera y la parte visual del combate.
 
-## Estado
-Implementado (diseño): quema en caliente, Temple, Maestría al jugar, Resplandor, Brasas Vivas, Resonancias elegibles (21 nuevas), Constelaciones (8), Grimorios activos, checkpoints, puertas con encuentro y rasgo, tesoro con precio, afijos, 3 enemigos reactivos, topes de cartas de Forja, Ceniza escalando con Filo Eterno, pase de cartas y reliquias, Urracas que huyen, Autoforja con reserva, introducción por capas. 1737 comprobaciones en verde.
+## Estado final v0.3
+Diseño implementado: quema en caliente (Mayús + clic derecho, con vista previa en la carta), Temple, Maestría al jugar,
+Resplandor, Brasas Vivas (cobro en Hoguera o al retirarse), 21 Resonancias alternativas, 8 Constelaciones, Grimorios activos,
+puntos de control con borradores, puertas con encuentro y rasgo, tesoro con precio, afijos de ciclo, 3 enemigos reactivos,
+élite con 1 de 2 reliquias, Purga, topes de cartas de Forja, Ceniza con Filo Eterno, pase de cartas/reliquias,
+Urracas que huyen, Autoforja con reserva, introducción por capas y tutorial en la primera ascensión.
 
-Pendiente:
-- **Rebalance**: la simulación de 8 h tras los cambios da idle 35% (objetivo cumplido) pero la progresión se acelera demasiado (récord 13 → 50 en una ascensión; Polvo sin gastar ~480K). Hay que endurecer y re-medir.
-- UI de combate (tras el pase de arte): Mayús+clic derecho para quemar en caliente con vista previa, aviso de huida de Urraca, pista del tutorial, élite con 1 de 2 reliquias, Purga, opción «Enviar Brasas Vivas» en la Hoguera.
-- Pase de arte del agente de arte (en curso; resumen en `art_changes.md` al terminar).
+Arte implementado por el agente de arte: ver `art_changes.md`.
+
+Rebalance (iteración tras medir): ver `docs/BALANCE.md` §v0.3.
+
+Pendiente para la siguiente versión: Lingotes (descartado de momento), segunda Crónica con desbloqueos,
+paneles 9-slice pixel, luces dinámicas, piezas propias de élites, playtest humano con ratón.
