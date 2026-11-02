@@ -99,7 +99,7 @@
 		},
 		"flame_moth": {
 			"src": "res://scripts/art/defs/creatures/flame_moth.gd",
-			"hash": "cd45b00e1f266c0d5f3f2af28711520a656acee23b817461186f8ba510231c91",
+			"hash": "acbbdcb37bc89d5a26abe2f61287860589e5563746fb93849faa00d113ed10a3",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/flame_moth_idx.png",
@@ -107,8 +107,8 @@
 				"res://assets/baked/creatures/flame_moth.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/flame_moth_idx.png": "017313834a9e574e5c4c7a96dbf8e4aa",
-				"res://assets/baked/creatures/flame_moth_prev.png": "c928e203692f231684c5dd720a862367"
+				"res://assets/baked/creatures/flame_moth_idx.png": "c4e467482b5c0f9ba644ede735a68317",
+				"res://assets/baked/creatures/flame_moth_prev.png": "a6fe79cb59b77927ea508a65fb4447ce"
 			}
 		},
 		"fogonera": {
@@ -181,7 +181,7 @@
 		},
 		"soot_golem": {
 			"src": "res://scripts/art/defs/creatures/soot_golem.gd",
-			"hash": "6413910d48306d1952c66123b24a7ac7457b3909afbfc301c68b4013bf40af6e",
+			"hash": "7e215d265815f6679f7e96aad70e2f973e5a9cffa7e75e66630b865f83e3fa61",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/soot_golem_idx.png",
@@ -193,8 +193,8 @@
 			"md5": {
 				"res://assets/baked/creatures/soot_golem_idx.png": "39cea10fbcb05353d90b4bd6f22e6605",
 				"res://assets/baked/creatures/soot_golem_prev.png": "704dc976fa2b23578bd04427562412e6",
-				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "53b040820e92101a3522f422f70cce13",
-				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "9d2865c1a2a70670d4cbda5700fd01a0"
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "ae26d826dec1a0c30e482f34ec539ce7",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "0d1861c8ec0018aae894374c2bec16f9"
 			}
 		}
 	}

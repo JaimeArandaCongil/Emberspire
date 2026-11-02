@@ -60,7 +60,7 @@ static func build() -> RigDef:
 	b.bone(&"near_fore", &"body", Vector2(3, -6), {"z": 8.0})
 	b.bone(&"dust", &"root", Vector2.ZERO, {"z": 20.0})
 	# Alas lejanas: espejo, más oscuras y con el ocelo apagado (detrás del cuerpo).
-	var far := {"1": [&"wing", 1], "2": [&"wing", 3], "3": [&"wing", 4], "r": [&"wing", 6], "O": [&"wing", 7], "W": [&"wing", 8], "Y": [&"wing", 8]}
+	var far := {"1": [&"wing", 2], "2": [&"wing", 4], "3": [&"wing", 5], "r": [&"wing", 6], "O": [&"wing", 7], "W": [&"wing", 8], "Y": [&"wing", 8]}
 	b.slab(&"ff", &"far_fore", _mirror(FORE), Vector2(-27, -15), far, 0.0, 1.0, 1.0)
 	b.slab(&"fh", &"far_hind", _mirror(HIND), Vector2(-14, 0), far, 0.0, 1.0, 1.0)
 	# Cuerpo: abdomen anillado que cuelga, tórax de pelo, cabeza con ojos enormes.
@@ -84,8 +84,8 @@ static func build() -> RigDef:
 		"....kk..k...",
 		"....k.......",
 	], {"k": [&"fur", 3], "h": [&"fur", 5]}, {"anchor": Vector2i(4, 5)})
-	# Alas cercanas: anterior con ocelo emisivo, posterior más pequeña.
-	var near := {"1": [&"wing", 3], "2": [&"wing", 5], "3": [&"wing", 7], "r": [&"fire", 2], "O": [&"fire", 4], "W": [&"fire", 6], "Y": [&"fire", 7]}
+	# Alas cercanas: anterior con ocelo emisivo, posterior más pequeña. Rampa un paso más clara (F2-PULIDO-D: contraste ≥ 0,10).
+	var near := {"1": [&"wing", 4], "2": [&"wing", 6], "3": [&"wing", 8], "r": [&"fire", 2], "O": [&"fire", 4], "W": [&"fire", 6], "Y": [&"fire", 7]}
 	b.slab(&"nh", &"near_hind", HIND, Vector2(0, 0), near, 0.0, 1.0, 1.0)
 	b.slab(&"nf", &"near_fore", FORE, Vector2(0, -15), near, 0.0, 1.0, 1.0)
 	# Polvo de escamas: cae en bucle bajo las alas.
