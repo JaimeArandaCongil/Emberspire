@@ -8,7 +8,7 @@ Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/r
 |---|---|---|---|---|
 | F2-INT | Integrar el combate: WorldView, sprites, luz por estado, partículas, mano, HUD, efectos | `art-integrator` | `scripts/ui/fighter_view.gd`, `scripts/ui/screens/combat_screen.gd`, `scripts/art/rig/**`, `scripts/art/light_rig.gd`, `scripts/art/sprite_bank.gd`, `tests/smoke.gd`, `project.godot` | pendiente |
 | F2-FX | Forja de combate, salas horneadas, BurnFX, HitFX, muerte, estados, invocación | `world-artist` (opus) | `scripts/art/bg/**`, `scripts/ui/world/**` salvo `world_view.gd`, `tools/bake_rooms.gd`, `assets/baked/rooms/**`, `tests/art/test_mv.gd` | pendiente |
-| F2-TRIAL | Prueba de Sonnet: 1 criatura y 3 ilustraciones | `creature-artist`, `card-illustrator` | según encargo | pendiente |
+| F2-TRIAL | Prueba de Sonnet: 1 criatura y 3 ilustraciones | Sonnet | `ash_glutton`, `set_pyre.gd` | hecho: no superada, se rehacen en fase 3 con Opus |
 | F2-REV | Revisión del corte con capturas; nota ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | tras INT y FX |
 
 ## Hecho hasta ahora
@@ -22,6 +22,7 @@ Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/r
 - Sin probar: GPU integrada y WebGL2. Animaciones nunca vistas en juego con el shader.
 - Pasada de nivel A de las ilustraciones y regla de combinación única: comprobar el estado en `tests/art/test_ui.gd`.
 - `ART_BIBLE.md` debe incorporar `formato_indice.md` (o enlazarlo).
+- Las notas ciegas de lo hecho con Opus (6–7,5) aún no llegan al objetivo de 8: aplicar `director/prueba_ciega.md`. Las 15 ilustraciones superan el límite de 12 colores.
 - Calidad de salas: muro del tiro plano, saeteras lejanas, vetas en escalera.
 
 ## Siguientes fases

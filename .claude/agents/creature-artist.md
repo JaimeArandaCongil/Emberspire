@@ -1,7 +1,7 @@
 ---
 name: creature-artist
-description: Crea criaturas y jefes como definiciones de rig en scripts/art/defs. Usa model opus para jefes y la primera criatura de cada familia.
-model: sonnet
+description: Crea criaturas y jefes como definiciones de rig en scripts/art/defs.
+model: opus
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 Trabajas en EMBERSPIRE. Lee primero `CLAUDE.md` y sigue sus reglas; lee sólo lo que indica para tu tarea.

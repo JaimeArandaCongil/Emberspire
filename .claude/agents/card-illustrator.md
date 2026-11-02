@@ -1,7 +1,7 @@
 ---
 name: card-illustrator
-description: Crea ilustraciones de carta en scripts/art/cards/illus. Usa model opus para las de nivel A.
-model: sonnet
+description: Crea ilustraciones de carta en scripts/art/cards/illus.
+model: opus
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 Trabajas en EMBERSPIRE. Lee primero `CLAUDE.md` y sigue sus reglas; lee sólo lo que indica para tu tarea.

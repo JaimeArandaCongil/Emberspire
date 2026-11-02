@@ -14,6 +14,7 @@ const _Px := preload("res://scripts/art/cards/illus/illus_px.gd")
 const _Bg := preload("res://scripts/art/cards/illus/backdrops.gd")
 const _Pal := preload("res://scripts/art/cards/card_pal.gd")
 const _SetBase := preload("res://scripts/art/cards/illus/set_base.gd")
+const _SetPyre := preload("res://scripts/art/cards/illus/set_pyre.gd")
 const W := 68
 const H := 46
 
@@ -22,12 +23,13 @@ static var _tex_cache := {}
 
 
 static func has(id: String) -> bool:
-	return _SetBase.IDS.has(id)
+	return _SetBase.IDS.has(id) or _SetPyre.IDS.has(id)
 
 
 static func ids() -> Array[String]:
 	var out: Array[String] = []
 	out.append_array(_SetBase.IDS)
+	out.append_array(_SetPyre.IDS)
 	return out
 
 
@@ -39,6 +41,8 @@ static func image(id: String, type: String = "attack", icon: String = "") -> Ima
 	var img: Image = null
 	if _SetBase.IDS.has(id):
 		img = _SetBase.build(id)
+	elif _SetPyre.IDS.has(id):
+		img = _SetPyre.build(id)
 	if img == null:
 		img = fallback(type, icon)
 	_img_cache[key] = img

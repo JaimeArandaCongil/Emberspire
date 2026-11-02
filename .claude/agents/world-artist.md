@@ -1,7 +1,7 @@
 ---
 name: world-artist
-description: Crea salas, ambientes y efectos del mundo en scripts/art/bg y scripts/ui/world. Usa model opus para piezas clave como la Forja o el efecto de quemar.
-model: sonnet
+description: Crea salas, ambientes y efectos del mundo en scripts/art/bg y scripts/ui/world.
+model: opus
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 Trabajas en EMBERSPIRE. Lee primero `CLAUDE.md` y sigue sus reglas; lee sólo lo que indica para tu tarea.

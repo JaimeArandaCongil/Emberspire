@@ -16,4 +16,5 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Onda de quemar | **Aceptada** al 16–19 % de píxeles en movimiento, como evento puntual fuera del presupuesto del 6 % |
 | Variantes de sala | 4 de sala normal y 2 de tiro, cada una para ciclo I y ciclo II+ (ciclos posteriores usan II). Piso → variante por hash determinista. Se hornean en `assets/baked/rooms/` |
 | Brasero de la sala de tiro | Se aparta del hueco del tercer enemigo (centro x 572) |
-| Flujo de agentes | Un agente nuevo por paquete, 2–3 a la vez, commit al cerrar. Modelos en `.claude/agents/`; Sonnet sólo tras superar la prueba ciega de DA |
+| Flujo de agentes | Un agente nuevo por paquete, 2–3 a la vez, commit al cerrar. Modelos en `.claude/agents/` |
+| Modelo para producir arte | **Opus**. Sonnet no superó la prueba ciega (criatura 4,5 frente a 6 y 7,5; ilustraciones 6 frente a 7,5; `reviews/v04/director/prueba_ciega.md`). Sonnet sólo para conexiones, tests y documentación; Haiku para QA mecánica |
