@@ -57,7 +57,7 @@
 		},
 		"candle_mite": {
 			"src": "res://scripts/art/defs/creatures/candle_mite.gd",
-			"hash": "2ab522d99e8fa477fb35d2269da94466ce7f9e99c90dddeb2f3c0651c49f1c2b",
+			"hash": "c992f5b65817907c20614a57dc2ad18b8e8dbb2ed1ef996ce5bcfd68648219b8",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/candle_mite_idx.png",
@@ -65,13 +65,13 @@
 				"res://assets/baked/creatures/candle_mite.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/candle_mite_idx.png": "fea62ef92947ba72b9aa7e8c340c5c72",
-				"res://assets/baked/creatures/candle_mite_prev.png": "7873321bf20743aea3e0cf5fbb4aced8"
+				"res://assets/baked/creatures/candle_mite_idx.png": "0711a670fe446ac8b6dd27995dd3e37c",
+				"res://assets/baked/creatures/candle_mite_prev.png": "3ddaabeff417e5daf526fa578a61c8db"
 			}
 		},
 		"cinder_bat": {
 			"src": "res://scripts/art/defs/creatures/cinder_bat.gd",
-			"hash": "d2096021d06a996fa07c66ec10c8174cffdd814a9d99203d423930c4a9bb6b40",
+			"hash": "5b343fd8354f7d70f205a4e2a9825370f4e1496a2760ad10f549ab39c9ae4b59",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/cinder_bat_idx.png",
@@ -79,8 +79,8 @@
 				"res://assets/baked/creatures/cinder_bat.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/cinder_bat_idx.png": "3184f9b9ab1f1ad6ee40c4c0196f9845",
-				"res://assets/baked/creatures/cinder_bat_prev.png": "a5d700594586c3e61c1709b7e490eea2"
+				"res://assets/baked/creatures/cinder_bat_idx.png": "0afd987e5bcfca85501d608451301762",
+				"res://assets/baked/creatures/cinder_bat_prev.png": "ba01d01dbd6426851afda9b502d5cc41"
 			}
 		},
 		"ember_magpie": {

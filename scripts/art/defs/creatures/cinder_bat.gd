@@ -9,41 +9,60 @@ extends RefCounted
 ## Altura de vuelo: px de arte del origen (centro del cuerpo) al suelo.
 const HOVER := 46
 
+## Alas v2 (F2-CRIA2b, C13): membrana llena y oscura con festones entre dedos, para que el ala pese como una mancha
+## contra el arco gris y el ladrillo. B = hueso del borde de ataque (canto cálido), f = dedos, # = membrana,
+## % = borde de fuga (mismo paso que # en el ala cercana: masa máxima), v = vena de brasa, e = labio encendido de un agujero quemado.
+## Tramo interior (brazo): hombro a la izquierda (col 0, fila 7), muñeca arriba a la derecha (col 18, fila 0); la membrana
+## baja hasta el tobillo (fila 20) como en un murciélago real.
 const IN := [
-	"..............BBB.",
-	"............BBB#%.",
-	"..........BBB##%%.",
-	"........BBB###%%%.",
-	"......BBB#v###%%%.",
-	"....BBB###v####%%.",
-	"..BBB#####v#####%.",
-	"BBB#######v######.",
-	"B#########.v#####.",
-	"##########.v#####.",
-	".#########..v####.",
-	"..########..v####.",
-	"...######....v###.",
-	"....#####....###..",
-	".....###......##..",
-	"......#........#..",
+	".................BB",
+	"..............BBBf#",
+	"............BB###f#",
+	".........BBB#####f#",
+	".......BBB######f##",
+	".....BB#v#######f##",
+	"..BBB###v#######f##",
+	"BB######v#######f##",
+	"#######v#######f###",
+	"#######v#######f###",
+	"######v########f###",
+	"######v########f##%",
+	"######v###e###ff##%",
+	"######v##e.e##f##%.",
+	"######v###e###f#%%.",
+	"######v#######f#%..",
+	"######vv######f%...",
+	"#######v#####f#%...",
+	"%###%%#v#####f%....",
+	"%%%%%%%v%####f%....",
+	".%%%..%%%%%##f.....",
+	".........%%%f%.....",
+	"...........%f......",
+	"............f......",
 ]
+## Tramo exterior (mano): muñeca en (1, 10); dedos a la punta, al festón medio y al bajo.
 const OUT := [
-	"...................BB",
-	".................BB#.",
-	"...............BB##..",
-	".............BB###...",
-	"...........BB####%...",
-	".........BB#####%%...",
-	".......BB##v####%%...",
-	".....BB####v####%....",
-	"...BB######v####.....",
-	".BB#######v#####.....",
-	"B####.###v######.....",
-	"#####..##v######.....",
-	".####..##.v####......",
-	"..###..##..####......",
-	"...#....#...###......",
-	".............#.......",
+	".....................BB",
+	"...................BB%.",
+	".................BB##%.",
+	"..............BBB####..",
+	"............BB#######..",
+	"...........B#####e###..",
+	".........BB#####e.e###.",
+	"......BBBv#######e###%.",
+	"....BB####v######ffffff",
+	"...BB##ffffffffff##%%..",
+	"Bffffff###########%%...",
+	"##ff#############%%....",
+	"####f#v##########%.....",
+	"#####f#v########%......",
+	"######ffv#######%......",
+	"##%%%###fv#####%.......",
+	"%%%%%%%%ff#####%.......",
+	"%%...%%%%%f%###........",
+	".........%%f%%#........",
+	"............ff%........",
+	"..............f........",
 ]
 
 
@@ -69,10 +88,10 @@ static func build() -> RigDef:
 	b.bone(&"wing_n", &"body", Vector2(3, -5), {"z": 8.0})
 	b.bone(&"wing_n2", &"wing_n", Vector2(16, -12))
 	b.bone(&"spark", &"root", Vector2.ZERO, {"z": 20.0})
-	# Ala lejana: el espejo de la cercana, más oscura (detrás de la cabeza).
-	var far := {"#": [&"skin", 3], "%": [&"skin", 4], "v": [&"magma", 2], "B": [&"skin", 5]}
-	b.slab(&"wing_f_in", &"wing_f", _mirror(IN), Vector2(-16, -14), far, 0.0, 1.0, 1.0)
-	b.slab(&"wing_f_out", &"wing_f2", _mirror(OUT), Vector2(-19, -10), far, 0.0, 1.0, 1.0)
+	# Ala lejana: el espejo de la cercana, un paso más oscura (detrás de la cabeza).
+	var far := {"#": [&"skin", 1], "%": [&"skin", 1], "f": [&"skin", 3], "v": [&"magma", 1], "e": [&"magma", 2], "B": [&"skin", 3]}
+	b.slab(&"wing_f_in", &"wing_f", _mirror(IN), Vector2(-16, -12), far, 0.0, 1.0, 1.0)
+	b.slab(&"wing_f_out", &"wing_f2", _mirror(OUT), Vector2(-21, -10), far, 0.0, 1.0, 1.0)
 	# Cuerpo: tronco peludo pequeño, núcleo de brasa, patas colgando.
 	b.stamp(&"feet", &"foot", Vector2.ZERO, ["k.k", "k.k", "h.h"], {"k": [&"skin", 3], "h": [&"skin", 5]}, {"anchor": Vector2i(1, 0)})
 	b.ell(&"belly", &"body", &"fur", Vector3(0, 0, 0), Vector3(6.5, 9, 6), {"flat": 0.2})
@@ -111,9 +130,9 @@ static func build() -> RigDef:
 		"skkkkk.",
 		".W.W...",
 	]}, "z_top": false})
-	# Ala cercana: dos tramos con dedos de hueso, venas de brasa y agujeros quemados.
-	var near := {"#": [&"skin", 4], "%": [&"skin", 5], "v": [&"magma", 3], "B": [&"skin", 7]}
-	b.slab(&"wing_n_in", &"wing_n", IN, Vector2(-1, -14), near, 0.0, 1.0, 1.0)
+	# Ala cercana: dos tramos de membrana oscura llena, borde de ataque con canto cálido, dedos, venas y un agujero quemado.
+	var near := {"#": [&"skin", 1], "%": [&"skin", 1], "f": [&"skin", 5], "v": [&"magma", 2], "e": [&"magma", 3], "B": [&"skin", 6]}
+	b.slab(&"wing_n_in", &"wing_n", IN, Vector2(-2, -12), near, 0.0, 1.0, 1.0)
 	b.slab(&"wing_n_out", &"wing_n2", OUT, Vector2(-1, -10), near, 0.0, 1.0, 1.0)
 	# Chispas por los agujeros y pavesas de la muerte (rejilla 40×36 centrada en el cuerpo).
 	b.stamp(&"sparks", &"spark", Vector2.ZERO, ["."], {"o": [&"fire", 4], "y": [&"fire", 6]}, {"anchor": Vector2i(20, 18), "views": {

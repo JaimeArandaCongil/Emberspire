@@ -1,7 +1,7 @@
 extends RefCounted
 ## ÁCARO DE VELA (`candle_mite`, acto 1) — PER · v0.4. Criatura pequeña: casi todo son LOSAS ASCII a mano con pasos forzados; el rig sólo anima.
 ## Concepto: un ácaro de caparazón oscuro que carga un cabo de vela al lomo y vive de su cera.
-## Silueta: escarabajo bajo con seis patas de aguja y una vela chorreante encendida encima. ≈ 26×28 px; lienzo 64×52; suelo y = 46.
+## Silueta: escarabajo bajo con seis patas de aguja y una vela chorreante encendida encima. ≈ 28×28 px; lienzo 64×52; suelo y = 46.
 ## Rasgo vivo: la llama parpadea (3 fotogramas), la cera gotea por el lateral, las antenas tiemblan, ojo de brasa.
 ## Telegrafía (cast, Fuerza): se levanta, la llama crece. Muerte: la cera se derrite y la mecha ESTALLA (anuncia su `on_death`).
 
@@ -9,7 +9,7 @@ static func build() -> RigDef:
 	var b := RigBuilder.new(&"candle_mite", Vector2i(64, 52), Vector2i(38, 41), -1)
 	b.material(&"wax", &"linen")
 	b.material(&"shell", &"leather")
-	b.material(&"leg", &"boot")
+	b.material(&"leg", &"leather")  # v2: patas en cuero (más claras que bota) para despegarlas del suelo
 	b.material(&"fire", &"fire")
 	b.bone(&"root", &"", Vector2.ZERO)
 	for i in 3:
@@ -17,7 +17,7 @@ static func build() -> RigDef:
 		b.bone(StringName("leg_n%d" % i), &"root", Vector2(-6 + i * 6, 2), {"z": 6.0, "angle": [0.95, 0.3, -0.8][i]})
 	b.bone(&"body", &"root", Vector2.ZERO)
 	b.bone(&"head", &"body", Vector2(-9, 0), {"z": 2.0})
-	b.bone(&"candle", &"body", Vector2(1, -4), {"z": 1.0})
+	b.bone(&"candle", &"body", Vector2(3, -4), {"z": 1.0})  # v2: 2 px atrás para dejar ver el lomo
 	b.bone(&"wick", &"candle", Vector2(0, -11), {"z": 1.0})
 	b.bone(&"antenna", &"head", Vector2(-2, -2))
 	b.bone(&"drip", &"candle", Vector2(4, -4), {"z": 4.0})
@@ -28,17 +28,19 @@ static func build() -> RigDef:
 			var kx: float = [-2.0, -1.5, 2.0][i]   # rodilla hacia fuera: ninguna pata queda recta
 			b.cap(StringName("%s_a" % bn), bn, &"leg", Vector3(0, 0, 0), Vector3(0, 3, 0), 1.1, 0.9, {"ao": ao})
 			b.cap(StringName("%s_b" % bn), bn, &"leg", Vector3(0, 3, 0), Vector3(kx, 6, 0), 0.9, 0.6, {"ao": ao, "line": false})
-	# Caparazón: losa a mano. c/d/e = cuero oscuro → claro.
+	# Caparazón v2 (F2-CRIA2b, C13): 2 px más ancho, dos filas más de lomo y +2 pasos de cuero, con canto cálido (s) arriba
+	# para que se despegue del suelo oscuro. s/e/d/c = cuero 6/5/4/3; la fila c es el vientre en sombra que lo asienta.
 	b.slab(&"shell", &"body", [
-		"....eeeeeee.....",
-		"..eeedddddddd...",
-		".eedddddddddddc.",
-		"eedddcddddcdddcc",
-		"edddddddddddddcc",
-		"ddddcdddcddddccc",
-		".ccccccccccccccc",
-		"..cccccccccccc..",
-	], Vector2(-8, -5), {"c": [&"shell", 1], "d": [&"shell", 3], "e": [&"shell", 4]}, 0.0, 1.0, 2.0)
+		".....ssssss.......",
+		"...sseeeeeess.....",
+		"..seeeeeeeeeds....",
+		".seeeeedddddddc...",
+		"seeddddcdddddddc..",
+		"seddddcddddcddddc.",
+		"edddcddddcdddddccc",
+		".dddddddddddddddc.",
+		"..ccccccccccccc...",
+	], Vector2(-9, -7), {"s": [&"shell", 6], "e": [&"shell", 5], "d": [&"shell", 4], "c": [&"shell", 3]}, 0.0, 1.0, 2.0)
 	# Cabo de vela: cera clara con labio derretido y chorretones. 2–6 = lino.
 	b.slab(&"wax_body", &"candle", [
 		".6655544.",
@@ -60,7 +62,7 @@ static func build() -> RigDef:
 		"ceeddc",
 		"cddddc",
 		".cccc.",
-	], Vector2(-4, -2), {"c": [&"shell", 1], "d": [&"shell", 3], "e": [&"shell", 4]}, 2.0, 1.0, 1.0)
+	], Vector2(-4, -2), {"c": [&"shell", 3], "d": [&"shell", 5], "e": [&"shell", 6]}, 2.0, 1.0, 1.0)
 	b.stamp(&"eye", &"head", Vector2(-2, 0), ["E"], {"E": [&"fire", 6]}, {"z_top": false})
 	b.stamp(&"jaws", &"head", Vector2(-5, 1), ["k.", ".k"], {"k": [&"leg", 2]})
 	b.stamp(&"antennae", &"antenna", Vector2.ZERO, ["k..", ".k.", "..k"], {"k": [&"leg", 3]}, {"anchor": Vector2i(2, 2), "views": {
