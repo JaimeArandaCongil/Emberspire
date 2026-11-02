@@ -149,7 +149,7 @@
 		},
 		"great_bellows": {
 			"src": "res://scripts/art/defs/bosses/great_bellows.gd",
-			"hash": "153e758a625da3dc7ae28f56d97d35f20d610ec6c01c8b392ea8282624590d28",
+			"hash": "c0baef97a9e8aa88add1da28e4c523b67680edf0117f9bd24a378d274af335ce",
 			"group": "bosses",
 			"files": [
 				"res://assets/baked/bosses/great_bellows_idx.png",
@@ -159,10 +159,10 @@
 				"res://assets/baked/bosses/great_bellows.json"
 			],
 			"md5": {
-				"res://assets/baked/bosses/great_bellows_idx.png": "9d3798133dd89764c201598164df7d86",
-				"res://assets/baked/bosses/great_bellows_prev.png": "7e9990d5098eaf9a626e4be9db06bc4b",
-				"res://assets/baked/bosses/great_bellows@phase2_idx.png": "22608fecd855901f42ffa203032c5c80",
-				"res://assets/baked/bosses/great_bellows@phase2_prev.png": "55abba9d00c2e8636af65d827fba8847"
+				"res://assets/baked/bosses/great_bellows_idx.png": "0f9afe0e69cf9a6a1f62d015d5b77264",
+				"res://assets/baked/bosses/great_bellows_prev.png": "fbd51e27dd0aeadf5b078b3e72895bf4",
+				"res://assets/baked/bosses/great_bellows@phase2_idx.png": "62722da0600ab880d0c6ddc2e8866fa0",
+				"res://assets/baked/bosses/great_bellows@phase2_prev.png": "a6eda35a4eb9a4360b07f91a97858e0b"
 			}
 		},
 		"hollow_knight": {

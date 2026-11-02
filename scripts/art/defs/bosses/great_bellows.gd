@@ -15,15 +15,17 @@ extends RefCounted
 ## summon (soplo que expulsa dos ácaros-vela) · choke (nube de hollín) · death (revienta la tapa, el caballete cede y
 ## queda un montón de tablas y hierros con la forja apagándose).
 
-const HINGE := Vector2(-58, -68)     # bisagra de las tablas (espacio de la raíz)
-const RING := Vector2(72, -32)       # argolla de la tapa (espacio de la tapa)
+const HINGE := Vector2(-58, -78)     # bisagra de las tablas (espacio de la raíz)
+const RING := Vector2(78, -44)       # argolla de la tapa (espacio de la tapa)
 const POST_FOOT := Vector2(76, 0)
 const POST_H := 170.0
 const ARM_L := 68.0                  # brazo del balancín hacia la tapa
 const ARM_R := 24.0                  # brazo del contrapeso
-const ROD := 52.0                    # largo fijo de la cadena de la tapa
-const CHAIN_LINKS := 15
+const ROD := 32.0                    # largo fijo de la cadena de la tapa
+const CHAIN_LINKS := 8
 const PLEATS := 4
+const LEG_Y := -64.0                 # altura de la cuna (arranque de las patas)
+const TH0 := 0.1                     # apertura mínima de la cámara: en reposo los pliegues se ven abiertos
 
 
 # --------------------------------------------------------------------------------------------- texturas
@@ -44,10 +46,19 @@ static func _wood_edge(l: Vector2, st: int, _n: int) -> int:
 
 
 static func _leather(l: Vector2, st: int, n: int) -> int:
-	# Cuero satinado: costura de 1 px cada 3 en el borde de fuera del pliegue.
-	if l.x > 126.0 and l.x < 137.0 and fposmod(l.x, 3.0) < 1.0 and absf(l.y) < 1.0 and st >= 2:
-		return st - 1
-	return clampi(st - 1, 1, n - 3)
+	# Cuero en rollos: cada pliegue enseña su mitad baja bajo el de encima. Sombra justo debajo del rollo de arriba
+	# (−2), cara iluminada en medio y el canto que se mete por debajo (−1). Costura de 1 px cada 3 en la cara.
+	var s := clampi(st, 2, n - 3)
+	if l.x < 24.0:
+		return s
+	var v := l.y / maxf(1.0, 0.7 + (l.x - 10.0) * 9.3 / 126.0)
+	if v < 0.25:
+		return s - 2
+	if v > 0.72:
+		return s - 1
+	if l.x > 120.0 and l.x < 140.0 and fposmod(l.x, 3.0) < 1.0 and absf(v - 0.48) < 0.08:
+		return s - 1
+	return s
 
 
 static func _stone(l: Vector2, st: int, _n: int) -> int:
@@ -120,8 +131,8 @@ static func build() -> RigDef:
 	# --- esqueleto
 	b.bone(&"root", &"", Vector2.ZERO)
 	b.bone(&"frame", &"root", Vector2.ZERO)
-	b.bone(&"leg_ff", &"frame", Vector2(-44, -54), {"z": -14.0})
-	b.bone(&"leg_bf", &"frame", Vector2(50, -54), {"z": -14.0})
+	b.bone(&"leg_ff", &"frame", Vector2(-44, LEG_Y), {"z": -14.0})
+	b.bone(&"leg_bf", &"frame", Vector2(50, LEG_Y), {"z": -14.0})
 	b.bone(&"post", &"frame", POST_FOOT, {"z": -10.0})
 	b.bone(&"beam", &"post", Vector2(0, -POST_H), {"z": 2.0})
 	b.bone(&"cw", &"beam", Vector2(ARM_R, 0), {"z": -2.0})
@@ -131,10 +142,10 @@ static func build() -> RigDef:
 	b.bone(&"lid", &"body", Vector2.ZERO)
 	b.bone(&"rod", &"lid", RING, {"z": 6.0})
 	b.bone(&"head", &"body", Vector2.ZERO, {"z": 2.0})
-	b.bone(&"nozzle", &"head", Vector2(-27, 2))
-	b.bone(&"puff", &"nozzle", Vector2(-38, 6), {"z": 4.0})
-	b.bone(&"leg_fn", &"frame", Vector2(-52, -54), {"z": 8.0})
-	b.bone(&"leg_bn", &"frame", Vector2(58, -54), {"z": 8.0})
+	b.bone(&"nozzle", &"head", Vector2(-34, 4))
+	b.bone(&"puff", &"nozzle", Vector2(-30, 4), {"z": 4.0})
+	b.bone(&"leg_fn", &"frame", Vector2(-52, LEG_Y), {"z": 8.0})
+	b.bone(&"leg_bn", &"frame", Vector2(58, LEG_Y), {"z": 8.0})
 	b.bone(&"fly", &"root", Vector2(40, -150), {"z": 20.0})
 
 	# --- poste, balancín y contrapeso (detrás)
@@ -149,7 +160,7 @@ static func build() -> RigDef:
 	for i in 4:
 		b.stamp(StringName("beam_riv_%d" % i), &"beam", Vector2([-ARM_L + 1, -ARM_L + 3, ARM_R - 1, ARM_R + 1][i], [-2, 2, -2, 2][i]), ["5"],
 			{"5": [&"iron", 9]}, {"z_top": false})
-	b.stamp(&"strut_riv", &"post", Vector2(-1, -98), ["5", "6"], {"5": [&"iron", 8], "6": [&"iron", 2]})
+	b.stamp(&"strut_riv", &"post", Vector2(-1, -108), ["5", "6"], {"5": [&"iron", 8], "6": [&"iron", 2]})
 	# cadena del contrapeso (entera en la fase 1; rota y colgando en la fase 2)
 	for i in 8:
 		b.stamp(StringName("cw_link_%d" % i), &"cw", Vector2(0, 3 + i * 4), ([".7.", "7.7", "7.7"] if i % 2 == 0 else ["7", "4", "4", "7"]),
@@ -168,12 +179,12 @@ static func build() -> RigDef:
 	# --- caballete: patas de garra lejanas
 	for s: String in ["ff", "bf"]:
 		_leg(b, StringName("leg_" + s), -1.0 if s == "ff" else 1.0, 1.4)
-	b.cap(&"stretcher", &"frame", &"iron", Vector3(-50, -24, -6), Vector3(58, -24, -6), 2.0, 2.0, {"ao": 1.2})
-	b.cap(&"strut", &"frame", &"iron", Vector3(68, -54, -4), Vector3(75, -98, -4), 2.0, 2.0, {"ao": 1.2})
-	b.box(&"cradle", &"frame", &"wood_e", Vector3(6, -56, 0), Vector3(134, 8, 10), 2.0)
-	b.box(&"cradle_cap_l", &"frame", &"iron", Vector3(-58, -56, 3), Vector3(8, 10, 6), 1.0)
-	b.box(&"cradle_cap_r", &"frame", &"iron", Vector3(70, -56, 3), Vector3(8, 10, 6), 1.0)
-	b.stamp(&"cradle_riv", &"frame", Vector2(-60, -59), ["5" + ".".repeat(129) + "5", ".".repeat(131), "5" + ".".repeat(129) + "5"],
+	b.cap(&"stretcher", &"frame", &"iron", Vector3(-50, -28, -6), Vector3(58, -28, -6), 2.5, 2.5, {"ao": 1.2})
+	b.cap(&"strut", &"frame", &"iron", Vector3(68, -64, -4), Vector3(75, -108, -4), 2.0, 2.0, {"ao": 1.2})
+	b.box(&"cradle", &"frame", &"wood_e", Vector3(6, -66, 0), Vector3(134, 8, 10), 2.0)
+	b.box(&"cradle_cap_l", &"frame", &"iron", Vector3(-58, -66, 3), Vector3(8, 10, 6), 1.0)
+	b.box(&"cradle_cap_r", &"frame", &"iron", Vector3(70, -66, 3), Vector3(8, 10, 6), 1.0)
+	b.stamp(&"cradle_riv", &"frame", Vector2(-60, -69), ["5" + ".".repeat(129) + "5", ".".repeat(131), "5" + ".".repeat(129) + "5"],
 		{"5": [&"iron", 9]}, {"z_top": false})
 
 	# --- cuerpo: forja interior (sólo se ve por las juntas y cuando el cuero revienta)
@@ -184,12 +195,12 @@ static func build() -> RigDef:
 	# cuero en pliegues: 4 cuñas que se reparten la apertura de la tapa (siempre tapan el hueco; las líneas de contacto son los pliegues)
 	for i in PLEATS:
 		var pb := StringName("pleat_%d" % i)
-		var pts := PackedVector2Array([Vector2(10, -0.6), Vector2(138, -8), Vector2(146, -3), Vector2(151, 0), Vector2(146, 3),
-			Vector2(138, 8), Vector2(10, 0.6)])
+		var pts := PackedVector2Array([Vector2(10, -0.7), Vector2(136, -10), Vector2(144, -9), Vector2(150, -5), Vector2(152, 0),
+			Vector2(150, 5), Vector2(144, 9), Vector2(136, 10), Vector2(10, 0.7)])
 		if i == PLEATS - 1:
 			b.poly(StringName("leather_%d" % i), pb, &"leather", pts, 0.0, 4.0, 4.0, {"z": i * 0.4, "accessory": &"whole"})
-			b.poly(&"leather_torn", pb, &"leather", PackedVector2Array([Vector2(10, -0.6), Vector2(78, -4.5), Vector2(84, -1), Vector2(90, -4),
-				Vector2(95, 0), Vector2(101, -2), Vector2(106, 3), Vector2(98, 6.5), Vector2(10, 0.6)]), 0.0, 4.0, 4.0, {"z": i * 0.4, "accessory": &"broken"})
+			b.poly(&"leather_torn", pb, &"leather", PackedVector2Array([Vector2(10, -0.7), Vector2(78, -5.5), Vector2(84, -1), Vector2(90, -5),
+				Vector2(95, 0), Vector2(101, -2), Vector2(106, 4), Vector2(98, 7.5), Vector2(10, 0.7)]), 0.0, 4.0, 4.0, {"z": i * 0.4, "accessory": &"broken"})
 		else:
 			b.poly(StringName("leather_%d" % i), pb, &"leather", pts, 0.0, 4.0, 4.0, {"z": i * 0.4})
 		if i < PLEATS - 1:
@@ -211,24 +222,25 @@ static func build() -> RigDef:
 	], {"h": [&"hot", 2], "H": [&"hot", 4]}, {"accessory": &"broken", "z_top": false})
 
 	# --- tapa (tabla superior): canto + cara en pera vista desde arriba, zunchos, argolla
-	b.poly(&"lid_face", &"lid", &"wood", PackedVector2Array([Vector2(2, -10), Vector2(144, -10), Vector2(147, -18), Vector2(142, -28),
-		Vector2(128, -34), Vector2(108, -36), Vector2(80, -33), Vector2(50, -26), Vector2(22, -18), Vector2(6, -13)]), 3.0, 2.0, 3.0,
+	b.poly(&"lid_face", &"lid", &"wood", PackedVector2Array([Vector2(2, -10), Vector2(144, -10), Vector2(148, -20), Vector2(144, -34),
+		Vector2(132, -44), Vector2(112, -48), Vector2(84, -45), Vector2(54, -36), Vector2(24, -24), Vector2(6, -14)]), 3.0, 2.0, 3.0,
 		{"accessory": &"whole"})
-	b.poly(&"lid_face_broken", &"lid", &"wood", PackedVector2Array([Vector2(2, -10), Vector2(132, -10), Vector2(134, -13), Vector2(128, -15),
-		Vector2(124, -22), Vector2(118, -17), Vector2(112, -28), Vector2(105, -21), Vector2(100, -35), Vector2(80, -33), Vector2(50, -26),
-		Vector2(22, -18), Vector2(6, -13)]), 3.0, 2.0, 3.0, {"accessory": &"broken"})
+	b.poly(&"lid_face_broken", &"lid", &"wood", PackedVector2Array([Vector2(2, -10), Vector2(132, -10), Vector2(134, -14), Vector2(128, -17),
+		Vector2(124, -26), Vector2(118, -20), Vector2(112, -34), Vector2(105, -26), Vector2(100, -46), Vector2(84, -45), Vector2(54, -36),
+		Vector2(24, -24), Vector2(6, -14)]), 3.0, 2.0, 3.0, {"accessory": &"broken"})
 	b.poly(&"lid_edge", &"lid", &"wood_e", PackedVector2Array([Vector2(2, -10), Vector2(141, -10), Vector2(146, -6), Vector2(143, 0),
 		Vector2(4, 0), Vector2(0, -4)]), 5.0, 2.0, 4.0, {"accessory": &"whole"})
 	b.poly(&"lid_edge_broken", &"lid", &"wood_e", PackedVector2Array([Vector2(2, -10), Vector2(133, -10), Vector2(130, -6), Vector2(136, -3),
 		Vector2(132, 0), Vector2(4, 0), Vector2(0, -4)]), 5.0, 2.0, 4.0, {"accessory": &"broken"})
-	b.poly(&"lid_strap_a", &"lid", &"iron", PackedVector2Array([Vector2(69, 0), Vector2(75, 0), Vector2(76, -32), Vector2(70, -32)]), 8.0, 1.0, 1.5)
-	b.poly(&"lid_strap_b", &"lid", &"iron", PackedVector2Array([Vector2(103, 0), Vector2(108, 0), Vector2(109, -36), Vector2(104, -36)]), 8.0, 1.0, 1.5,
+	b.poly(&"lid_strap_a", &"lid", &"iron", PackedVector2Array([Vector2(75, 0), Vector2(81, 0), Vector2(82, -42), Vector2(76, -42)]), 8.0, 1.0, 1.5)
+	b.poly(&"lid_strap_b", &"lid", &"iron", PackedVector2Array([Vector2(106, 0), Vector2(111, 0), Vector2(112, -47), Vector2(107, -47)]), 8.0, 1.0, 1.5,
 		{"accessory": &"whole"})
-	b.stamp(&"lid_riv", &"lid", Vector2(71, -27), ["5...", "6...", "....", "....", "....", "..5.", "..6.", "....", "....", "....", "5...", "6..."],
+	b.stamp(&"lid_riv", &"lid", Vector2(77, -37), ["5...", "6...", "....", "....", "....", "..5.", "..6.", "....", "....", "....", "5...", "6...",
+		"....", "....", "....", "..5.", "..6."],
 		{"5": [&"iron", 9], "6": [&"iron", 3]})
-	b.stamp(&"lid_riv_b", &"lid", Vector2(105, -31), ["5", "6", ".", ".", ".", ".", ".", "5", "6", ".", ".", ".", ".", "5", "6"],
+	b.stamp(&"lid_riv_b", &"lid", Vector2(108, -42), ["5", "6", ".", ".", ".", ".", ".", "5", "6", ".", ".", ".", ".", "5", "6", ".", ".", ".", ".", ".", "5", "6"],
 		{"5": [&"iron", 9], "6": [&"iron", 3]}, {"accessory": &"whole"})
-	b.stamp(&"ring", &"lid", Vector2(72, -32), [".777.", "7...7", "7...7"], {"7": [&"iron", 7]}, {"anchor": Vector2i(2, 2)})
+	b.stamp(&"ring", &"lid", RING, [".777.", "7...7", "7...7"], {"7": [&"iron", 7]}, {"anchor": Vector2i(2, 2)})
 	for f in 4:
 		b.stamp(StringName("lid_fire_%d" % f), &"lid", Vector2(100, -8), _flames(44, 40, f), FIRE_LEG,
 			{"anchor": Vector2i(0, 39), "accessory": &"broken"})
@@ -238,59 +250,63 @@ static func build() -> RigDef:
 			{"7": [&"iron", 7], "4": [&"iron", 3]}, {"anchor": Vector2i(1 if i % 2 == 0 else 0, 1)})
 
 	# --- cabezal (la cabeza): bloque herrado con ceño y dos brasas por ojos
-	b.poly(&"headblock", &"head", &"wood_e", PackedVector2Array([Vector2(-30, -9), Vector2(-22, -19), Vector2(4, -25), Vector2(4, 20),
-		Vector2(-24, 18), Vector2(-32, 8)]), 8.0, 3.0, 6.0, {"tags": [&"eye"]})
-	b.poly(&"brow", &"head", &"iron", PackedVector2Array([Vector2(-35, -12), Vector2(-25, -21), Vector2(5, -29), Vector2(5, -21),
-		Vector2(-14, -14), Vector2(-33, -6)]), 15.0, 1.5, 2.0)
-	b.poly(&"jaw_band", &"head", &"iron", PackedVector2Array([Vector2(-29, 10), Vector2(5, 10), Vector2(5, 17), Vector2(-22, 19)]), 15.0, 1.0, 2.0)
-	b.stamp(&"head_riv", &"head", Vector2(-24, 13), ["5.....5.....5.....5", "6.....6.....6.....6"], {"5": [&"iron", 9], "6": [&"iron", 3]})
-	b.stamp(&"brow_riv", &"head", Vector2(-24, -17), ["5.........", "6....5....", ".....6...5", ".........6"], {"5": [&"iron", 9], "6": [&"iron", 3]})
+	b.poly(&"headblock", &"head", &"wood_e", PackedVector2Array([Vector2(-36, -12), Vector2(-28, -27), Vector2(6, -36), Vector2(6, 22),
+		Vector2(-28, 21), Vector2(-39, 9)]), 8.0, 3.0, 7.0, {"tags": [&"eye"]})
+	b.poly(&"brow", &"head", &"iron", PackedVector2Array([Vector2(-42, -16), Vector2(-31, -30), Vector2(7, -41), Vector2(7, -31),
+		Vector2(-17, -21), Vector2(-40, -10)]), 15.0, 1.5, 2.0)
+	b.poly(&"jaw_band", &"head", &"iron", PackedVector2Array([Vector2(-38, 10), Vector2(7, 10), Vector2(7, 18), Vector2(-30, 22)]), 15.0, 1.0, 2.0)
+	b.stamp(&"head_riv", &"head", Vector2(-30, 13), ["5.......5.......5.......5.......5", "6.......6.......6.......6.......6"], {"5": [&"iron", 9], "6": [&"iron", 3]})
+	b.stamp(&"brow_riv", &"head", Vector2(-30, -24), ["5............", "6............", "......5......", "......6.....5", "............6"], {"5": [&"iron", 9], "6": [&"iron", 3]})
 	var eyes := {&"open": [
-		"kkk.............",
-		"kkkkkk.....kkkk.",
-		"khWWWWk...kHWWk.",
-		"kHWYYWk...kHYWk.",
-		".kHWWHk...kHWHk.",
-		"..khhk.....khk..",
-		"...kk.......k...",
+		"kkkk................",
+		"kkkkkkkk......kkkkk.",
+		"khWWWWWHk....kHWWWk.",
+		"kHWYYYYWk....kWYYWk.",
+		".kHWYYWHk....kHYWHk.",
+		"..kHWWHk.....kkHHk..",
+		"...khhk.......kkk...",
+		"....kk..............",
 	], &"wide": [
-		"kkk.............",
-		"kHWWWHk...kHWWk.",
-		"kWYYYWk...kWYYk.",
-		"kWYYYWk...kWYYk.",
-		".kWYWHk...kWYWk.",
-		"..kHHk.....kHk..",
-		"...kk.......k...",
+		"kkkk................",
+		"kHWWWWWHk....kHWWWk.",
+		"kWYYYYYWk....kWYYYk.",
+		"kWYYYYYWk....kWYYYk.",
+		".kWYYYWHk....kWYYWk.",
+		"..kHWWHk.....kHWHk..",
+		"...khhk.......khk...",
+		"....kk.........k....",
 	], &"squint": [
-		"................",
-		"kkk.............",
-		"kkkkkkk...kkkkk.",
-		"khHHHhk...khHhk.",
-		".kkkkk.....kkk..",
-		"................",
-		"................",
+		"....................",
+		"kkkk................",
+		"kkkkkkkkk....kkkkkk.",
+		"khHHHHHhk....khHHhk.",
+		".kkkkkkk......kkkk..",
+		"....................",
+		"....................",
+		"....................",
 	], &"dead": [
-		"................",
-		"................",
-		"kkkkkkk...kkkkk.",
-		"................",
-		"................",
-		"................",
-		"................",
+		"....................",
+		"....................",
+		"....................",
+		"kkkkkkkkk....kkkkkk.",
+		"....................",
+		"....................",
+		"....................",
+		"....................",
 	]}
 	var eye_leg := {"k": [&"iron", "LINE"], "h": [&"hot", 2], "H": [&"hot", 4], "W": [&"hot", 5], "Y": [&"fire", 7]}
-	b.stamp(&"eyes", &"head", Vector2(-31, -10), eyes[&"open"], eye_leg, {"views": eyes, "accessory": &"whole"})
+	b.stamp(&"eyes", &"head", Vector2(-37, -14), eyes[&"open"], eye_leg, {"views": eyes, "accessory": &"whole"})
 	var eyes2 := eyes.duplicate()
 	eyes2[&"open"] = eyes[&"wide"]
-	b.stamp(&"eyes2", &"head", Vector2(-31, -10), eyes[&"wide"], eye_leg, {"views": eyes2, "accessory": &"broken"})
-	b.stamp(&"grill", &"head", Vector2(-20, 4), ["k.k.k.k.k", "hkHkWkHkh", "hkhkHkhkh"], {"k": [&"iron", "LINE"], "h": [&"hot", 2], "H": [&"hot", 3]})
+	b.stamp(&"eyes2", &"head", Vector2(-37, -14), eyes[&"wide"], eye_leg, {"views": eyes2, "accessory": &"broken"})
+	b.stamp(&"grill", &"head", Vector2(-27, 1), ["k.k.k.k.k.k.k", "hkHkWkWkWkHkh", "hkHkWkHkWkHkh", "hkhkHkhkHkhkh"], {"k": [&"iron", "LINE"], "h": [&"hot", 2], "H": [&"hot", 3]})
 
 	# --- tobera de cobre (el hocico)
-	b.cap(&"nozzle_tube", &"nozzle", &"copper", Vector3(0, 0, 8), Vector3(-36, 6, 8), 7.5, 3.8, {"flat": 0.3})
-	b.cap(&"nozzle_ring_a", &"nozzle", &"brass", Vector3(-3, 0.5, 9), Vector3(-6, 1.0, 9), 8.2, 7.8, {"flat": 0.3})
-	b.cap(&"nozzle_ring_b", &"nozzle", &"brass", Vector3(-31, 5.2, 9), Vector3(-34, 5.6, 9), 4.4, 4.2, {"flat": 0.3})
+	b.cap(&"nozzle_tube", &"nozzle", &"copper", Vector3(0, 0, 8), Vector3(-28, 4, 8), 6.5, 3.6, {"flat": 0.3})
+	b.cap(&"nozzle_ring_a", &"nozzle", &"brass", Vector3(-3, 0.4, 9), Vector3(-6, 0.9, 9), 7.2, 6.9, {"flat": 0.3})
+	b.cap(&"nozzle_ring_b", &"nozzle", &"brass", Vector3(-23, 3.3, 9), Vector3(-25, 3.6, 9), 4.4, 4.2, {"flat": 0.3})
 	var mouth := {&"g0": ["k", "H", "h"], &"g1": ["k", "W", "H"], &"g2": ["h", "H", "k"], &"g3": ["H", "W", "h"]}
-	b.stamp(&"mouth", &"nozzle", Vector2(-38, 5), mouth[&"g0"], {"k": [&"hot", 1], "h": [&"hot", 2], "H": [&"hot", 3], "W": [&"hot", 5]},
+	b.stamp(&"mouth", &"nozzle", Vector2(-30, 4), mouth[&"g0"], {"k": [&"hot", 1], "h": [&"hot", 2], "H": [&"hot", 3], "W": [&"hot", 5]},
 		{"views": mouth, "anchor": Vector2i(0, 1)})
 
 	# --- bocanadas, chorro, hollín y ácaros (en el hueso de la boca de la tobera)
@@ -320,16 +336,16 @@ static func build() -> RigDef:
 	b.poly(&"weight_ground_band", &"frame", &"iron", PackedVector2Array([Vector2(98, -14), Vector2(103, -14), Vector2(103, 0), Vector2(98, 0)]),
 		9.0, 1.0, 2.0, {"accessory": &"broken"})
 
-	# --- muerte: tapa volando, restos en el suelo (con @root = (0, 18): y local −18 = suelo)
+	# --- muerte: tapa volando, restos en el suelo (con @root = (0, 32): y local −32 = suelo)
 	b.poly(&"fly_lid", &"fly", &"wood", PackedVector2Array([Vector2(-30, -4), Vector2(30, -6), Vector2(34, 0), Vector2(28, 5), Vector2(-32, 4)]),
 		10.0, 2.0, 3.0)
 	b.poly(&"fly_strap", &"fly", &"iron", PackedVector2Array([Vector2(-2, -6), Vector2(3, -6), Vector2(3, 5), Vector2(-2, 5)]), 13.0, 1.0, 1.5)
-	b.poly(&"down_lid", &"root", &"wood", PackedVector2Array([Vector2(50, -18), Vector2(118, -18), Vector2(116, -23), Vector2(106, -27),
-		Vector2(62, -25), Vector2(52, -22)]), 14.0, 2.0, 3.0)
-	b.cap(&"down_post", &"root", &"iron", Vector3(20, -22, 2), Vector3(110, -30, 2), 3.0, 3.0, {"ao": 1.2})
-	b.cap(&"down_beam", &"root", &"wood_e", Vector3(-6, -28, 4), Vector3(62, -20, 4), 3.0, 3.0)
-	b.poly(&"down_weight", &"root", &"stone", PackedVector2Array([Vector2(96, -18), Vector2(98, -27), Vector2(104, -32), Vector2(116, -32),
-		Vector2(122, -27), Vector2(122, -18)]), 6.0, 3.0, 4.0)
+	b.poly(&"down_lid", &"root", &"wood", PackedVector2Array([Vector2(50, -32), Vector2(118, -32), Vector2(116, -37), Vector2(106, -41),
+		Vector2(62, -39), Vector2(52, -36)]), 14.0, 2.0, 3.0)
+	b.cap(&"down_post", &"root", &"iron", Vector3(20, -36, 2), Vector3(110, -44, 2), 3.0, 3.0, {"ao": 1.2})
+	b.cap(&"down_beam", &"root", &"wood_e", Vector3(-6, -42, 4), Vector3(62, -34, 4), 3.0, 3.0)
+	b.poly(&"down_weight", &"root", &"stone", PackedVector2Array([Vector2(96, -32), Vector2(98, -41), Vector2(104, -46), Vector2(116, -46),
+		Vector2(122, -41), Vector2(122, -32)]), 6.0, 3.0, 4.0)
 	for f in 3:
 		b.stamp(StringName("burst_%d" % f), &"body", Vector2(30, -2), _flames(100, [34, 26, 14][f], f + 1), FIRE_LEG, {"anchor": Vector2i(0, [33, 25, 13][f])})
 	b.stamp(&"embers_end", &"body", Vector2(36, -3), ["..h.....H......h....h.....H....h..", "hH..hH.hHh..hH..hH.hHh.hH..hHh..hH"],
@@ -347,15 +363,16 @@ static func build() -> RigDef:
 
 ## Pata de hierro con pie de garra (tres dedos hacia fuera).
 static func _leg(b: RigBuilder, bn: StringName, side: float, ao: float) -> void:
+	# Pata de hierro gruesa en dos tramos (muslo de 15 px, caña de 12) con rodilla de bola y pie de garra ancho.
 	var dx := 4.0 * side
-	var kx := 10.0 * side
-	b.cap(StringName("%s_bar" % bn), bn, &"iron", Vector3(0, 0, 0), Vector3(kx, 22, 0), 5.5, 4.2, {"ao": ao})
-	b.cap(StringName("%s_shin" % bn), bn, &"iron", Vector3(kx, 22, 0), Vector3(dx, 46, 0), 4.0, 3.2, {"ao": ao})
-	b.cap(StringName("%s_knee" % bn), bn, &"iron", Vector3(kx, 21, 2), Vector3(kx, 24, 2), 5.0, 5.0, {"ao": ao})
-	b.poly(StringName("%s_paw" % bn), bn, &"iron", PackedVector2Array([Vector2(dx - 5 * side, 43), Vector2(dx + 3 * side, 43),
-		Vector2(dx + 11 * side, 49), Vector2(dx + 13 * side, 54), Vector2(dx - 7 * side, 54), Vector2(dx - 8 * side, 48)]), 2.0, 1.5, 3.0, {"ao": ao})
-	var claw := ["5.5.5", "6.6.6"]
-	b.stamp(StringName("%s_claw" % bn), bn, Vector2(dx + (6.0 if side > 0 else -11.0), 52), claw, {"5": [&"iron", 8], "6": [&"iron", 1]},
+	var kx := 11.0 * side
+	b.cap(StringName("%s_bar" % bn), bn, &"iron", Vector3(0, 0, 0), Vector3(kx, 26, 0), 7.5, 6.0, {"ao": ao})
+	b.cap(StringName("%s_shin" % bn), bn, &"iron", Vector3(kx, 26, 0), Vector3(dx, 54, 0), 6.0, 4.8, {"ao": ao})
+	b.cap(StringName("%s_knee" % bn), bn, &"iron", Vector3(kx, 25, 2), Vector3(kx, 28, 2), 7.0, 7.0, {"ao": ao})
+	b.poly(StringName("%s_paw" % bn), bn, &"iron", PackedVector2Array([Vector2(dx - 7 * side, 51), Vector2(dx + 4 * side, 51),
+		Vector2(dx + 13 * side, 57), Vector2(dx + 15 * side, 64), Vector2(dx - 9 * side, 64), Vector2(dx - 10 * side, 57)]), 2.0, 1.5, 3.0, {"ao": ao})
+	var claw := ["5.5.5.5", "6.6.6.6"]
+	b.stamp(StringName("%s_claw" % bn), bn, Vector2(dx + (7.0 if side > 0 else -14.0), 62), claw, {"5": [&"iron", 8], "6": [&"iron", 1]},
 		{"z_top": false})
 
 
@@ -372,6 +389,7 @@ const RIG_UP := ["post_bar", "post_foot", "post_fork", "beam_bar", "beam_cap_l",
 
 ## Pose base: todo lo de efectos y muerte oculto; tapa, pliegues, balancín y cadena resueltos para una apertura `th`.
 static func _pose(th: float, f: int, shift := 0, ba := 0.0) -> Dictionary:
+	th += TH0
 	var k := {}
 	for id: String in FX:
 		k[StringName("hide:" + id)] = true
@@ -529,11 +547,11 @@ static func _anims(b: RigBuilder) -> void:
 		d[2][StringName("hide:" + id)] = true
 	d[2][&"fly"] = -0.35
 	var heap := _pose(0.04, 3, 0)
-	heap[&"@root"] = Vector2i(0, 18)
+	heap[&"@root"] = Vector2i(0, 32)
 	for l: String in ["leg_fn", "leg_ff"]:
-		heap[StringName(l)] = 0.86
+		heap[StringName(l)] = 1.1
 	for l: String in ["leg_bn", "leg_bf"]:
-		heap[StringName(l)] = -0.86
+		heap[StringName(l)] = -1.1
 	heap[&"view:head"] = &"dead"
 	heap[&"head"] = 0.12
 	heap[&"nozzle"] = 0.25
