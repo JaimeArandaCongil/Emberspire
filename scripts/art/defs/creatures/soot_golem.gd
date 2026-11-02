@@ -27,7 +27,7 @@ static func _bricks(l: Vector2, st: int, n: int) -> int:
 static func build() -> RigDef:
 	var b := RigBuilder.new(&"soot_golem", Vector2i(128, 128), Vector2i(76, 100), -1)
 	b.material(&"brick", &"furnace_brick", {"tex_fn": _bricks})
-	b.material(&"coal", &"coal", {"facet": {"cell_area": 40.0, "weight": 0.6, "crack": 0.18, "crack_slot": &"magma"}, "spec": true})
+	b.material(&"coal", &"coal", {"facet": {"cell_area": 40.0, "weight": 0.6, "crack": 0.18, "crack_slot": &"magma"}, "spec": true, "tex_fn": func(_l: Vector2, st: int, _n: int) -> int: return maxi(st, 2)})
 	# Hollín gris ceniza mate (pasos 4–6): sólo lo usa la variante `sooty`; separa el valor del muro (F2-PULIDO-D).
 	b.material(&"soot", &"ash", {"texture": &"soot_grain", "tex_fn": func(_l: Vector2, st: int, _n: int) -> int: return clampi(st, 4, 6)})
 	b.material(&"iron", &"iron", {"tex_fn": func(_l: Vector2, st: int, _n: int) -> int: return mini(st, 6)})
@@ -197,6 +197,8 @@ static func build() -> RigDef:
 	b.socket(&"smoke", &"spine", Vector2(19, -58))
 	b.socket(&"heart", &"spine", Vector2(-4, -15))
 	_anims(b)
+	# Ambiente 0,3 (0,12 por defecto) y carbón con suelo en el paso 2: separa el gólem del muro sin cambiar silueta ni materiales (F2-PULIDO-D).
+	b.def.light.ambient = 0.3
 	b.variant(&"sooty", {&"soot": 0.5})
 	return b.def
 

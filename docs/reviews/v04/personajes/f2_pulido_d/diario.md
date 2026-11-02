@@ -53,3 +53,36 @@ Mínimo por fotograma, f0–f5, después: polilla @540 0,119 · 0,119 · 0,118 �
 - El gólem base mide 0,078/0,089 en esos mismos huecos. No está en la lista oficial y el encargo pedía no cambiarlo, así
   que lo decide dirección.
 - El hollín es gris y más claro que el ladrillo en sombra. Es una decisión de valor que conviene que confirme dirección.
+
+## Ampliación · gólem BASE (encargo de dirección tras subir F2-PULIDO-D)
+Huecos reales del gólem en el acto 1, según `enemy_db.gd` y `SLOTS` de `combat_screen.gd`: solo → 466; con `cinder_bat`
+→ 396. Las salas son las vivas al terminar.
+
+**Diagnóstico**: figura 0,191 frente a anillo 0,113. El carbón (≈ 3.600 de 4.700 px, media 0,16) pesa más que el ladrillo
+(1.100 px, 0,29).
+
+**Cambio** (`soot_golem.gd`, rehorneado sólo `soot_golem`):
+- `b.def.light.ambient = 0.3` (antes 0,12 por defecto). Sube todas las sombras del gólem y conserva el modelado y la luz
+  de borde.
+- El carbón lleva `tex_fn` `maxi(st, 2)`: la sombra más profunda del carbón pasa al paso 2 de `coal`. Las grietas
+  `magma`, los ojos y la puerta (`fire`/`hot`) no cambian.
+- Silueta, huesos, poses, ataque y 88 px intactos: alfa idéntico píxel a píxel en todo el atlas, tanto en base como en
+  `sooty`.
+
+Probado y descartado: suelo del carbón en 3 (0,090 @396, el carbón queda plano) y ambiente 0,22 (0,098).
+
+| Hueco | Antes | Después |
+|---|---|---|
+| `soot_golem` @396 | 0,078 | **0,110** (f0–f5: 0,111 · 0,113 · 0,115 · 0,114 · 0,111 · 0,110) |
+| `soot_golem` @466 | 0,089 | **0,122** |
+| `soot_golem@sooty` @396 / @466 | 0,108 / 0,120 | **0,142 / 0,153** |
+| (fuera de encuentro) `soot_golem` @350 | 0,009 | 0,042 |
+
+El hueco 350 sólo aparece en los combates de tres enemigos. Ninguno lleva gólem, pero el recorrido lo fuerza en la
+captura 07, delante del arco iluminado (anillo 0,185). Ahí haría falta una figura ≥ 0,29, que no es compatible con
+carbón y ladrillo. Lo dejo anotado y no lo persigo.
+
+**Evidencia**: `antes_despues_soot_golem_base.png` (@396, sala 6, f5: color antes/después y gris a 1/4 antes/después) y
+`captura07_golem_antes_despues.png` (07 a 1/2; a la izquierda F2-PULIDO-D, a la derecha ahora). `tools/qa.sh all`: 1745/0 y arte 5/0.
+Recorrido `SHOTS_DIR=/tmp/claude-0/shots_pd`: SMOKE OK, sólo `ERR_CANT_OPEN`. El tiznado queda algo más claro porque el
+ambiente también le afecta; el gris del hollín se mantiene.

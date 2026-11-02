@@ -181,7 +181,7 @@
 		},
 		"soot_golem": {
 			"src": "res://scripts/art/defs/creatures/soot_golem.gd",
-			"hash": "7e215d265815f6679f7e96aad70e2f973e5a9cffa7e75e66630b865f83e3fa61",
+			"hash": "7fb9a685318f32e4ce6d994b424d0b64ac68a0330eaa74bd39710e04cf192380",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/soot_golem_idx.png",
@@ -191,10 +191,10 @@
 				"res://assets/baked/creatures/soot_golem.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/soot_golem_idx.png": "39cea10fbcb05353d90b4bd6f22e6605",
-				"res://assets/baked/creatures/soot_golem_prev.png": "704dc976fa2b23578bd04427562412e6",
-				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "ae26d826dec1a0c30e482f34ec539ce7",
-				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "0d1861c8ec0018aae894374c2bec16f9"
+				"res://assets/baked/creatures/soot_golem_idx.png": "89ae85ca1a4b88049a0df97c5a050565",
+				"res://assets/baked/creatures/soot_golem_prev.png": "59f906c55aea793579ea2fee93dc5292",
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "be0037f0c77acb9025613e9d47fb111b",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "d18783fc6a6fe8f09cdbdec92e50c665"
 			}
 		}
 	}
