@@ -20,10 +20,10 @@ const HEAD_REST := 0.1107  # ángulo de (cabeza - pecho) en reposo
 const J := {
 	"idle": {
 		"head": Vector2(47, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
-		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(56.5, 58.5),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(62, 55),
 		"sh_f": Vector2(38, 40), "el_f": Vector2(35.5, 50), "wr_f": Vector2(38, 57),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(61, 78),
+		"hammer": Vector2(70.5, 72.5),
 	},
 	"shoulder": {
 		"head": Vector2(47, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
@@ -76,41 +76,41 @@ const J := {
 		"kn_b": Vector2(37, 72), "an_b": Vector2(32, 83), "kn_f": Vector2(56, 71), "an_f": Vector2(59, 83),
 		"hammer": Vector2(75, 79),
 	},
-	# C3: el martillo NO cambia de mano. Brazo cercano idéntico a `idle` (martillo a x ≈ 61); la mano lejana hace el gesto.
+	# C3: el martillo NO cambia de mano. Brazo cercano idéntico a `idle` (mano a x ≈ 61; F2-PULIDO-B: antebrazo adelantado y martillo inclinado para separar la cabeza de la bota); la mano lejana hace el gesto.
 	"cast": {
 		"head": Vector2(46, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
-		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(56.5, 58.5),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(62, 55),
 		"sh_f": Vector2(38, 40), "el_f": Vector2(32, 33), "wr_f": Vector2(32, 24),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(61, 78),
+		"hammer": Vector2(70.5, 72.5),
 	},
 	"toss_back": {
 		"head": Vector2(47, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
-		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(56.5, 58.5),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(62, 55),
 		"sh_f": Vector2(38, 40), "el_f": Vector2(33, 48), "wr_f": Vector2(30, 40),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(61, 78),
+		"hammer": Vector2(70.5, 72.5),
 	},
 	"toss": {
 		"head": Vector2(43, 28), "chest": Vector2(44, 46), "waist": Vector2(45, 56),
-		"sh_n": Vector2(51, 41), "el_n": Vector2(55, 51), "wr_n": Vector2(56.5, 59.5),
+		"sh_n": Vector2(51, 41), "el_n": Vector2(55, 51), "wr_n": Vector2(62, 56),
 		"sh_f": Vector2(37, 41), "el_f": Vector2(28, 38), "wr_f": Vector2(20, 36),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(61, 79),
+		"hammer": Vector2(70.5, 73.5),
 	},
 	"hurt": {
 		"head": Vector2(43, 29), "chest": Vector2(42, 46), "waist": Vector2(43, 56),
-		"sh_n": Vector2(48, 41), "el_n": Vector2(52, 51), "wr_n": Vector2(53, 60),
+		"sh_n": Vector2(48, 41), "el_n": Vector2(52, 51), "wr_n": Vector2(58.5, 56.5),
 		"sh_f": Vector2(35, 41), "el_f": Vector2(31, 49), "wr_f": Vector2(29, 55),
 		"kn_b": Vector2(36, 72), "an_b": Vector2(34, 83), "kn_f": Vector2(50, 72), "an_f": Vector2(51, 83),
-		"hammer": Vector2(59, 79),
+		"hammer": Vector2(66, 75),
 	},
 	"hurt2": {
 		"head": Vector2(41, 30), "chest": Vector2(41, 47), "waist": Vector2(42, 57),
-		"sh_n": Vector2(47, 42), "el_n": Vector2(51, 52), "wr_n": Vector2(52, 61),
+		"sh_n": Vector2(47, 42), "el_n": Vector2(51, 52), "wr_n": Vector2(57, 58),
 		"sh_f": Vector2(34, 42), "el_f": Vector2(29, 49), "wr_f": Vector2(27, 54),
 		"kn_b": Vector2(35, 72), "an_b": Vector2(33, 83), "kn_f": Vector2(49, 72), "an_f": Vector2(50, 83),
-		"hammer": Vector2(58, 80),
+		"hammer": Vector2(63, 77),
 	},
 	"die1": {
 		"head": Vector2(49, 33), "chest": Vector2(46, 50), "waist": Vector2(45, 60),
