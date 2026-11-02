@@ -2,6 +2,7 @@ extends Node
 ## F2-VIDA · capturas fotograma a fotograma del combate del acto 1 (golpe, turno enemigo, Quemadura, muerte, reposo) para
 ## medir tiempos y píxeles en movimiento. No es parte de la QA: es la herramienta de evidencia del paquete.
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
+## F2-VIDA3 añade descarte (las cartas vuelan al descarte al acabar el turno; 1280×720, cada fotograma).
 ## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
 ## (texto flotante apagándose por pasos). Las capturas de `mano`, `recompensa` y `flotante` van a 1280×720.
 ##   VIDA_DIR=/ruta VIDA_MODE=golpe xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --fixed-fps 60 res://tests/art/vida_capturas.tscn
@@ -58,6 +59,8 @@ func _ready() -> void:
 			await _reposo()
 		"mano":
 			await _mano()
+		"descarte":
+			await _descarte()
 		_:
 			await _golpe()
 	print("VIDA fin")
@@ -79,7 +82,7 @@ func _grab(tag: String, n: int, every := 1) -> void:
 		_events.clear()
 		if i % every == 0:
 			var img := get_viewport().get_texture().get_image()
-			if not (tag.begins_with("mano") or tag.begins_with("recomp") or tag.begins_with("flot") or tag.begins_with("full")):
+			if not (tag.begins_with("mano") or tag.begins_with("recomp") or tag.begins_with("flot") or tag.begins_with("full") or tag.begins_with("desc")):
 				img.resize(640, 360, Image.INTERPOLATE_NEAREST)
 			img.save_png(dir.path_join("%s_%03d.png" % [tag, i]))
 
@@ -175,3 +178,9 @@ func _invoca() -> void:
 	await _grab("invoca", 120, 4)
 	await _frames(60)
 	await _grab("full_invoca", 1)
+
+
+## Fin de turno: la mano vuela al descarte (antes: alfa; ahora −2 pasos de paleta a mitad de vuelo y desaparece).
+func _descarte() -> void:
+	cs._end_turn()
+	await _grab("desc", 24)

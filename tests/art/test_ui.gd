@@ -332,3 +332,8 @@ func _dim_steps() -> void:
 	_check(not ft.contains("modulate:a"), "UI.float_text no debe fundirse con alfa")
 	var cs := FileAccess.get_file_as_string("res://scripts/ui/screens/combat_screen.gd")
 	_check(not cs.contains("cards_box.modulate"), "recompensas: las cartas bloqueadas no se atenúan con alfa")
+	# F2-VIDA3: las cartas que vuelan al descarte (o a la heroína) bajan por pasos y desaparecen, sin alfa.
+	_check(not cs.contains("\"modulate:a\""), "combate: ninguna carta se funde con alfa (§12)")
+	# F2-VIDA3 (C2): el jefe destella sólo en la pieza golpeada.
+	var sh := FileAccess.get_file_as_string("res://shaders/palette_lit.gdshader")
+	_check(sh.contains("uniform vec3 flash_piece"), "palette_lit: falta `flash_piece` (destello por pieza del jefe)")

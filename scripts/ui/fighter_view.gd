@@ -36,10 +36,11 @@ const HERO_ID := &"fogonera"
 ## Destello de impacto (biblia §12, C2): 1 f de silueta blanca de 33 ms REALES y subida de pasos que conserva el dibujo.
 const FLASH_WHITE_S := 0.033
 const FLASH_STEPS := [[3, 0.05], [2, 0.05], [1, 0.05]]
-## Jefes (C2): el blanco sólo en la pieza golpeada. Necesita `uniform vec3 flash_piece` en `palette_lit` (x, y de mundo,
-## radio; radio < 0 = todo el cuerpo): los píxeles cuyo ANCLA cae dentro del radio se ponen blancos y los demás sólo suben
-## pasos. Mientras el shader no lo declare, el jefe destella entero como cualquier criatura (respaldo).
-const FLASH_PIECE_R := 10.0
+## Jefes (C2): el blanco sólo en la pieza golpeada (`flash_piece` de `palette_lit`: x, y de mundo y radio; radio < 0 = todo
+## el cuerpo). Se ponen blancos los píxeles cuyo ANCLA cae dentro del radio y el resto sube 3 pasos. El jefe es un único
+## rig sin máscara de piezas: el socket `hit` está en la boca de la tobera y 26 px recogen boca, anillo y tubo de cobre
+## (anclas a 1, 10 y 24 px; la siguiente pieza está a 38). Sin `flash_piece` en el shader, destello entero (respaldo).
+const FLASH_PIECE_R := 26.0
 ## Segundo reposo de la heroína (biblia §8, C15): martillo al hombro cada 6–10 s, con puente de entrada y salida.
 const SHOULDER_EVERY := Vector2(6.0, 10.0)
 const SHOULDER_HOLD := 2.0

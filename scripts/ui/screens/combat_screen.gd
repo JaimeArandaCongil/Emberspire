@@ -345,6 +345,9 @@ func _enemy_centers(alive: Array[FighterView]) -> Array[int]:
 			var gap: int = SLOTS[n][i + 1] - SLOTS[n][i]
 			if (alive[i].body_width() + alive[i + 1].body_width()) * 0.5 > gap:
 				fits = false
+		# Ni el primero ni el último se salen de x 300–632 (p. ej. el jefe con un solo ácaro en los huecos de 2).
+		if SLOTS[n][0] - alive[0].body_width() * 0.5 < ENEMY_X.x or SLOTS[n][n - 1] + alive[n - 1].body_width() * 0.5 > ENEMY_X.y:
+			fits = false
 		if fits:
 			out.assign(SLOTS[n])
 			return out
@@ -365,59 +368,73 @@ func _enemy_centers(alive: Array[FighterView]) -> Array[int]:
 	return out
 
 
-## Jefe ancho con invocaciones (F2-VIDA2): el jefe apoya su borde izquierdo en x 300 y cada invocación va a un hueco libre
-## (a su derecha hasta x 632 o a ras de suelo bajo su cuerpo, p. ej. bajo la tobera), sin pisarle ni pisarse, y con las
-## placas de PV separadas al menos su ancho. Si no caben, vacío (reparto general).
+## Jefe ancho con invocaciones (F2-VIDA3). El Gran Fuelle mide 242 de 332: no caben dos ácaros con sus placas a un solo
+## lado. Se prueba cada reparto izquierda/derecha: las de la izquierda desde x 300 (delante de la tobera), las de la derecha
+## hasta x 632 con cuerpo y placa dentro, y el jefe se desplaza al hueco que queda en medio, sin pisar a nadie
+## (`SUMMON_GAP` de aire). Las placas quedan separadas al menos su ancho. Cada invocación conserva su lado mientras viva
+## (no cruza por detrás del jefe cuando muere la otra). Gana el reparto con menos cambios de lado, luego el más
+## equilibrado y luego el de más holgura. Si ninguno cabe, vacío (reparto general).
+const SUMMON_GAP := 4
+var _summon_side: Dictionary = {}   # FighterView → -1 izquierda, 1 derecha
+
 func _boss_centers(alive: Array[FighterView]) -> Array[int]:
-	var bi := -1
-	for i in alive.size():
-		if alive[i].fighter.is_boss:
-			bi = i
-	if bi < 0 or alive.size() < 2:
+	var boss: FighterView = null
+	for v in alive:
+		if v.fighter.is_boss:
+			boss = v
+	for v: Variant in _summon_side.keys():
+		if not is_instance_valid(v) or not alive.has(v):
+			_summon_side.erase(v)
+	if boss == null or alive.size() < 2:
 		return []
-	var boss := alive[bi]
-	var plate_w := ceili(HpPlate.SIZE.x / FighterView.WS) + 2
-	var cb := ENEMY_X.x + ceili(boss.body_width() * 0.5)
-	var right0 := cb + ceili(boss.body_width() * 0.5)
-	var mw := 0.0
-	var mh := 0
+	var inv: Array[FighterView] = []
 	for v in alive:
 		if v != boss:
-			mw = maxf(mw, v.body_width())
-			mh = maxi(mh, int(v.body_world().size.y))
-	var need := int(ceil(mw)) + 4
-	var spots: Array[int] = []
-	# A la derecha: ni el cuerpo ni la placa pasan de x 632.
-	var x := mini(ENEMY_X.y - int(ceil(mw * 0.5)) - 2, ENEMY_X.y - plate_w / 2)
-	while x - int(ceil(mw * 0.5)) >= right0 + 2:
-		spots.append(x)
-		x -= maxi(plate_w, need)
-	for g: Vector2i in boss.ground_gaps(mh + 2, need):
-		var c := cb + (g.x + g.y) / 2
-		if c - mw * 0.5 >= ENEMY_X.x:
-			spots.append(c)
-	if spots.size() < alive.size() - 1:
+			inv.append(v)
+	# Los que ya estaban a la izquierda, primero; los de la derecha, al final.
+	inv.sort_custom(func(p: FighterView, q: FighterView) -> bool:
+		return int(_summon_side.get(p, 0)) < int(_summon_side.get(q, 0)))
+	var k := inv.size()
+	var bw := ceili(boss.body_width())
+	var plate_w := ceili(HpPlate.SIZE.x / FighterView.WS) + 2
+	var mh := 0
+	for v in inv:
+		mh = maxi(mh, ceili(v.body_width() * 0.5))
+	var step := maxi(2 * mh + SUMMON_GAP, plate_w)
+	var best: Dictionary = {}
+	for nl in k + 1:
+		var nr := k - nl
+		var xs: Array[int] = []
+		for i in nl:
+			xs.append(ENEMY_X.x + mh + i * step)
+		var r0 := ENEMY_X.y - maxi(plate_w / 2, mh) - (nr - 1) * step
+		for i in nr:
+			xs.append(r0 + i * step)
+		var bl := ENEMY_X.x if nl == 0 else xs[nl - 1] + mh + SUMMON_GAP
+		var br := ENEMY_X.y if nr == 0 else xs[nl] - mh - SUMMON_GAP
+		var slack := br - bl - bw
+		if slack < 0 or (nr > 0 and xs[nl] - mh < ENEMY_X.x):
+			continue
+		var cb := bl + slack / 2 + bw / 2
+		if (nl > 0 and cb - xs[nl - 1] < plate_w) or (nr > 0 and xs[nl] - cb < plate_w):
+			continue
+		var flips := 0
+		for i in k:
+			var side: int = _summon_side.get(inv[i], 0)
+			if side != 0 and side != (-1 if i < nl else 1):
+				flips += 1
+		var score := Vector3i(-flips, -absi(nl - nr), slack)
+		if best.is_empty() or score > (best["score"] as Vector3i):
+			best = {"score": score, "xs": xs, "cb": cb, "nl": nl}
+	if best.is_empty():
 		return []
-	# Placas: la del jefe y las elegidas no se solapan.
-	var chosen: Array[int] = []
-	for c in spots:
-		if chosen.size() == alive.size() - 1:
-			break
-		var ok := absi(c - cb) >= plate_w
-		for o in chosen:
-			ok = ok and absi(c - o) >= plate_w
-		if ok:
-			chosen.append(c)
-	if chosen.size() < alive.size() - 1:
-		return []
+	var at := {boss: int(best["cb"])}
+	for i in k:
+		at[inv[i]] = (best["xs"] as Array[int])[i]
+		_summon_side[inv[i]] = -1 if i < int(best["nl"]) else 1
 	var out: Array[int] = []
-	var k := 0
-	for i in alive.size():
-		if i == bi:
-			out.append(cb)
-		else:
-			out.append(chosen[k])
-			k += 1
+	for v in alive:
+		out.append(int(at[v]))
 	return out
 
 
@@ -582,6 +599,31 @@ func _pile(pile_kind: String, pos: Vector2, cb: Callable) -> PileCounter:
 
 
 # --- Mano -----------------------------------------------------------------------------------------
+
+## Carta que vuela al descarte (o a la heroína, si es poder): sin alfa (§12). A esta fracción del vuelo baja
+## `CARD_DIM_STEPS` pasos de su rampa (sombreado de pantalla de `UI.dim_cover`, misma LUT que las recompensas) y al llegar
+## desaparece de golpe.
+const CARD_DIM_AT := 0.5
+## La carta jugada contra un blanco no baja de esta x (la heroína acaba en x 392 de pantalla).
+const CARD_STAGE_MIN_X := 400.0
+const CARD_DIM_STEPS := -2
+
+func _card_dim(cv: CardView) -> void:
+	if not is_instance_valid(cv) or cv.is_queued_for_deletion():
+		return
+	# Hijo de la carta (no `top_level`): hereda su escala y su giro de vuelo y tapa justo la carta.
+	var r := UI.dim_cover(cv, CARD_DIM_STEPS)
+	r.top_level = false
+	r.position = Vector2.ZERO
+	r.size = cv.size
+	# La pantalla se copia una vez por fotograma (la viñeta ya la usó, antes de la mano): copia propia justo antes.
+	var bb := BackBufferCopy.new()
+	bb.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	bb.z_as_relative = false
+	bb.z_index = r.z_index
+	cv.add_child(bb)
+	cv.move_child(bb, r.get_index())
+
 
 func _add_card_view(c: Card, from: Vector2) -> CardView:
 	var cv := CardView.new(c, engine)
@@ -1141,7 +1183,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 					tw.tween_property(cv, "position", _discard_pos() - CardView.SIZE * 0.5, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 					tw.tween_property(cv, "scale", Vector2(0.2, 0.2), 0.25)
 					tw.tween_property(cv, "rotation", 0.8, 0.25)
-					tw.tween_property(cv, "modulate:a", 0.0, 0.25)
+					tw.tween_callback(_card_dim.bind(cv)).set_delay(0.25 * CARD_DIM_AT)
 					tw.chain().tween_callback(cv.queue_free)
 		"card_played":
 			var c: Card = d["card"]
@@ -1157,7 +1199,11 @@ func _on_event(k: String, d: Dictionary) -> void:
 				if c.type() == "attack" and tgt == null and _hit_fx != null and engine.living_enemies().size() > 1:
 					_hit_fx.call(&"sweep", float(ENEMY_X.x), float(ENEMY_X.y), float(FighterView.FLOOR_Y - 40))
 				if c.type() == "attack" and tgt != null and _view_for(tgt) != null:
-					stage = _local(_view_for(tgt).center()) - CardView.SIZE * 0.5 + Vector2(-200, -60)
+					var tv := _view_for(tgt)
+					stage = _local(tv.center()) - CardView.SIZE * 0.5 + Vector2(-200, -60)
+					# Blanco ancho (jefe): la carta se queda a la izquierda de su cuerpo, sin tapar la pieza que destella (C2).
+					var left := _local(tv.wv.world_to_ui(tv.body_world().position)).x
+					stage.x = maxf(CARD_STAGE_MIN_X, minf(stage.x, left - CardView.SIZE.x - 8.0))
 				tw.tween_property(cv, "position", stage, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 				tw.parallel().tween_property(cv, "rotation", 0.0, 0.12)
 				tw.parallel().tween_property(cv, "scale", Vector2.ONE, 0.12)
@@ -1165,7 +1211,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 				if c.type() == "power":
 					tw.tween_property(cv, "position", _local(player_view.center()) - CardView.SIZE * 0.5, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 					tw.parallel().tween_property(cv, "scale", Vector2(0.15, 0.15), 0.22)
-					tw.parallel().tween_property(cv, "modulate:a", 0.0, 0.22)
+					tw.parallel().tween_callback(_card_dim.bind(cv)).set_delay(0.22 * CARD_DIM_AT)
 					tw.tween_callback(cv.queue_free)
 					Sfx.play("buff")
 					_burst(player_view.center(), "glow", 14)
@@ -1175,7 +1221,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 					tw.tween_property(cv, "position", _discard_pos() - CardView.SIZE * 0.5, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 					tw.parallel().tween_property(cv, "scale", Vector2(0.15, 0.15), 0.22)
 					tw.parallel().tween_property(cv, "rotation", 0.8, 0.22)
-					tw.parallel().tween_property(cv, "modulate:a", 0.0, 0.22)
+					tw.parallel().tween_callback(_card_dim.bind(cv)).set_delay(0.22 * CARD_DIM_AT)
 					tw.tween_callback(cv.queue_free)
 		"card_burned":
 			var c: Card = d["card"]

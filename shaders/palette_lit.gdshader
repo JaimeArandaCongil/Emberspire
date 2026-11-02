@@ -36,6 +36,10 @@ uniform float reveal_y = -100000.0;
 uniform bool flash_white = false;
 uniform int flash_steps = 0;
 uniform int emit_boost = 0;
+// Jefes (C2, F2-VIDA3): el blanco sólo en la PIEZA golpeada. x, y de mundo y radio: se ponen blancos los píxeles cuyo ANCLA
+// (centro de su pieza) cae dentro del radio, así la pieza entera destella sin cortes; el resto del cuerpo sube
+// `FLASH_REST_STEPS` pasos y conserva el dibujo. Radio < 0 = todo el cuerpo (criaturas y respaldo).
+uniform vec3 flash_piece = vec3(0.0, 0.0, -1.0);
 // Resplandor: los luchadores no viran a oro (sólo la sala, la Forja y sus llamas).
 uniform bool gold_ok = true;
 
@@ -53,6 +57,7 @@ const float GOLD_FROM_METAL = 0.35;
 const int MAT_FURNACE_BRICK = 3;
 const int MAT_COPPER = 8;
 const int MAT_BRASS = 9;
+const int FLASH_REST_STEPS = 3;
 
 varying vec2 world_pos;
 varying float flip_x;
@@ -148,8 +153,10 @@ void fragment() {
 			to_gold = warm >= (metal ? GOLD_FROM_METAL : GOLD_FROM + h * GOLD_SPREAD);
 		}
 	}
-	if (stp > 0 && flash_steps != 0) {
-		s = clamp(s + flash_steps, 1, 15);
+	bool white = flash_white && (flash_piece.z < 0.0 || distance(anchor, flash_piece.xy) <= flash_piece.z);
+	int fsteps = flash_steps + (flash_white && !white ? FLASH_REST_STEPS : 0);
+	if (stp > 0 && fsteps != 0) {
+		s = clamp(s + fsteps, 1, 15);
 	}
 	int row = mat_i * 2 + (cold ? 1 : 0);
 	vec4 col = texelFetch(palette_lut, ivec2(s, row), 0);
@@ -168,7 +175,7 @@ void fragment() {
 		}
 		col = best;
 	}
-	if (flash_white) {
+	if (white) {
 		col = texelFetch(palette_lut, ivec2(7, MAT_FIRE * 2), 0);
 	}
 	COLOR = col;
