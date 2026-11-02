@@ -9,6 +9,7 @@ Roguelike de cartas + incremental en Godot 4.7.2 (GDScript tipado, `gl_compatibi
 - En la nube (Linux): `tools/setup_cloud.sh` instala Godot en `/opt/godot` y `qa.sh` lo usa solo. Binario con ventana:
   `xvfb-run -a -s "-screen 0 1280x720x24" /opt/godot/Godot_v4.7.2-stable_linux.x86_64 --path . <escena>`. Render por software:
   sirve para capturas, no para medir rendimiento. No subas capturas de `screenshots/` regeneradas sin motivo.
+  Con varios agentes a la vez, cada uno captura en su carpeta: `SHOTS_DIR=/ruta/absoluta <binario> ... smoke.tscn`.
 - Nunca vuelques registros completos de Godot: filtra con `grep -E "ERROR|fallos"` y `tail`.
 
 ## Qué leer (y sólo esto)

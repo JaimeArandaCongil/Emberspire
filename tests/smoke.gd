@@ -160,8 +160,12 @@ func _wait(t: float) -> void:
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var path := ProjectSettings.globalize_path("res://screenshots/%s.png" % name)
-	img.save_png(path)
+	# SHOTS_DIR (ruta absoluta) permite a varios agentes capturar a la vez sin pisarse; por defecto, screenshots/.
+	var dir := OS.get_environment("SHOTS_DIR")
+	if dir == "":
+		dir = ProjectSettings.globalize_path("res://screenshots")
+	DirAccess.make_dir_recursive_absolute(dir)
+	img.save_png(dir.path_join("%s.png" % name))
 	print("captura: ", name)
 
 
