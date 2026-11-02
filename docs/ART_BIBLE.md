@@ -30,7 +30,7 @@ chimenea. Subir = seguir el humo. Antorchas, braseros y hogueras son "de la Forj
 | Capa | Lienzo lógico | Escala a 1280×720 | Qué vive ahí |
 |---|---|---|---|
 | **Arte (mundo + interfaz)** | **640×360** | **×2** (×3 a 1080p, ×4 a 1440p, ×6 a 4K) | Fondos, luchadores, Forja, partículas, cartas, marcos, paneles, iconos, Fragua, Mini |
-| **Texto de cuerpo** | 1280×720 | ×1 | **Sólo** Pavesa: cuerpo de carta y tooltips. ÚNICA excepción |
+| **Texto de cuerpo** | 1280×720 | ×1 | **Sólo** Pavesa: cuerpo de carta y tooltips. ÚNICA excepción; etiquetas de HUD en Mini ×2 |
 
 - El mundo se dibuja en `WorldView` (SubViewport 640×360, `snap_2d_*` activos): un píxel fuera de rejilla es **imposible**.
 - Prohibido: escala no entera, `scale`/`rotation` sobre arte en reposo, posiciones de arte fuera de enteros. Excepciones: cartas
@@ -147,7 +147,7 @@ y  22–44   banda de intención de JEFE (fija). Intención normal: 18 px sobre 
 y      264 suelo (pies de todos los luchadores)
 y 296–360  cartas en reposo (asoman 64 px; suben enteras al pasar el ratón)
 x   8–112  Forja de combate (con chimenea hasta el borde superior; Quemas = rejillas del zócalo)
-x 128–196  heroína (66 px + moño)
+x 128–196  heroína (74 px + moño)
 x 300–632  enemigos: 1 → centro 466 · 2 → 396 / 540 · 3 → 350 / 460 / 572
 ```
 - Crisol de Energía abajo a la izquierda; botón "Fin de turno" placa remachada abajo a la derecha; pilas como dorsos 15×21.
@@ -160,7 +160,7 @@ x 300–632  enemigos: 1 → centro 466 · 2 → 396 / 540 · 3 → 350 / 460 / 
 
 | Pieza | Tamaño (px de arte) | Notas |
 |---|---|---|
-| Heroína (la Fogonera, diseño PER + enmiendas DA) | **66 de alto + moño**, lienzo 96×96, 4,4 cabezas | cara sellada ≥ 10×10 legible (ojo 1×2 con brillo, ceja 3 px, nariz que rompe silueta), gafas de forja, bufanda azul, delantal, fogón de cinto, fuelle = 2 asas sobre el hombro, **sin saco de carbón**; puntas del pelo y cara del martillo siguen al calor; 2.º reposo con martillo al hombro |
+| Heroína (la Fogonera, diseño PER + enmiendas DA) | **74 de alto + moño** (enmienda F2-BASE), lienzo 96×96, 4,4 cabezas | cara sellada ≥ 10×10 legible (ojo 1×2 con brillo, ceja 3 px, nariz que rompe silueta), gafas de forja, bufanda azul, delantal, fogón de cinto, fuelle = 2 asas sobre el hombro, **sin saco de carbón**; puntas del pelo y cara del martillo siguen al calor; 2.º reposo con martillo al hombro |
 | Monstruo pequeño | 24–36 | modo ASCII del rig permitido < 32 px |
 | Monstruo medio | 48–72 | Excepción: pesado de acto, normal, ≤ 88 y uno por acto (`soot_golem`) |
 | Élite | 80–100 | **redibujado** con pieza propia (corona, armadura); nunca EPX |

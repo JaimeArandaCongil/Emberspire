@@ -67,9 +67,29 @@ func check_determinism() -> Array:
 	var gold := SpriteBank.atlas_image(&"golem_example")
 	if gold == null:
 		out.append("[TEC PER-7] falta el atlas dorado de golem_example (hornear con tools/bake_art.gd)")
-	elif (sheet["index"] as Image).get_data() != gold.get_data():
-		out.append("[TEC PER-7] el atlas de golem_example no coincide con el render actual (¿motor cambiado sin rehornear?)")
+	else:
+		# Entre Windows y Linux, sin/cos/acos de la libm difieren en el último bit y un puñado de píxeles puede caer al otro
+		# lado de un borde. Se tolera esa deriva (≤ GOLD_TOLERANCE píxeles); un cambio de motor sin rehornear da cientos.
+		var nd := _pixels_differing(sheet["index"] as Image, gold)
+		if nd > GOLD_TOLERANCE:
+			out.append("[TEC PER-7] el atlas de golem_example no coincide con el render actual: %d px distintos (¿motor cambiado sin rehornear?)" % nd)
+		elif nd > 0:
+			print("  [TEC PER-7] aviso: %d px de deriva entre plataformas en golem_example (tolerado ≤ %d)" % [nd, GOLD_TOLERANCE])
 	return out
+
+
+const GOLD_TOLERANCE := 8
+
+
+static func _pixels_differing(a: Image, b: Image) -> int:
+	if a.get_size() != b.get_size():
+		return a.get_width() * a.get_height()
+	var n := 0
+	for y in a.get_height():
+		for x in a.get_width():
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				n += 1
+	return n
 
 
 # 4 ---------------------------------------------------------------------------------------------

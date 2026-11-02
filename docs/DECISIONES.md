@@ -10,7 +10,7 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Ilustraciones | 93 composiciones únicas; niveles A (~30), B (~58), C (5). Nunca se repite fondo+encuadre+sujeto+posición |
 | Personajes | Motor de rig único, piezas + sellos a mano. Ojos, manos y remaches siempre sellados. Sin recoloreados |
 | Jefes | 150–200 px de cuerpo, ≤ 280 de ancho; multiparte con cambio de fase |
-| Heroína | 66 px, diseño de `reviews/v04/personajes/fogonera_final.md`; pelo y martillo siguen al calor actual |
+| Heroína | **74 px + moño** (enmienda F2-BASE: medida real del rig; antes 66), diseño de `reviews/v04/personajes/fogonera_final.md`; pelo y martillo siguen al calor actual |
 | Disposición de combate | HUD y 0–15 · banda de intención de jefe y 22–44 · suelo y 264 · cartas en reposo desde y 296 · Forja x 8–112 · heroína x 128–196 · enemigos x 300–632 (centros 1: 466; 2: 396/540; 3: 350/460/572) · intención 18 px sobre la cabeza |
 | Mundo | La Torre es el tiro de la Forja. Sala normal: corredor de arcos + taller. Élite y jefe: galería abierta al tiro. El mapa es el corte de esa chimenea |
 | Onda de quemar | **Aceptada** al 16–19 % de píxeles en movimiento, como evento puntual fuera del presupuesto del 6 % |
@@ -22,3 +22,6 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Pesado de acto | Una criatura normal por acto puede medir hasta 88 px. Se queda `soot_golem` |
 | Paso a fase 3 | Sin excepción al listón: se itera hasta ≥ 8 por familia en el corte, incluido el jefe `great_bellows` y las correcciones C9–C20 que afecten al combate |
 | Paquetes de criaturas | 1–2 criaturas por agente. Sólo un agente hornea a la vez porque comparten `manifest.json` |
+| Etiquetas del HUD | Pavesa ×1 sigue siendo sólo cuerpo de carta y tooltips. Toda etiqueta de HUD o aviso pequeño pasa a **Mini ×2** (o Fragua ×2 si es cifra o título). Origen: `ui.gd` aplicaba Pavesa a toda etiqueta < 20 px (`reviews/v04/director/f2_base/revision.md`) |
+| Horneado entre plataformas | Determinismo estricto en una misma máquina; la imagen dorada tolera ≤ 8 px de deriva Windows/Linux (libm). Los `.import` de `assets/baked/` se versionan |
+| Entorno en la nube | Godot Linux vía `tools/setup_cloud.sh`; capturas con `xvfb-run`. Commit y push al cerrar cada paquete (el contenedor es efímero) |
