@@ -1,0 +1,39 @@
+{
+"anchors": {
+"braziers": Array[Vector2i]([Vector2i(222, 150), Vector2i(625, 136)]),
+"crucibles": [],
+"drips": [Vector2i(210, 34), Vector2i(38, 34), Vector2i(173, 34), Vector2i(238, 34)],
+"ember_sink": Vector2i(440, 44),
+"flanges": [Rect2i(97, 160, 16, 4), Rect2i(97, 110, 16, 4), Rect2i(144, 61, 4, 16), Rect2i(206, 61, 4, 16), Rect2i(236, 58, 8, 22)],
+"flue": Rect2i(290, 40, 300, 168),
+"forge_zone": Rect2i(8, 120, 104, 144),
+"gauge": Vector2i(160, 57),
+"grate": Vector2i(320, 276),
+"pipe": [Vector2i(105, 200), Vector2i(105, 68), Vector2i(236, 68)],
+"window": Rect2i(0, 0, 0, 0)
+},
+"floor": 10,
+"id": "flue_v1_c1",
+"layers": {
+"far": {
+"file": "far_flue",
+"margin": 4,
+"parallax": 2
+},
+"fore": {
+"file": "fore",
+"margin": 8,
+"parallax": -4
+},
+"mid": {
+"file": "mid_flue_v1_c1",
+"margin": 0,
+"parallax": 0
+},
+"sky": {
+"file": "sky",
+"margin": 4,
+"parallax": 1
+}
+}
+}

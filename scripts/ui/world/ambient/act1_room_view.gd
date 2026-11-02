@@ -3,7 +3,8 @@ extends Node2D
 ## Sala del acto 1 lista para usar (MV · v0.4), en px de arte (1 unidad = 1 px de 640×360). Fuera de WorldView,
 ## ponla bajo un padre con escala ×2 entera.
 ## Orden de dibujo: cielo → tiro/corredor → chispas del tiro → capa media (+parches de luz) → ambiente →
-## `actors` (heroína, Forja, enemigos: los pone la pantalla) → partículas delanteras → primer plano.
+## `actors` (heroína, Forja, enemigos: los pone la pantalla) → partículas delanteras → `fx_layer` (efectos) → primer plano.
+## En juego la sala sale de `BakedRooms.load_room()`: capas ya horneadas, nada se genera. `BgAct1.build()` también vale (pruebas).
 ## Mientras el shader `palette_lit` no esté conectado, muestra las vistas previas en color de cada capa; con
 ## `use_index = true` expone las texturas de índice para que WorldView/LightRig las sombreen.
 ##
@@ -15,6 +16,8 @@ extends Node2D
 ## Con shader (dentro de WorldView): `view.build(sala, estado, wv.lights, wv.lit_material)` → capas de índice con
 ## `palette_lit`, braseros y crisol como luces de LightRig, y quemar/calor/PV bajos pasan al rig.
 
+const FORGE_FLICKER := 0.3
+
 var room: Dictionary
 var state: AmbientState
 var particles_back: ArtParticles
@@ -25,6 +28,8 @@ var crucibles: Array[AmbientCrucible] = []
 var drip: AmbientSootDrip
 var gauge: AmbientGauge
 var flue: AmbientFlue
+## Efectos de combate (BurnFX, HitFX, StatusFX…): encima de los actores, debajo del primer plano.
+var fx_layer: Node2D
 var use_index := false
 var rig: LightRig
 var lit_material: ShaderMaterial
@@ -49,6 +54,10 @@ func build(p_room: Dictionary, p_state: AmbientState = null, p_rig: LightRig = n
 		layers[L["name"]] = L
 	_add_layer(layers["sky"])
 	_add_layer(layers["far"])
+	if room["kind"] == "flue":
+		var halo := AmbientGlow.new()
+		halo.setup(state)
+		add_child(halo)
 	particles_back = ArtParticles.new()
 	particles_back.name = "ParticlesBack"
 	particles_back.seed_value = 5
@@ -99,15 +108,20 @@ func build(p_room: Dictionary, p_state: AmbientState = null, p_rig: LightRig = n
 	flue = AmbientFlue.new()
 	flue.setup(state, particles_back, particles_front, anchors["flue"], anchors["grate"])
 	add_child(flue)
+	fx_layer = Node2D.new()
+	fx_layer.name = "FX"
+	add_child(fx_layer)
 	# Polvo en el aire: pocas motas, lentas (presupuesto de movimiento).
 	particles_front.add_emitter(Rect2(120, 60, 500, 180), "dust", 2.2, Vector2.UP, 120.0)
 	_add_layer(layers["fore"])
 	if rig != null:
+		# Con el valor por defecto del rig (0,6) el parpadeo de la Forja mueve 19.000 px en un fotograma: fuera de presupuesto.
+		rig.flicker_amp = FORGE_FLICKER
 		_light_ids.clear()
 		for b in braziers:
 			_light_ids.append(rig.add_light(b.light_info()["pos"], 88.0, 0.0))
 		for c in crucibles:
-			_light_ids.append(rig.add_light(c.light_info()["pos"], 26.0, 2.0))
+			_light_ids.append(rig.add_light(c.light_info()["pos"], 34.0, AmbientCrucible.IDLE_STEPS))
 		state.burned.connect(func(hot: bool) -> void:
 			if rig != null:
 				rig.burn(rig.forge_pos, 3.2 if hot else 2.6))
@@ -118,7 +132,10 @@ func _add_layer(L: Dictionary) -> void:
 	var s := Sprite2D.new()
 	s.name = "Layer_" + String(L["name"])
 	s.centered = false
-	s.texture = ImageTexture.create_from_image(L["index"] if use_index else L["preview"])
+	if L.has("index_tex"):
+		s.texture = L["index_tex"] if use_index else L["preview_tex"]
+	else:
+		s.texture = ImageTexture.create_from_image(L["index"] if use_index else L["preview"])
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	if use_index:
 		s.material = lit_material
@@ -151,8 +168,14 @@ func _process(delta: float) -> void:
 			i += 1
 		for c in crucibles:
 			if i < _light_ids.size():
-				rig.move_light(_light_ids[i], c.light_info()["pos"])
+				var cl := c.light_info()
+				rig.move_light(_light_ids[i], cl["pos"], float(cl["step"]))
 			i += 1
+
+
+## Adónde suben las brasas de los muertos: el vacío del tiro o el fondo del corredor.
+func ember_sink() -> Vector2:
+	return Vector2(room["anchors"]["ember_sink"])
 
 
 ## Luces dinámicas actuales (para LightRig): braseros con su parpadeo y crisoles móviles.

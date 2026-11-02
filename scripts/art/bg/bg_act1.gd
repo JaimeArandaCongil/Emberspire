@@ -64,7 +64,7 @@ func _build(p_kind: String, p_floor: int, p_cycle: int, patches: bool = true) ->
 		# Adónde suben las brasas de los muertos: el vacío del tiro o el fondo del corredor.
 		"ember_sink": Vector2i(440, 44) if kind == "flue" else Vector2i(320, 214),
 		# Recorrido del calor al quemar: de la Forja a la toma del fuelle, brida a brida.
-		"pipe": [Vector2i(105, 214), Vector2i(105, 68), Vector2i(236, 68)],
+		"pipe": [Vector2i(105, 200), Vector2i(105, 68), Vector2i(236, 68)],
 		"flanges": [Rect2i(97, 160, 16, 4), Rect2i(97, 110, 16, 4), Rect2i(144, 61, 4, 16), Rect2i(206, 61, 4, 16), Rect2i(236, 58, 8, 22)]}
 	lights = _static_lights()
 	var mid := BgCanvas.new(W, H, 0)
@@ -275,30 +275,42 @@ func _build_veins() -> void:
 		_walk_crack(o, 62 + int(h3(fi, 1, 73) * 40.0) + cycle * 12, -1 if h3(fi, 2, 74) < 0.5 else 1, 0, fi * 37 + 1)
 
 
+## Tramos rectos de pendiente fija (se leen como grieta, no como escalera), con quiebros y algún tramo por el tendel.
 func _walk_crack(start: Vector2i, length: int, dir0: int, depth: int, sd: int) -> void:
-	var x := start.x
+	var x := float(start.x)
 	var y := start.y
 	var dir := dir0
-	var run := 0
-	for t in length:
-		if y < 62:
-			return
-		var u := float(t) / length
-		if h3(t, sd, 77) > 0.08 + u * 0.35:
-			_veins[Vector2i(x, y)] = 2 if u < 0.3 and depth == 0 else 1
-		if run > 0:
-			x += dir
-			run -= 1
-			continue
-		y -= 1
-		if y % 7 == 0 and h3(t, sd, 75) < 0.55:
-			run = 3 + int(h3(t, sd, 76) * 11.0)
-		elif h3(t, sd, 78) < 0.45:
-			x += dir
-		if h3(t, sd, 79) < 0.07:
+	var t := 0
+	while t < length and y >= 62:
+		var seg := 7 + int(h3(t, sd, 75) * 13.0)
+		var slope: float = [0.0, 0.16, 0.2, 0.25, 0.33][int(h3(t, sd, 76) * 5.0)] * float(dir)
+		var x0 := x
+		for i in seg:
+			if t >= length or y < 62:
+				return
+			_mark_vein(Vector2i(int(roundf(x0 + slope * i)), y), t, length, depth, sd)
+			y -= 1
+			t += 1
+		x = x0 + slope * seg
+		if h3(t, sd, 78) < 0.4:
 			dir = -dir
-		if depth < 1 and t > 8 and h3(t, sd, 80) < 0.035:
-			_walk_crack(Vector2i(x, y), length / 3, -dir, depth + 1, sd + t + 101)
+		# La grieta aprovecha el tendel: corre por la junta y vuelve a subir.
+		if y % 7 < 3 and h3(t, sd, 79) < 0.5:
+			y -= y % 7
+			var run := 4 + int(h3(t, sd, 77) * 9.0)
+			for i in run:
+				_mark_vein(Vector2i(int(x) + dir * i, y), t + i, length, depth, sd)
+			x += float(dir * run)
+			y -= 1
+			t += run
+		if depth < 1 and t > 10 and h3(t, sd, 80) < 0.3:
+			_walk_crack(Vector2i(int(x), y), length / 3, -dir, depth + 1, sd + t + 101)
+
+
+func _mark_vein(p: Vector2i, t: int, length: int, depth: int, sd: int) -> void:
+	var u := float(t) / length
+	if h3(t, sd, 81) > 0.05 + u * 0.3:
+		_veins[p] = 2 if u < 0.3 and depth == 0 else 1
 
 
 func _vein(x: int, y: int) -> bool:
@@ -1037,14 +1049,36 @@ func _corridor_end(c: BgCanvas, x: int, y: int) -> void:
 
 # --- capa lejana: el tiro (módulo de tiro) -----------------------------------------------------
 
+## Galería del otro lado del tiro: se lee como un vano con fondo de ladrillo, antepecho y un farol; no como marca roja.
+func _shaft_gallery(c: BgCanvas, x: int, y: int, u: float, w: float, top: float, lit: bool) -> void:
+	var ledge := w > -6.0
+	if not lit:
+		c.fixed(x, y, BRICK, 0 if not ledge else 1)
+		return
+	var lamp := Vector2(u - 2.0, w - (top + 13.0)).length()
+	if lamp < 1.5:
+		c.put(x, y, FIRE, 6)
+	elif lamp < 3.0:
+		c.put(x, y, FIRE, 4)
+	elif ledge:
+		var rail := w < -4.0 or posmod(int(u), 4) == 0
+		if rail:
+			c.fixed(x, y, IRON, 0)
+		else:
+			c.fixed(x, y, BRICK, 3)
+	else:
+		var rr := 3 if lamp < 7.0 else (2 if lamp < 12.0 else 1)
+		c.fixed(x, y, BRICK, rr if posmod(int(w), 4) != 0 else maxi(0, rr - 1))
+
+
 func _build_shaft(c: BgCanvas) -> void:
 	var R := 220.0
 	var cx := 440.0
 	var eye := 150.0
 	far_lights = [{"t": "pt", "p": Vector2(440, 330), "r": [74.0, 108.0, 146.0, 196.0, 260.0], "ys": 1.2}]
 	# Galerías del otro lado del tiro: [ángulo, altura en el cilindro, encendida].
-	var arches := [[-0.62, 120.0, 1], [-0.30, 120.0, 0], [0.02, 120.0, 1], [0.34, 120.0, 0], [0.66, 120.0, 1],
-		[-0.46, 58.0, 0], [-0.14, 58.0, 1], [0.18, 58.0, 0], [0.50, 58.0, 1], [-0.46, 186.0, 1], [0.18, 186.0, 1], [0.50, 186.0, 0]]
+	var arches := [[-0.62, 120.0, 0], [-0.30, 120.0, 1], [0.34, 120.0, 0], [0.66, 120.0, 1],
+		[-0.46, 56.0, 0], [-0.14, 56.0, 1], [0.50, 56.0, 0], [-0.46, 190.0, 1], [0.18, 190.0, 0], [0.50, 190.0, 1]]
 	for y in range(0, FY + 4):
 		for x in range(270, 612):
 			var dx := clampf((x - cx) / R, -0.98, 0.98)
@@ -1063,7 +1097,7 @@ func _build_shaft(c: BgCanvas) -> void:
 				c.put(x, y, FIRE, 1)
 				continue
 			# Oscurece hacia los lados y hacia arriba: profundidad.
-			var v := 1
+			var v := 2
 			if absf(dx) > 0.62:
 				v -= 1
 			if y < 46:
@@ -1090,37 +1124,56 @@ func _build_shaft(c: BgCanvas) -> void:
 			for ar: Array in arches:
 				var u := (th - float(ar[0])) * R
 				var w := yr - float(ar[1])
-				var hw := 8.0
-				var top := -18.0
+				var hw := 10.0
+				var top := -28.0
 				if absf(u) > hw + 2.0 or w < top - 2.0 or w > 1.0:
 					continue
 				var inside: bool = (w > top + hw and absf(u) < hw) or Vector2(u, w - (top + hw)).length() < hw
 				var trim: bool = (w > top + hw and absf(u) < hw + 2.0) or Vector2(u, w - (top + hw)).length() < hw + 2.0
 				if inside:
-					if int(ar[2]) == 1:
-						# Interior encendido: la luz viene del suelo de esa galería.
-						var t2 := clampf((w - top) / -top, 0.0, 1.0)
-						c.put(x, y, FIRE, 1 if t2 < 0.4 else (2 if t2 < 0.8 else 3))
-						if w > -5.0 and w < -3.0 or (w > -5.0 and posmod(int(u), 4) == 0):
-							c.put(x, y, IRON, 0, Vector2i(-1, -1), BgCanvas.F_FIXED)   # barandilla en silueta
-					else:
-						c.fixed(x, y, BRICK, 0)
+					_shaft_gallery(c, x, y, u, w, top, int(ar[2]) == 1)
 					painted = true
 					break
 				elif trim:
-					c.put(x, y, STONE, 2)
+					var key := absf(u) < 2.0 and w < top + 1.0
+					c.put(x, y, STONE, 3 if key else (2 if u < 0.0 else 1), Vector2i(x, y) if key else Vector2i(int(cx + sin(float(ar[0])) * R), y / 6 * 6))
 					painted = true
 					break
 			if painted:
 				continue
+			# Sillería: la pieza entera recibe la luz (ancla en coordenadas de cilindro), con zonas de obra y tizne.
 			var cc := th / (PI * 0.5) * 60.0 + 0.5 * posmod(row, 2)
+			var ci := int(floorf(cc))
 			var fr := fposmod(cc, 1.0)
+			var below_band := posmod(iy - 40, 66) - 4
+			var ath := (float(ci) + 0.5 - 0.5 * posmod(row, 2)) / 60.0 * PI * 0.5
+			var ayr := float(row) * 4.0 + 2.0
+			var anc := Vector2i(int(cx + sin(ath) * R), int(eye + (ayr - eye) / (0.62 + 0.38 * cos(ath * 1.5))))
+			# Zonas de reparación: paños enteros de ladrillo más claro u oscuro (rompen la planitud a gran escala).
+			var zone := h3(int((th + 2.0) * 7.0), posmod(iy, 264) / 24, 34)
+			if zone < 0.18:
+				v -= 1
+			elif zone > 0.82:
+				v += 1
+			# Sombra de la cornisa encima y hollín que escurre de ella en regueros.
+			if below_band >= 0 and below_band < 3:
+				v -= 1
+			elif below_band >= 0 and below_band < 12 + int(h3(int(x) / 5, iy / 66, 35) * 22.0) and h3(int(x) / 5, iy / 66, 36) < 0.4:
+				v -= 1
+			# Sombra lateral que proyectan los nervios.
+			for rth2: float in [-0.46, 0.46]:
+				var dr := float(x) - (cx + sin(rth2) * R)
+				if dr > 7.0 and dr < 14.0:
+					v -= 1
 			if ry == 0 or fr < 0.12 / maxf(0.4, cos(th)):
 				c.joint(x, y, BRICK, v - 1)
 			else:
-				if h3(int(floorf(cc)), row, 33) < 0.15:
+				var hb2 := h3(ci, row, 33)
+				if hb2 < 0.16:
 					v -= 1
-				c.put(x, y, BRICK, v)
+				elif hb2 > 0.9:
+					v += 1
+				c.put(x, y, BRICK, v, anc)
 	# Dos pasarelas cruzando el tiro.
 	for py: int in [128, 54]:
 		for x in range(270, 612):

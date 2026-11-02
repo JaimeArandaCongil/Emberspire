@@ -16,6 +16,7 @@ const GROUPS := ["creatures", "hero", "bosses", "props", "examples"]
 static var _meta := {}        # id → Dictionary (o {} si no existe)
 static var _tex := {}         # ruta → Texture2D
 static var _frames := {}      # clave → Array[Texture2D]
+static var _body := {}        # id → Rect2i del cuerpo (primer fotograma de idle)
 
 
 static func _find_meta(id: StringName) -> Dictionary:
@@ -208,8 +209,34 @@ static func monster_texture(shape: String, seed_key: String, biome: int, cycle: 
 	return art.monster_pose(shape, seed_key, biome, cycle, pose)
 
 
+## Caja de píxeles opacos del primer fotograma de `idle`, en el lienzo del sprite. Sirve para colocar en la disposición.
+static func body_rect(id: StringName) -> Rect2i:
+	if _body.has(id):
+		return _body[id]
+	var r := Rect2i()
+	var m := _find_meta(id)
+	if not m.is_empty() and (m["anims"] as Dictionary).has("idle"):
+		var img := atlas_image(id)
+		if img != null:
+			var w := int(m["size"][0])
+			var h := int(m["size"][1])
+			r = img.get_region(Rect2i(0, int(m["anims"]["idle"]["row"]) * h, w, h)).get_used_rect()
+	_body[id] = r
+	return r
+
+
+## Fila del lienzo que pisa el suelo. Las criaturas voladoras exportan el socket `ground` (altura de vuelo de su RigDef,
+## puede caer fuera del lienzo); las demás apoyan la base de su cuerpo.
+static func ground_y(id: StringName) -> int:
+	var g: Variant = socket(id, &"idle", 0, &"ground")
+	if g != null:
+		return (g as Vector2i).y
+	return body_rect(id).end.y
+
+
 ## Vacía las cachés (tras volver a hornear en caliente desde una herramienta).
 static func clear() -> void:
 	_meta.clear()
 	_tex.clear()
 	_frames.clear()
+	_body.clear()

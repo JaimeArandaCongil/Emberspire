@@ -1,6 +1,24 @@
 {
 	"engine": 1,
 	"entries": {
+		"ash_glutton": {
+			"src": "res://scripts/art/defs/creatures/ash_glutton.gd",
+			"hash": "c45553f4cc5ab9c47500472f9ffda9daffea11257d0ef9095ea812af977a2e5f",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/ash_glutton_idx.png",
+				"res://assets/baked/creatures/ash_glutton_prev.png",
+				"res://assets/baked/creatures/ash_glutton@sooty_idx.png",
+				"res://assets/baked/creatures/ash_glutton@sooty_prev.png",
+				"res://assets/baked/creatures/ash_glutton.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/ash_glutton_idx.png": "86e11b5a3730eba9ae658c2f2ac055f8",
+				"res://assets/baked/creatures/ash_glutton_prev.png": "195a31bd699709fec277987c04b98017",
+				"res://assets/baked/creatures/ash_glutton@sooty_idx.png": "60f54e917983a15ad9b9658d8b80c09c",
+				"res://assets/baked/creatures/ash_glutton@sooty_prev.png": "473a8512e1fede18b1c3584aa3760b85"
+			}
+		},
 		"ash_slime": {
 			"src": "res://scripts/art/defs/creatures/ash_slime.gd",
 			"hash": "8c76d60e1eb8f9b6f1b6680d38793f348618dc9b79ea2789412fd52be3f4a470",

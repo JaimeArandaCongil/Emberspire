@@ -92,7 +92,8 @@ func _draw() -> void:
 	var dens := 1 if state != null and state.heat > 0.7 else 0
 	var sm := AmbientFrames.smoke(_frame, dens, use_index)
 	draw_texture(sm, Vector2(-AmbientFrames.SMOKE_BASE.x, -AmbientFrames.SMOKE_BASE.y - 30))
-	var fl := AmbientFrames.flame(_frame, _lean(), _size(), use_index)
+	var gold := state != null and state.glow
+	var fl := AmbientFrames.flame(_frame, _lean(), 1.0 if gold else _size(), use_index, gold)
 	draw_texture(fl, Vector2(-AmbientFrames.FLAME_BASE.x, -AmbientFrames.FLAME_BASE.y - 2))
 
 

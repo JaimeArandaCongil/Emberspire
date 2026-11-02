@@ -64,3 +64,46 @@ Los luchadores de la escena son estáticos: con ellos animados, el reposo subir�
 - **Calidad:** el muro del tiro sigue algo plano, las saeteras lejanas se leen como marcas rojas y las vetas conservan algo de escalera.
 - **Ambiente sin luz:** llamas, humo, crisol y partículas no pasan por `palette_lit`. El hierro del crisol no reacciona a la onda de quemar.
 - **Brasero derecho de la sala de tiro** (x 618): cae sobre la zona de enemigos; con el tercer enemigo en x 572 hay que revisar el solape.
+
+
+## F2-FX: Forja de combate, salas horneadas y efectos
+
+### Hecho
+- **Salas horneadas:** `tools/bake_rooms.gd` escribe 12 variantes (4 normales y 2 de tiro × ciclo I / II+) en `assets/baked/rooms/`, con manifiesto propio. Cielo, lejos y primer plano se comparten y el horneador avisa si dos variantes los producen distintos. `BakedRooms.load_room()` da la sala y `{}` si falta. El piso elige variante por hash. Tarda unos 60 s.
+- **Ambiente horneado:** llamas, humo y crisol salen de un atlas (`ambient_*.png`). `AmbientFrames` sólo genera si falta el atlas o con `use_baked = false`.
+- **Forja (`BgForge`, `CombatForge`):** horno de botella en x 8–112 con chimenea hasta el borde superior, como pide la biblia §7. Para que la columna tenga dónde salir, la chimenea se parte en una **junta de tiro** abierta (y 78–118): tiro bajo, tirantes y campana. El conducto entra por un collarín en x 100–109 con la misma luz horneada que la capa media, y la tobera lo mete en el horno. Llama en 3 niveles de calor, 2 f de tragar, destello con silueta de carta, 5 rejillas en el zócalo.
+- **Efectos:** `BurnFX`, `HitFX`, `DeathEmbers`, `StatusFX` y `SummonFX` en `scripts/ui/world/fx/`, dibujados en rejilla con `Palette`. API en `api_vfx.md`.
+- **Calidad de sala:**
+  - Muro del tiro: sillería con ancla de pieza, paños de obra, regueros de hollín bajo las cornisas y sombra de los nervios.
+  - Galerías lejanas: vano con fondo de ladrillo, antepecho y farol, en vez de marca roja.
+  - Vetas: tramos de pendiente fija con quiebros; la prueba mide la escalera a 45°.
+  - `AmbientState.glow`: llama de oro, halo en los nervios del tiro y motas.
+  - Crisol: la onda tarda 0,37 s en llegar; entonces el hierro sube 4 pasos con su luz propia y el crisol se balancea.
+
+### Decisiones
+- La onda de `LightRig` sola no bastaba para el crisol: al llegar a x 444 ya ha caído a +1 paso y pasa en 40 ms. Por eso tiene reacción propia.
+- `Act1RoomView` baja `rig.flicker_amp` a 0,3. Con el 0,6 por defecto, el parpadeo de la Forja movía 19.441 px en un fotograma (presupuesto: 13.800).
+- El bucle de estado es uno por luchador: quemadura > débil > fuerza.
+- Metadatos en `.txt` con `var_to_str`, porque conservan `Vector2i` y `Rect2i`.
+
+### Medido (shader real, sin luchadores, calor 0,5)
+- Movimiento en reposo: normal, media 5.387 y pico 8.554 px; tiro, media 4.411 y pico 7.796 px.
+- Con calor 1 el parpadeo llega a amplitud 0,45: pico medido de 11.752 px con esa amplitud.
+- `tools/qa.sh art`: 5 suites, 0 fallos. `tools/qa.sh game`: 1745 comprobaciones, 0 fallos.
+
+### Evidencia
+Hojas en `C:\Users\Jaime\AppData\Local\Temp\claude\C--Users-Jaime-Desktop-Claude\7edeef0b-ef30-4d30-a0e0-2a28a44096a1\scratchpad\out\`: `sheet_rooms.png`, `sheet_burn.png`, `sheet_fx.png`. Son temporales; los scripts de captura no están en el proyecto porque quedan fuera del paquete.
+
+### Sin comprobar
+- Nada visto dentro del combate real ni junto a sprites reales: las capturas componen sala, Forja y efectos sin la pantalla.
+- `StatusFX` sólo se ha visto con caja, sin máscara de sprite. El contorno con máscara sólo tiene prueba lógica.
+- Las capturas sólo cubren columnas de ataque y combustible; habilidad, poder y estado tienen prueba de paleta, pero no se han visto.
+- Mismo caso para Resplandor en sala normal, `deny()` y runa con dígitos distintos de 2.
+- Sin probar en GPU integrada ni WebGL2.
+
+### Pendiente
+- `tools/qa.sh bake` no llama a `bake_rooms.gd` (el archivo no es de este paquete).
+- Al exportar, los filtros deben incluir `assets/baked/rooms/*.txt`.
+- Las variantes se diferencian poco: semilla de ladrillo, atrezo y deterioro. Si DA quiere más contraste entre ellas, hay que añadir composición por variante.
+- La emergencia de abajo arriba de `SummonFX` depende del luchador, vía `reveal`: el shader no recorta por altura.
+- «La luz cálida pasa a oro» del Resplandor (biblia §11) sólo llega a llamas y motas: la luz de la sala no cambia de rampa, porque eso requeriría tocar `LightRig` o el shader.

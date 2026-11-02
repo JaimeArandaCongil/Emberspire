@@ -7,6 +7,7 @@ extends RefCounted
 ##   flame(k, lean)   llama de brasero 27×40, 8 fotogramas (100 ms), 4 lenguas; `lean` = inclinada hacia el horno (quemar)
 ##   smoke(k)         columna de humo 30×56, 8 fotogramas, 6 bocanadas que derivan y se deshacen
 ##   crucible(k, amp) cadena + crisol, 16 posiciones de péndulo (110 ms)
+## En juego salen del atlas horneado (`tools/bake_rooms.gd`); sólo se generan si falta (o con `use_baked = false`).
 
 const FLAME_W := 27
 const FLAME_H := 40
@@ -15,8 +16,17 @@ const SMOKE_W := 30
 const SMOKE_H := 56
 const SMOKE_BASE := Vector2i(8, 55)
 
+const BAKED_DIR := "res://assets/baked/rooms/"
+
+## false = generar siempre (horneador y pruebas).
+static var use_baked := true
 static var _cache := {}
 static var _previews: Array[Image] = []
+static var _index_images := {}
+static var _atlas_rects := {}
+static var _atlas_idx: Texture2D
+static var _atlas_prev: Texture2D
+static var _atlas_tried := false
 
 
 static func _h(x: int, y: int, s: int) -> float:
@@ -32,19 +42,66 @@ static func _put(img: Image, x: int, y: int, mat: StringName, step: int, anchor 
 	img.set_pixel(x, y, IndexFormat.pack(Palette.index(mat), clampi(step, 0, Palette.steps(mat) - 1), fl, d))
 
 
+static func _put_emissive(img: Image, x: int, y: int, mat: StringName, step: int) -> void:
+	if x >= 0 and y >= 0 and x < img.get_width() and y < img.get_height():
+		img.set_pixel(x, y, IndexFormat.pack(Palette.index(mat), step, IndexFormat.F_EMISSIVE, Vector2i.ZERO))
+
+
+static func flame_key(k: int, lean: int, size: float, gold: bool) -> String:
+	return "fl:%d:%d:%d%s" % [k % 8, lean, int(roundf(size * 10.0)), ":g" if gold else ""]
+
+
+static func smoke_key(k: int, density: int) -> String:
+	return "sm:%d:%d" % [k % 8, density]
+
+
+static func crucible_key(k: int, ln: int, amp: int, glow: int) -> String:
+	return "cr:%d:%d:%d:%d" % [k % 16, ln, amp, glow]
+
+
+## Fotograma del atlas horneado, o null si no está.
+static func _baked(key: String, index: bool) -> Texture2D:
+	if not use_baked:
+		return null
+	if not _atlas_tried:
+		_atlas_tried = true
+		var meta := BakedRooms.read_meta(BAKED_DIR + "ambient.txt")
+		_atlas_rects = meta.get("rects", {})
+		_atlas_idx = BakedRooms.load_texture(BAKED_DIR + "ambient_idx.png")
+		_atlas_prev = BakedRooms.load_texture(BAKED_DIR + "ambient_prev.png")
+	var src: Texture2D = _atlas_idx if index else _atlas_prev
+	if src == null or not _atlas_rects.has(key):
+		return null
+	var at := AtlasTexture.new()
+	at.atlas = src
+	at.region = Rect2((_atlas_rects[key] as Array)[0])
+	_cache[key + (":1" if index else ":0")] = at
+	return at
+
+
+## Imagen de índice de un fotograma generado (para el horneador).
+static func index_image(key: String) -> Image:
+	return _index_images.get(key)
+
+
 static func _store(key: String, idx: Image, index: bool) -> ImageTexture:
 	var pre := IndexFormat.preview(idx)
 	_previews.append(pre)
+	_index_images[key] = idx
 	_cache[key + ":1"] = ImageTexture.create_from_image(idx)
 	_cache[key + ":0"] = ImageTexture.create_from_image(pre)
 	return _cache[key + (":1" if index else ":0")]
 
 
-static func flame(k: int, lean: int = 0, size: float = 1.0, index := false) -> ImageTexture:
-	var key := "fl:%d:%d:%d" % [k % 8, lean, int(size * 10.0)]
+## `gold` = llama del Resplandor: la rampa de oro en vez de la de fuego, igual de emisiva.
+static func flame(k: int, lean: int = 0, size: float = 1.0, index := false, gold := false) -> Texture2D:
+	var key := flame_key(k, lean, size, gold)
 	var ck := key + (":1" if index else ":0")
 	if _cache.has(ck):
 		return _cache[ck]
+	var bk := _baked(key, index)
+	if bk != null:
+		return bk
 	var img := IndexFormat.blank(FLAME_W, FLAME_H)
 	var ph := float(k % 8) / 8.0
 	var bx := FLAME_BASE.x
@@ -79,15 +136,21 @@ static func flame(k: int, lean: int = 0, size: float = 1.0, index := false) -> I
 				v = 4
 			elif hv > 0.09:
 				v = 3
-			_put(img, bx + xx, by + yy, &"fire", v)
+			if gold:
+				_put_emissive(img, bx + xx, by + yy, &"gold", clampi(v - 2, 1, 5))
+			else:
+				_put(img, bx + xx, by + yy, &"fire", v)
 	return _store(key, img, index)
 
 
-static func smoke(k: int, density: int = 0, index := false) -> ImageTexture:
-	var key := "sm:%d:%d" % [k % 8, density]
+static func smoke(k: int, density: int = 0, index := false) -> Texture2D:
+	var key := smoke_key(k, density)
 	var ck := key + (":1" if index else ":0")
 	if _cache.has(ck):
 		return _cache[ck]
+	var bk := _baked(key, index)
+	if bk != null:
+		return bk
 	var img := IndexFormat.blank(SMOKE_W, SMOKE_H)
 	var order: Array = []
 	for j in 6:
@@ -124,11 +187,14 @@ static func crucible_dx(k: int, amp: int = 7) -> int:
 
 
 ## Cadena + crisol. El centro del fotograma en x es el pivote. Redibujado por posición (sin rotar sprites).
-static func crucible(k: int, ln: int, amp: int = 7, glow: int = 0, index := false) -> ImageTexture:
-	var key := "cr:%d:%d:%d:%d" % [k % 16, ln, amp, glow]
+static func crucible(k: int, ln: int, amp: int = 7, glow: int = 0, index := false) -> Texture2D:
+	var key := crucible_key(k, ln, amp, glow)
 	var ck := key + (":1" if index else ":0")
 	if _cache.has(ck):
 		return _cache[ck]
+	var bk := _baked(key, index)
+	if bk != null:
+		return bk
 	var w := 2 * (amp + 14)
 	var hh := ln + 22
 	var img := IndexFormat.blank(w, hh)
@@ -183,3 +249,7 @@ static func images() -> Array[Image]:
 static func clear_cache() -> void:
 	_cache.clear()
 	_previews.clear()
+	_index_images.clear()
+	_atlas_tried = false
+	_atlas_idx = null
+	_atlas_prev = null

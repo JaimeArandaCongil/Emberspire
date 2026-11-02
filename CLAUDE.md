@@ -30,5 +30,6 @@ y sus conclusiones ya están arriba. No abras el arte legado (`scripts/art/legac
 - Sin escala no entera ni rotación de arte en reposo; todo en la rejilla 640×360 ×2. Sin recolorear para crear contenido.
 - El juego arranca y se juega siempre; lo nuevo entra con respaldo al arte anterior.
 - Hecho = `tools/qa.sh all` en verde + captura o hoja revisada. Di con honestidad lo no comprobado.
+- Archivos de más de 300 líneas (`combat_screen.gd`, `fighter_view.gd`, `bg_act1.gd`): localiza con Grep y lee rangos. No releas lo que ya tienes.
 - Revisa imágenes con moderación: una hoja por iteración y a la escala menor que permita juzgar.
 - Informe final: máximo 150 palabras, con rutas, evidencia y pendientes. Lo detallado va a `docs/reviews/v04/<rol>/diario.md`.

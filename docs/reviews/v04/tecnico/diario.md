@@ -49,3 +49,29 @@ Las 7 condiciones: PER-1, 2, 3 y 6 y los límites de DA son errores de `RigLint`
 - `tec_shader_parity` y `tec_world_demo` no entran en `art_tests` porque necesitan ventana.
 - Los sellos no giran con el hueso (se clavan rectos en su ancla); con giros grandes hay que usar vistas o parches.
 - `project.godot`: Godot lo reescribió al guardar los globales (quitó `aspect="keep"`, que es el valor por defecto).
+
+## F2-INT: combate real con el arte nuevo (2026-11-02)
+**Hecho.** `combat_screen.gd` y `fighter_view.gd` reescritos sobre `WorldView`; `sprite_bank.gd` gana `body_rect()` y `ground_y()`. `combat_engine.gd` intacto.
+- **Luchador en dos mitades:** `actor` (Node2D, px de arte) en el mundo y `FighterView` (Control) en la interfaz, con `HpPlate`, `StatusRow`, `IntentView`. `place(cx)` mueve ambas. Hoja por `fighter.def_id`; sin hoja, arte legado a ×2 con su disolución.
+- **Vuelo:** `ground_y()` usa el socket `ground`, que exporta la altura `HOVER` del `RigDef`. Murciélago: base en y 230, suelo 264. La polilla hace lo mismo.
+- **Disposición:** centros de DECISIONES; con 4+ o cuerpos que no caben, reparto por ancho en x 300–632. Jefe con invocaciones: se reparte.
+- **Columnas libres de la mano:** x < 132 y x > 1138. Las posiciones propuestas en `api_hud.md` para las pilas (130, 1000) caen bajo la mano de 10. Quedan: quemas (8, 534), crisol (26, 568), robo (18, 662), fin de turno (1138, 586), descarte (1160, 628), exilio (1160, 674).
+- **HUD superior:** `main.gd` no es de este paquete. `TopHud` vive en la pantalla y se oculta `main.hud` cada fotograma, porque `_swap` lo reactiva tras `build()`. `main.fly_embers` apunta al icono oculto, casi en el mismo sitio. El Forja/mapa siguen con el HUD v0.3.
+- **Efectos F2-FX:** conectados `BakedRooms`, `CombatForge`, `BurnFX`, `HitFX`, `DeathEmbers`, `StatusFX`, `SummonFX` por clase global en ejecución (`_fx_script`), porque llegaron mientras integraba. Si falta o no compila uno, entra el respaldo con `ArtParticles`. Ya pueden pasar a tipado estático.
+
+**Pelo y martillo NO seguían al calor.** `palette_lit` declara `forge_heat` y no lo usa; las puntas (`fire`) y la cara (`hot`) son emisivos horneados que sólo reciben `emit_pulse`.
+- **Arreglo sin tocar `shaders/` (fuera del paquete):** `FighterView._hero_heat_shader()` deriva en ejecución una copia del shader para la heroína. `hot`: paso horneado − 4 + round(calor × 4). `fire` a menos de 26 px del socket `head`, con calor ≤ 0,35: `hair 2`. El farol también es `fire` y por eso se separa por distancia a la cabeza. En los fotogramas de estela se desactiva.
+- **Medido (`tests/smoke.gd`), píxeles de pantalla, calor 0,1 → 0,9:** martillo vivo 0 → 64, martillo frío 72 → 0, puntas y farol 4 → 32.
+- **Pendiente:** llevarlo a `palette_lit` con un material propio (o un material `tip`) es más limpio. Requiere editar `shaders/` y hornear de nuevo; lo decide dirección.
+
+**Calor según producción.** `heat = 0,2 + 0,8 × producción normalizada + 0,05 × quemas del combate`. Difiere de la fórmula de `api_vfx.md`, basada sólo en quemas, porque el encargo pide producción. Con 3,18K/s da 0,51 antes de quemar.
+
+**Comprobado con `tests/smoke.gd` (SMOKE OK, sin errores de script).** Martillo, puntas, calor, PV bajos (borde 0,326 → 0,267), onda al quemar, 3 centros, vuelo, mano de 10 a paso 90 desde x 150 y y 592, hover a y 496, placa de quemar en pantalla, ratón real sobre carta y clic real en Fin de turno. Capturas revisadas: reposo, quema, ataque, turno enemigo, muerte, jefe con invocación.
+
+**Defectos vistos y corregidos en capturas:** iconos de reliquia al doble (`legacy_icon` ya es ×2); carta de quemar aterrizando fuera de la boca (pivote central); contorno de bloqueo recto de `StatusFX` (faltaba pasar la máscara: `body_mask()`); carta de ataque tapando al objetivo (ahora se detiene más a la izquierda).
+
+**No comprobado o pendiente.**
+- La carta quemada no pasa por detrás de la heroína: la carta es interfaz y va sobre el mundo.
+- Arte legado sin `palette_lit`: no recibe luz de escena. Actos 2 y 3 sólo vistos por no fallar en el recorrido.
+- Sin probar: quema en caliente con ratón real, muerte de heroína vista sólo en `18b`, GPU integrada, WebGL2.
+- `set_hint()` y `deny()` conectados, no vistos en partida.

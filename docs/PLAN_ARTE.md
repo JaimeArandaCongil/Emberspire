@@ -6,10 +6,12 @@ Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/r
 ## Paquetes de la fase 2
 | Id | Paquete | Agente | Archivos | Estado |
 |---|---|---|---|---|
-| F2-INT | Integrar el combate: WorldView, sprites, luz por estado, partículas, mano, HUD, efectos | `art-integrator` | `scripts/ui/fighter_view.gd`, `scripts/ui/screens/combat_screen.gd`, `scripts/art/rig/**`, `scripts/art/light_rig.gd`, `scripts/art/sprite_bank.gd`, `tests/smoke.gd`, `project.godot` | pendiente |
-| F2-FX | Forja de combate, salas horneadas, BurnFX, HitFX, muerte, estados, invocación | `world-artist` (opus) | `scripts/art/bg/**`, `scripts/ui/world/**` salvo `world_view.gd`, `tools/bake_rooms.gd`, `assets/baked/rooms/**`, `tests/art/test_mv.gd` | pendiente |
+| F2-INT | Integrar el combate: WorldView, sprites, luz por estado, partículas, mano, HUD, efectos | `art-integrator` | `scripts/ui/fighter_view.gd`, `scripts/ui/screens/combat_screen.gd`, `scripts/art/rig/**`, `scripts/art/light_rig.gd`, `scripts/art/sprite_bank.gd`, `tests/smoke.gd`, `project.godot` | hecho |
+| F2-FX | Forja de combate, salas horneadas, BurnFX, HitFX, muerte, estados, invocación | `world-artist` (opus) | `scripts/art/bg/**`, `scripts/ui/world/**` salvo `world_view.gd`, `tools/bake_rooms.gd`, `assets/baked/rooms/**`, `tests/art/test_mv.gd` | hecho |
 | F2-TRIAL | Prueba de Sonnet: 1 criatura y 3 ilustraciones | Sonnet | `ash_glutton`, `set_pyre.gd` | hecho: no superada, se rehacen en fase 3 con Opus |
-| F2-REV | Revisión del corte con capturas; nota ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | tras INT y FX |
+| F2-FIX | Cian de la heroína, calor en `palette_lit`, carta quemada, intenciones, horneado de salas | `art-integrator` (opus) | ver encargo | en curso |
+| F2-CRIA | Correcciones de la prueba ciega y `ash_glutton` rehecho | `creature-artist` | `scripts/art/defs/creatures/**`, `assets/baked/creatures/**`, `scripts/data/enemy_db.gd` | en curso |
+| F2-REV | Revisión del corte con capturas; nota ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | tras FIX y CRIA |
 
 ## Hecho hasta ahora
 - Paleta, biblia, rig, horneador, `palette_lit`, `LightRig`, `WorldView`, kit de UI, fuentes, marco de carta.
@@ -18,8 +20,8 @@ Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/r
 - Ilustraciones: 12 de 93. Las otras 81 usan respaldo temporal.
 
 ## Pendiente conocido
-- `combat_screen.gd` y `fighter_view.gd` aún muestran el arte v0.3.
-- Sin probar: GPU integrada y WebGL2. Animaciones nunca vistas en juego con el shader.
+- Actos 2 y 3 siguen con arte legado sin luz. `TopHud` sólo en combate.
+- Sin probar: GPU integrada y WebGL2. Quema en caliente con ratón.
 - Pasada de nivel A de las ilustraciones y regla de combinación única: comprobar el estado en `tests/art/test_ui.gd`.
 - `ART_BIBLE.md` debe incorporar `formato_indice.md` (o enlazarlo).
 - Las notas ciegas de lo hecho con Opus (6–7,5) aún no llegan al objetivo de 8: aplicar `director/prueba_ciega.md`. Las 15 ilustraciones superan el límite de 12 colores.

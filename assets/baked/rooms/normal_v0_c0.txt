@@ -1,0 +1,42 @@
+{
+"anchors": {
+"braziers": Array[Vector2i]([Vector2i(226, 156), Vector2i(520, 150)]),
+"crucibles": [{
+"len": 66,
+"pivot": Vector2i(444, 32)
+}],
+"drips": [Vector2i(411, 34), Vector2i(533, 34), Vector2i(562, 34), Vector2i(140, 34)],
+"ember_sink": Vector2i(320, 214),
+"flanges": [Rect2i(97, 160, 16, 4), Rect2i(97, 110, 16, 4), Rect2i(144, 61, 4, 16), Rect2i(206, 61, 4, 16), Rect2i(236, 58, 8, 22)],
+"flue": Rect2i(0, 0, 0, 0),
+"forge_zone": Rect2i(8, 120, 104, 144),
+"gauge": Vector2i(160, 57),
+"grate": Vector2i(320, 276),
+"pipe": [Vector2i(105, 200), Vector2i(105, 68), Vector2i(236, 68)],
+"window": Rect2i(582, 64, 36, 108)
+},
+"floor": 2,
+"id": "normal_v0_c0",
+"layers": {
+"far": {
+"file": "far_normal",
+"margin": 4,
+"parallax": 2
+},
+"fore": {
+"file": "fore",
+"margin": 8,
+"parallax": -4
+},
+"mid": {
+"file": "mid_normal_v0_c0",
+"margin": 0,
+"parallax": 0
+},
+"sky": {
+"file": "sky",
+"margin": 4,
+"parallax": 1
+}
+}
+}
