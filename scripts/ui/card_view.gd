@@ -4,7 +4,7 @@ extends Control
 ## (160×224). Nombre en Fragua ×2 (o Pavesa ×1 si no cabe), tipo en Mini ×2, cuerpo en Pavesa ×1 (tinta sobre
 ## pergamino, cifras en negrita). Auras animadas: jugable, quemable, en caliente (Mayús) y seleccionada.
 ## Brillo de rara (6 fotogramas cada 4 s). Emite `clicked(view, button)` y `hover_changed(view, hovering)`.
-## `burn_away()` la disuelve en llamas.
+## `burn_away()` la quema sin alfa: baja pasos de rampa y se consume por celdas de arte tras un borde de brasa.
 ##
 ## Métricas para la mano (combate): tamaño 160×224; el orbe sobresale 12 px arriba-izquierda; el aura 18 px por
 ## cada lado; en reposo asoman 128 px (64 nativos: placa + ilustración); al pasar el ratón sube entera.
@@ -385,18 +385,118 @@ func _update_glow() -> void:
 		_set_tex(_aura, _tex("aura:%s:0:%s" % [kind, _orb.visible], _Frame.aura(kind, 0, _orb.visible)))
 
 
-## Se quema: el texto se apaga y marco e ilustración se deshacen en brasas.
+## Se quema sin alfa (F2-ILUS2): toda la carta (marco, ilustración, textos y orbe) baja pasos de su rampa y se
+## consume por celdas de arte (2×2 px de pantalla) que desaparecen de golpe tras un borde de brasa que sube desde
+## abajo. El avance va en `BURN_STAGES` saltos, como un fotograma horneado; ningún píxel queda a medio alfa.
+## Devuelve el Tween (paralelo) para encadenar lo que toque al terminar; dura `duration`.
 func burn_away(duration: float = 0.55) -> Tween:
 	interactive = false
 	_burn_hint.visible = false
 	_aura.visible = false
 	_shimmer.clear()
+	var mats: Array[ShaderMaterial] = []
+	for n: CanvasItem in [_frame, _name, _type, _desc, _orb, _cost]:
+		var m := _burn_material(n)
+		n.material = m
+		mats.append(m)
 	var tw := create_tween().set_parallel()
-	for n: CanvasItem in [_name, _type, _desc, _orb]:
-		tw.tween_property(n, "modulate:a", 0.0, duration * 0.3)
-	tw.tween_method(func(v: float) -> void:
-		_frame_mat.set_shader_parameter("progress", v), 0.0, 1.0, duration).set_ease(Tween.EASE_IN)
+	tw.tween_method(_burn_step.bind(mats), 0.0, 1.0, duration)
 	return tw
+
+
+const BURN_STAGES := 12          # saltos del frente de brasa en toda la quema
+const BURN_DIM_AT := [0.1, 0.35] # momentos en que la carta baja 2 y 4 pasos de su rampa
+const BURN_FRONT_AT := 0.12      # el frente empieza a comerse la carta aquí
+
+## Quema por celdas de arte: la carta baja `dim` veces 2 pasos (LUT de `UI.dim_lut(-2)`, la misma del descarte),
+## las celdas con `v < front` desaparecen y las de justo delante pasan a brasa (fuego 6 y 4) o a chamuscado (−2 más).
+const BURN_SHADER := """shader_type canvas_item;
+uniform sampler2D dim_lut : filter_nearest, repeat_disable;
+uniform vec2 origin;
+uniform float front = -1.0;
+uniform int dim = 0;
+uniform vec4 ember_hi : source_color;
+uniform vec4 ember_lo : source_color;
+uniform bool fragua = false;
+varying vec2 card_pos;
+varying vec4 v_col;
+float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float n(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h(i), h(i + vec2(1.0, 0.0)), u.x), mix(h(i + vec2(0.0, 1.0)), h(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+vec3 down(vec3 c) {
+	ivec3 k = ivec3(floor(c * 255.0 + 0.5));
+	ivec3 q = k / 4;
+	ivec2 cell = ivec2(q.r + 64 * (q.b % 8), q.g + 64 * (q.b / 8));
+	for (int layer = 0; layer < 4; layer++) {
+		ivec2 base = cell + ivec2(0, 512 * layer);
+		vec4 src = texelFetch(dim_lut, base + ivec2(512, 0), 0);
+		if (src.a > 0.5 && ivec3(floor(src.rgb * 255.0 + 0.5)) == k) {
+			return texelFetch(dim_lut, base, 0).rgb;
+		}
+	}
+	return c;
+}
+void vertex() { card_pos = VERTEX + origin; v_col = COLOR; }
+void fragment() {
+	vec4 c = COLOR;
+	if (fragua) {
+		// Como `UI.fragua_material`: el contorno horneado (`UI.k`) no se tiñe con el color de la letra.
+		vec4 t = texture(TEXTURE, UV);
+		vec3 k = vec3(26.0, 15.0, 18.0) / 255.0;
+		c = (t.a > 0.5 && distance(t.rgb, k) < 0.012) ? vec4(k, t.a * v_col.a) : t * v_col;
+	}
+	if (c.a < 0.5) { discard; }
+	vec2 cell = floor(card_pos / 2.0);
+	float v = n(cell / 9.0) * 0.88 + h(cell) * 0.12;
+	v = v * 0.45 + clamp(1.0 - (cell.y + 6.0) / 118.0, 0.0, 1.0) * 0.55;
+	if (v < front) { discard; }
+	vec3 o = c.rgb;
+	for (int i = 0; i < dim; i++) { o = down(o); }
+	if (v < front + 0.03) { o = ember_hi.rgb; }
+	else if (v < front + 0.06) { o = ember_lo.rgb; }
+	else if (v < front + 0.11) { o = down(o); }
+	COLOR = vec4(o, 1.0);
+}
+"""
+static var _burn_shader: Shader
+
+
+func _burn_material(n: CanvasItem) -> ShaderMaterial:
+	if _burn_shader == null:
+		_burn_shader = Shader.new()
+		_burn_shader.code = BURN_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _burn_shader
+	m.set_shader_parameter("fragua", n.material != null and n.material == UI.fragua_material())
+	m.set_shader_parameter("dim_lut", UI.dim_lut(-2))
+	m.set_shader_parameter("ember_hi", Palette.color(&"fire", 6))
+	m.set_shader_parameter("ember_lo", Palette.color(&"fire", 4))
+	# Posición del nodo en la carta, para que todos compartan la misma rejilla de celdas.
+	var o := Vector2.ZERO
+	var p: Node = n
+	while p != self and p is Control:
+		o += (p as Control).position
+		p = p.get_parent()
+	m.set_shader_parameter("origin", o)
+	return m
+
+
+func _burn_step(t: float, mats: Array[ShaderMaterial]) -> void:
+	var dim := 0
+	for at: float in BURN_DIM_AT:
+		if t >= at:
+			dim += 1
+	var k := clampf((t - BURN_FRONT_AT) / (1.0 - BURN_FRONT_AT), 0.0, 1.0)
+	# Saltos enteros; el último deja v ≥ 1 fuera (carta entera consumida). Antes del primero, nada se come.
+	var front := -1.0 if t < BURN_FRONT_AT else ceilf(k * BURN_STAGES) / BURN_STAGES * 1.02
+	for m in mats:
+		m.set_shader_parameter("dim", dim)
+		m.set_shader_parameter("front", front)
+	if t >= 1.0:
+		visible = false
 
 
 func _on_enter() -> void:

@@ -289,7 +289,14 @@ func _card_view() -> void:
 		var tw: Tween = cv.burn_away(0.01)
 		_check(tw != null, "CardView: burn_away debe devolver un Tween")
 		tw.kill()
+		for n: CanvasItem in [cv._frame, cv._name, cv._type, cv._desc, cv._orb, cv._cost]:
+			var bm := n.material as ShaderMaterial
+			_check(bm != null and bm.shader == CardView._burn_shader, "CardView %s: la quema cubre %s (sin alfa)" % [id, n.name])
+		cv._burn_step(1.0, [])
+		_check(not cv.visible, "CardView %s: al acabar la quema no queda nada" % id)
 		cv.free()
+	var src := FileAccess.get_file_as_string("res://scripts/ui/card_view.gd")
+	_check(not src.contains("modulate:a") and not src.contains("modulate.a"), "CardView: la quema no funde con alfa")
 	var cv2 := CardView.new(Card.new("strike"))
 	host.add_child(cv2)
 	cv2.selected = true
