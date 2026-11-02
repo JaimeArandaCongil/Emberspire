@@ -3,7 +3,7 @@
 "braziers": Array[Vector2i]([Vector2i(226, 156), Vector2i(520, 150)]),
 "crucibles": [{
 "len": 66,
-"pivot": Vector2i(444, 32)
+"pivot": Vector2i(552, 32)
 }],
 "drips": [Vector2i(547, 34), Vector2i(154, 34), Vector2i(554, 34), Vector2i(54, 34)],
 "ember_sink": Vector2i(320, 214),

@@ -33,6 +33,13 @@ const STAGE_X := 300
 ## Zócalo en sombra tras los enemigos: los ladrillos por debajo de esta fila (y) bajan 1 paso.
 const DADO_Y := 218
 const PIER_SHADE_Y := 240
+## Paño tras los enemigos donde las juntas van al paso de la pieza (F2-SALA2, C19): x STAGE_X..CALM_X1, y CALM_Y0..CALM_Y1.
+## Acaba sobre las cabezas (y 167): más abajo, subir las juntas aclara el fondo de las criaturas oscuras y les resta contraste.
+const CALM_X1 := 604
+const CALM_Y0 := 60
+const CALM_Y1 := 167
+## Crisol colgante de la sala normal (antes en x 444, en mitad del muro tras los enemigos).
+const CRUCIBLE_X := 552
 ## Radios de las 6 bandas de luz de un brasero de pared (art px).
 const BRAZIER_R := [8.0, 16.0, 26.0, 40.0, 60.0, 88.0]
 
@@ -190,7 +197,9 @@ func _build_mid(c: BgCanvas, local_floor: int) -> void:
 		_banner(c, 364, 42, 84, local_floor + 3)
 		_static_chain(c, 470, 18, 30)
 		_static_chain(c, 636, 18, 22)
-		anchors["crucibles"] = [{"pivot": Vector2i(444, 32), "len": 66}]
+		# Crisol colgante junto al brasero (F2-SALA2, C19): su luz (+2 pasos, r 34) ya no pinta un foco en mitad del muro
+		# tras los enemigos; cuelga en el rincón caliente, entre el humo del brasero y la ventana.
+		anchors["crucibles"] = [{"pivot": Vector2i(CRUCIBLE_X, 32), "len": 66}]
 	# Atrezo de taller sobre la heroína (elegido por piso: herramientero o estante de crisoles).
 	if not local_floor in [4, 9, 10]:
 		_tool_rack(c, 130, 108)
@@ -230,22 +239,24 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 			var anc := Vector2i(ci * 16 - off + 8, row * 7 + 3)
 			var stage := _in_stage(anc, row)
 			var dado := stage and row * 7 >= DADO_Y
-			if ry == 0 or rx == 0:
-				c.joint(x, y, BRICK, _joint_v(x, y, anc, 2 + s - (1 if dado else 0), s, stage))
-				continue
 			var hb := h3(ci, row, 11)
-			var v := 2
+			var dv := 0
 			if hb < 0.14:
-				v -= 1
+				dv -= 1
 			elif hb > 0.88:
-				v += 1
-			v += s
+				dv += 1
 			# Grupos de ladrillo de otra hornada (C19): paños de ~3×3 piezas un paso más viejos o más nuevos.
 			var hg := h3((xx + int(h3(row / 3, 0, 103) * 32.0)) / 48, row / 3, 104)
 			if hg < 0.12:
-				v -= 1
+				dv -= 1
 			elif hg > 0.92 and not stage:
-				v += 1
+				dv += 1
+			var jb := 2 + s - (1 if dado else 0)
+			if ry == 0 or rx == 0:
+				# En el paño tras los enemigos la junta va al paso de la pieza: si la pieza es más oscura, la junta la sigue.
+				c.joint(x, y, BRICK, _joint_v(x, y, anc, jb + (mini(0, dv) if _in_calm(x, y) else 0), s, stage))
+				continue
+			var v := 2 + dv + s
 			if dado:
 				v -= 1
 			if cycle > 0 and (_vein(x, y - 1) or _vein(x, y + 1) or _vein(x - 1, y) or _vein(x + 1, y)):
@@ -255,7 +266,7 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 				var cx := 1 if hc < 0.11 else 15
 				var cy := 1 if h3(ci, row, 14) < 0.5 else 6
 				if absi(rx - cx) + absi(ry - cy) <= 1 + int(hc * 12.0) % 3:
-					c.joint(x, y, BRICK, _joint_v(x, y, anc, 2 + s - (1 if dado else 0), s, stage))
+					c.joint(x, y, BRICK, _joint_v(x, y, anc, jb + (mini(0, dv) if _in_calm(x, y) else 0), s, stage))
 					continue
 			if ry == 6:
 				c.put(x, y, BRICK, v - 1, anc)
@@ -285,6 +296,10 @@ func _in_stage(anc: Vector2i, row: int) -> bool:
 	return anc.x >= STAGE_X + int(h3(row, 0, 93) * 3.0) * 16
 
 
+func _in_calm(x: int, y: int) -> bool:
+	return x < CALM_X1 and y >= CALM_Y0 and y <= CALM_Y1
+
+
 ## Junta. Fuera de la escena, −1/−2 pasos según la luz (como siempre). En la escena (C19), a −1 del ladrillo: se compensa
 ## el paso de luz que la junta pierde al hornear, para que el muro tras los enemigos no se lea como una rejilla.
 func _joint_v(x: int, y: int, anc: Vector2i, brick_v: int, s: int, stage: bool) -> int:
@@ -293,6 +308,10 @@ func _joint_v(x: int, y: int, anc: Vector2i, brick_v: int, s: int, stage: bool) 
 		return j
 	var la := BgCanvas.steps_at(Vector2(anc), lights, false)
 	var lp := BgCanvas.steps_at(Vector2(x, y), lights, false)
+	# F2-SALA2 (C19): en el paño tras los enemigos (x < CALM_X1, y CALM_Y0..CALM_Y1) la junta horneada va AL PASO de su
+	# pieza, un paso más que en F2-SALA. La hilada se lee por la fila de sombra de la pieza y, con luz, por la bandera JUNTA.
+	if _in_calm(x, y):
+		return clampi(brick_v + la - maxi(0, lp - 1), 0, maxi(j + 1, brick_v + la))
 	return clampi(brick_v - 1 + la - maxi(0, lp - 1), 0, j + 1)
 
 
@@ -331,11 +350,12 @@ func _ashlar(c: BgCanvas, x: int, y: int, s: int) -> bool:
 		var row := y / 7
 		var stage := _in_stage(anc, row)
 		var vb := 2 + s - (1 if stage else 0)
-		if ry == 0 or rx == 0 or x == xl or (x == xr - 1 and xr < W):
-			c.joint(x, y, STONE, _joint_v(x, y, anc, vb, s, stage))
-			return true
 		var hb := h3(bi, k + r.position.x, 100)
-		var v := vb + (-1 if hb < 0.2 else (1 if hb > 0.85 else 0))
+		var dv := -1 if hb < 0.2 else (1 if hb > 0.85 else 0)
+		if ry == 0 or rx == 0 or x == xl or (x == xr - 1 and xr < W):
+			c.joint(x, y, STONE, _joint_v(x, y, anc, vb + (mini(0, dv) if _in_calm(x, y) else 0), s, stage))
+			return true
+		var v := vb + dv
 		if ry == ASHLAR_H - 1:
 			v -= 1
 		c.put(x, y, STONE, v, anc, BgCanvas.F_BEVEL if (ry == 1 or rx == 1) and s >= -1 else 0)

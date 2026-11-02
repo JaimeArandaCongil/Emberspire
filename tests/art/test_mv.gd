@@ -663,6 +663,16 @@ func check_stage(r: Dictionary) -> Array:
 	var rest := _joint_depth(idx, 120, 240)
 	if stage > rest - 0.5 or stage > 1.6:
 		out.append("[MV escena %s] juntas tras los enemigos a %.2f pasos del ladrillo (resto del muro %.2f)" % [k, stage, rest])
+	# F2-SALA2 (C19): en el paño central las juntas van al paso de la pieza (≤ 0,6 de media: quedan el canto horneado y las piezas claras; en F2-SALA, 1,3).
+	if k == "normal":
+		var calm := _joint_depth(idx, BgAct1.STAGE_X + 48, BgAct1.CALM_X1 - 40, BgAct1.CALM_Y0, BgAct1.CALM_Y1 - 1)
+		if calm > 0.6:
+			out.append("[MV escena %s] juntas del paño central a %.2f pasos del ladrillo (≤ 0,6)" % [k, calm])
+		# Su luz (+2 pasos) no puede caer en mitad del muro tras los enemigos.
+		for cr: Dictionary in r["anchors"]["crucibles"]:
+			var px: int = (cr["pivot"] as Vector2i).x
+			if px > 380 and px < 510:
+				out.append("[MV escena %s] el crisol colgante (x %d) cuelga en mitad del muro tras los enemigos" % [k, px])
 	var iron := Palette.index(&"iron")
 	for y in range(265, 278):
 		for x: int in range(0, 640):
@@ -679,11 +689,11 @@ func check_stage(r: Dictionary) -> Array:
 
 
 ## Media de (paso del ladrillo de debajo − paso de la junta de tendel) en el muro de ladrillo, x0..x1, y 40..zócalo.
-func _joint_depth(idx: Image, x0: int, x1: int) -> float:
+func _joint_depth(idx: Image, x0: int, x1: int, y0: int = 40, y1: int = BgAct1.DADO_Y - 1) -> float:
 	var brick := Palette.index(&"brick")
 	var n := 0
 	var sum := 0
-	for y in range(40, BgAct1.DADO_Y - 1):
+	for y in range(y0, y1):
 		for x in range(x0, x1):
 			var c := idx.get_pixel(x, y)
 			if IndexFormat.is_empty(c) or IndexFormat.material_of(c) != brick or (IndexFormat.flags_of(c) & IndexFormat.F_JOINT) == 0:
