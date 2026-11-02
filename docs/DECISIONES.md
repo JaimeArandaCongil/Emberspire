@@ -18,3 +18,7 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Brasero de la sala de tiro | Se aparta del hueco del tercer enemigo (centro x 572) |
 | Flujo de agentes | Un agente nuevo por paquete, 2–3 a la vez, commit al cerrar. Modelos en `.claude/agents/` |
 | Modelo para producir arte | **Opus**. Sonnet no superó la prueba ciega (criatura 4,5 frente a 6 y 7,5; ilustraciones 6 frente a 7,5; `reviews/v04/director/prueba_ciega.md`). Sonnet sólo para conexiones, tests y documentación; Haiku para QA mecánica |
+| Colores por ilustración | ≤ 30, ninguno con menos de 10 px salvo hasta 3 para chispa u ojo. Sustituye a la regla de 12, que ninguna cumplía y aplanaba los materiales (medición en `reviews/v04/director/f2_rev/dictamen.md`) |
+| Pesado de acto | Una criatura normal por acto puede medir hasta 88 px. Se queda `soot_golem` |
+| Paso a fase 3 | Sin excepción al listón: se itera hasta ≥ 8 por familia en el corte, incluido el jefe `great_bellows` y las correcciones C9–C20 que afecten al combate |
+| Paquetes de criaturas | 1–2 criaturas por agente. Sólo un agente hornea a la vez porque comparten `manifest.json` |

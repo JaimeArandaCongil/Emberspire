@@ -162,7 +162,7 @@ x 300–632  enemigos: 1 → centro 466 · 2 → 396 / 540 · 3 → 350 / 460 / 
 |---|---|---|
 | Heroína (la Fogonera, diseño PER + enmiendas DA) | **66 de alto + moño**, lienzo 96×96, 4,4 cabezas | cara sellada ≥ 10×10 legible (ojo 1×2 con brillo, ceja 3 px, nariz que rompe silueta), gafas de forja, bufanda azul, delantal, fogón de cinto, fuelle = 2 asas sobre el hombro, **sin saco de carbón**; puntas del pelo y cara del martillo siguen al calor; 2.º reposo con martillo al hombro |
 | Monstruo pequeño | 24–36 | modo ASCII del rig permitido < 32 px |
-| Monstruo medio | 48–72 | |
+| Monstruo medio | 48–72 | Excepción: pesado de acto, normal, ≤ 88 y uno por acto (`soot_golem`) |
 | Élite | 80–100 | **redibujado** con pieza propia (corona, armadura); nunca EPX |
 | Jefe | **150–200 de cuerpo, ≤ 280 de ancho** | 4–7 partes animadas; sólo humo/corona/vapor entran en la banda 22–44, a < 30 % de valor y nunca sobre la intención; fase 2 cambia la silueta dentro del mismo marco |
 | Forja de combate | 104×84 + chimenea | estados por calor; rejillas de Quemas |
@@ -188,7 +188,7 @@ x 300–632  enemigos: 1 → centro 466 · 2 → 396 / 540 · 3 → 350 / 460 / 
   metal al rojo + 1 f animado en la ilustración), Temple (sello 6×6), quemable (aura escalonada 4 f a 8 fps), en caliente, no quemable.
 - **Ilustraciones: 93 composiciones únicas.** Gramática FONDO + LUZ + SUJETO + FX + ENCUADRE. Niveles A (~30: sujeto propio,
   pasada a mano, 1 f animado en Maestría 3), B (~58), C (5: estados y token). **Criterios de cada una**: ≥ 2 planos de profundidad,
-  una luz clave motivada, un gesto o momento (no un objeto aislado), ≤ 12 colores, silueta legible a 68×46 y a 34×23. Nunca se repite
+  una luz clave motivada, un gesto o momento (no un objeto aislado), ≤ 30 colores (ninguno con menos de 10 px, salvo hasta 3 para chispa u ojo), silueta legible a 68×46 y a 34×23. Nunca se repite
   la terna fondo + sujeto + encuadre (ni la posición). Prohibido "icono ampliado sobre degradado".
 
 ---

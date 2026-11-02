@@ -1,7 +1,7 @@
 # Estado del arte v0.4
 Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/reviews/v04/PLAN.md`.
 
-**Fase actual: 2, corte vertical del combate del acto 1.** Fase 1 cerrada.
+**Fase actual: 2, corte vertical del combate del acto 1, segunda iteración.** Fase 1 cerrada. Correcciones C1–C20 en `docs/reviews/v04/director/f2_rev/dictamen.md`.
 
 ## Paquetes de la fase 2
 | Id | Paquete | Agente | Archivos | Estado |
@@ -11,7 +11,14 @@ Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/r
 | F2-TRIAL | Prueba de Sonnet: 1 criatura y 3 ilustraciones | Sonnet | `ash_glutton`, `set_pyre.gd` | hecho: no superada, se rehacen en fase 3 con Opus |
 | F2-FIX | Cian de la heroína, calor en `palette_lit`, carta quemada, intenciones, horneado de salas | `art-integrator` (opus) | ver encargo | hecho salvo salto del martillo (`fogonera.gd`) |
 | F2-CRIA | Correcciones de la prueba ciega y `ash_glutton` rehecho | `creature-artist` | `scripts/art/defs/creatures/**`, `assets/baked/creatures/**`, `scripts/data/enemy_db.gd` | hecho, a falta de la nota de F2-REV |
-| F2-REV | Revisión del corte con capturas; nota ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | en curso |
+| F2-REV | Revisión del corte con capturas; nota ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | hecho: heroína 6,5, criaturas 6,4, jefe 2,5, sala 7,5, Forja 8,5, cartas 6,5, HUD 7, efectos 6, vida 6,5, conjunto 6,5. No pasa |
+| F2-VIDA | Orden del golpe, destello, muerte, Quemadura, resplandor, brasas, reposo, HUD (C1, C2, C4, C6, C11, C15, C16, C18, C20) | `art-integrator` | `combat_screen.gd`, `fighter_view.gd`, `scripts/ui/world/fx/**`, `light_rig.gd`, `palette_lit`, `scripts/ui/hud/**` | en curso |
+| F2-HERO | Poses del martillo, muerte, cabeza del martillo (C3, C4, C14) | `creature-artist` | `scripts/art/defs/hero/**`, su horneado | en curso |
+| F2-ILUS | Limpieza de color, iconos, composición, títulos (C8, C10, C17) | `card-illustrator` | `scripts/art/cards/**`, `CardView` | en curso |
+| F2-CRIA2 | `ash_slime`, `soot_golem`, `cinder_bat`, `candle_mite` (C5, C12, C13) | `creature-artist` | criaturas | tras F2-HERO |
+| F2-JEFE | `great_bellows` en rig (C9) | `creature-artist` | `scripts/art/defs/bosses/**` | tras F2-CRIA2 |
+| F2-SALA | Ritmo del ladrillo y rejilla (C19) | `world-artist` | `scripts/art/bg/**`, `assets/baked/rooms/**` | tras F2-JEFE |
+| F2-REV2 | Segunda revisión; ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | al final |
 
 ## Hecho hasta ahora
 - Paleta, biblia, rig, horneador, `palette_lit`, `LightRig`, `WorldView`, kit de UI, fuentes, marco de carta.
