@@ -1,7 +1,7 @@
 # Estado del arte v0.4
 Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/reviews/v04/PLAN.md`.
 
-**Fase actual: 2, corte vertical del combate del acto 1, tercera iteración (F2-REV2 no pasa: `director/f2_rev2/dictamen.md`).** Fase 1 cerrada. Correcciones C1–C20 en `docs/reviews/v04/director/f2_rev/dictamen.md`; problemas nuevos medidos en `director/f2_base/revision.md`.
+**Fase 2 CERRADA: F2-REV3 pasa, ≥ 8 en las diez familias (`director/f2_rev3/dictamen.md`). Siguiente: fase 3.** Fase 1 cerrada. Correcciones C1–C20 en `docs/reviews/v04/director/f2_rev/dictamen.md`; problemas nuevos medidos en `director/f2_base/revision.md`.
 Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 
 ## Paquetes de la fase 2
@@ -22,12 +22,13 @@ Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 | F2-SALA | Ritmo del ladrillo y rejilla (C19) | `world-artist` | `scripts/art/bg/**`, `assets/baked/rooms/**` | tras F2-JEFE |
 | F2-VIDA2/3, F2-ILUS2, F2-CRIA3 | Restos: alfa, integración del jefe, destello por pieza, quema sin alfa, murciélago de ceniza, puente del hombro | varios | ver diarios | hecho |
 | F2-REV2 | Segunda revisión; ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/f2_rev2/` | hecho: **no pasa**. Heroína 8, Forja 8,5, HUD 8, vida 8; criaturas 7,5, jefe 7, sala 7,5, cartas 7,5, efectos 7,5, conjunto 7,5 |
-| F2-JEFE2 | Cuerpo del jefe ≥ 150 sin grúa, pliegues, cabeza | `creature-artist` | `great_bellows.gd` | en curso |
-| F2-CRIA4 | `ash_slime` lobulado y separado del suelo; gesto del gólem | `creature-artist` | criaturas | tras F2-JEFE2 |
-| F2-VIDA4 | Destello del jefe por pieza, Quemadura a 1/4, flotantes fuera de la cara, carta alzada a la rejilla | `art-integrator` | `fighter_view.gd`, `status_fx.gd`, `combat_screen.gd`, `ui.gd` | en curso |
-| F2-SALA2 | Juntas −1 paso tras enemigos (desviación ≤ 12) | `world-artist` | `bg_act1.gd`, salas | pendiente |
-| F2-ILUS3 | Títulos largos en Mini ×2 (N4), carta alzada a la rejilla (N2, N3), «Fuego Interior» con escena | `card-illustrator` | `card_view.gd`, `set_icon.gd` | en curso |
-| F2-REV3 | Revisión corta con el mismo `medir.py` | `art-director` | `director/f2_rev3/` | al final |
+| F2-JEFE2 | Cuerpo del jefe ≥ 150 sin grúa, pliegues, cabeza | `creature-artist` | `great_bellows.gd` | hecho |
+| F2-CRIA4 | `ash_slime` lobulado y separado del suelo; gesto del gólem | `creature-artist` | criaturas | hecho |
+| F2-VIDA4 | Destello del jefe por pieza, Quemadura a 1/4, flotantes fuera de la cara, carta alzada a la rejilla | `art-integrator` | `fighter_view.gd`, `status_fx.gd`, `combat_screen.gd`, `ui.gd` | hecho |
+| F2-SALA2 | Juntas −1 paso tras enemigos (desviación ≤ 12) | `world-artist` | `bg_act1.gd`, salas | hecho |
+| F2-ILUS3 | Títulos largos en Mini ×2 (N4), carta alzada a la rejilla (N2, N3), «Fuego Interior» con escena | `card-illustrator` | `card_view.gd`, `set_icon.gd` | hecho |
+| F2-ILUS4, F2-VIDA5 | Nombres cortos de carta, ffe173, rótulos de turno breves | varios | ver diarios | hecho |
+| F2-REV3 | Revisión corta con el mismo `medir.py` | `art-director` | `director/f2_rev3/` | hecho: **pasa**. Heroína 8, criaturas 8, jefe 8, sala 8, Forja 8,5, cartas 8, HUD 8, efectos 8, vida 8, conjunto 8 |
 
 ## Hecho hasta ahora
 - Paleta, biblia, rig, horneador, `palette_lit`, `LightRig`, `WorldView`, kit de UI, fuentes, marco de carta.
@@ -36,6 +37,8 @@ Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 - Ilustraciones: 12 de 93. Las otras 81 usan respaldo temporal.
 
 ## Pendiente conocido
+- Del corte (no bloquean): N6 barra del tutorial sobre estandartes (09); N7 mano desfasada 1 px al recolocarse (09b); N8 flotantes grandes a ×3 (`ui.gd:436`), fuera de la rejilla ×2; martillo junto a las botas; muro del tiro y saeteras. Criaturas, cartas, efectos y conjunto entran justos en 8.
+- Rendimiento: BackBufferCopy de viewport por carta en vuelo (optimizable a rect); sin medir en GPU real.
 - Actos 2 y 3 siguen con arte legado sin luz. `TopHud` sólo en combate.
 - Sin probar: GPU integrada y WebGL2. Quema en caliente con ratón.
 - Pasada de nivel A de las ilustraciones y regla de combinación única: comprobar el estado en `tests/art/test_ui.gd`.
