@@ -424,7 +424,9 @@ func _dim_steps() -> void:
 	var lum := func(c: Color) -> float:
 		var ch := func(v: float) -> float: return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
 		return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
-	var la: float = lum.call(Palette.color(&"blood", 4))
 	var lb: float = lum.call(Palette.color(&"plate", 1))
-	var ratio := (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
-	_check(ratio >= 4.5, "rótulo de turno enemigo: contraste %.2f:1 (mín. 4,5)" % ratio)
+	for tint: Color in [Palette.color(&"blood", 4), UI.EMBER]:
+		var la: float = lum.call(tint)
+		var ratio := (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+		_check(ratio >= 4.5, "rótulo de turno %s: contraste %.2f:1 (mín. 4,5)" % [tint.to_html(false), ratio])
+	_check(not cs.contains("_banner(\"Tu turno\""), "combate: «Tu turno» vuelve al banner grande")

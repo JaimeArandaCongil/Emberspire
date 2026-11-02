@@ -1,12 +1,120 @@
 {
   "herramienta": "script -s fuera del repo (medir.gd): partida 1234, golpe de la heroína y fin de turno; 120 f a --fixed-fps 60 desde _end_turn; rectángulos globales",
-  "antes":  {"tres": {"visible_f": 38, "ms": 633, "rect": [488, 176, 304, 64], "f_con_flotante": 27, "f_con_intencion": 0},
-             "jefe": {"visible_f": 38, "ms": 633, "rect": [536, 176, 208, 64], "f_con_flotante": 0, "f_con_intencion": 0},
-             "tres_estres": {"f_con_flotante": 37, "f_con_intencion": 0},
-             "jefe_estres": {"f_con_flotante": 0, "f_con_intencion": 0}},
-  "despues": {"tres": {"visible_f": 27, "ms": 450, "rect": [568, 50, 144, 32], "f_con_flotante": 0, "f_con_intencion": 0},
-              "jefe": {"visible_f": 27, "ms": 450, "rect": [568, 50, 144, 32], "f_con_flotante": 0, "f_con_intencion": 0},
-              "tres_estres": {"f_con_flotante": 0, "f_con_intencion": 0},
-              "jefe_estres": {"f_con_flotante": 0, "f_con_intencion": 0}},
-  "contraste_blood4_sobre_plate1": "ff6a48 / 120c12 ≈ 6,6:1"
+  "antes": {
+    "tres": {
+      "visible_f": 38,
+      "ms": 633,
+      "rect": [
+        488,
+        176,
+        304,
+        64
+      ],
+      "f_con_flotante": 27,
+      "f_con_intencion": 0
+    },
+    "jefe": {
+      "visible_f": 38,
+      "ms": 633,
+      "rect": [
+        536,
+        176,
+        208,
+        64
+      ],
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    },
+    "tres_estres": {
+      "f_con_flotante": 37,
+      "f_con_intencion": 0
+    },
+    "jefe_estres": {
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    }
+  },
+  "despues": {
+    "tres": {
+      "visible_f": 27,
+      "ms": 450,
+      "rect": [
+        568,
+        50,
+        144,
+        32
+      ],
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    },
+    "jefe": {
+      "visible_f": 27,
+      "ms": 450,
+      "rect": [
+        568,
+        50,
+        144,
+        32
+      ],
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    },
+    "tres_estres": {
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    },
+    "jefe_estres": {
+      "f_con_flotante": 0,
+      "f_con_intencion": 0
+    }
+  },
+  "contraste_blood4_sobre_plate1": "ff6a48 / 120c12 ≈ 6,6:1",
+  "ampliacion_tu_turno": {
+    "herramienta": "tests/art/vida_capturas.tscn, VIDA_MODE=rotulo|rotulo_jefe, ROT_STRESS=0|1, 300 f a --fixed-fps 60",
+    "antes": {
+      "tres": {
+        "ms": 633,
+        "rect": [
+          536,
+          152,
+          208,
+          64
+        ],
+        "f_con_flotante": 0
+      },
+      "tres_estres": {
+        "f_con_flotante": 36
+      },
+      "jefe": {
+        "ms": 633,
+        "f_con_flotante": 0
+      },
+      "jefe_estres": {
+        "f_con_flotante": 0
+      }
+    },
+    "despues": {
+      "tres": {
+        "ms": 450,
+        "rect": [
+          592,
+          50,
+          96,
+          32
+        ],
+        "f_con_flotante": 0
+      },
+      "tres_estres": {
+        "f_con_flotante": 0
+      },
+      "jefe": {
+        "ms": 450,
+        "f_con_flotante": 0
+      },
+      "jefe_estres": {
+        "f_con_flotante": 0
+      }
+    },
+    "intenciones_y_reliquias": "0 fotogramas con solape en los 8 casos, antes y después"
+  }
 }

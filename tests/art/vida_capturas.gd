@@ -2,6 +2,8 @@ extends Node
 ## F2-VIDA · capturas fotograma a fotograma del combate del acto 1 (golpe, turno enemigo, Quemadura, muerte, reposo) para
 ## medir tiempos y píxeles en movimiento. No es parte de la QA: es la herramienta de evidencia del paquete.
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
+## F2-VIDA5 añade rotulo y rotulo_jefe: solapes de los rótulos de turno («Turno enemigo», «Tu turno») con flotantes,
+## intenciones y reliquias en 300 f desde el fin de turno (ROT_STRESS=1 mete flotantes extra cada 4 f; 1280×720 cada 3 f).
 ## F2-VIDA4 añade cola (flotantes apilados sobre la cabeza del gólem: daño, y en su turno bloqueo + 2 «+Hollín»; 1280×720).
 ## F2-VIDA3 añade descarte (las cartas vuelan al descarte al acabar el turno; 1280×720, cada fotograma).
 ## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
@@ -31,7 +33,7 @@ func _ready() -> void:
 	Game.start_run(1234)
 	Game.run.floor_num = 4
 	var mode := OS.get_environment("VIDA_MODE")
-	if mode in ["jefe", "recompensa", "fase2", "invoca"]:
+	if mode in ["jefe", "recompensa", "fase2", "invoca", "rotulo_jefe"]:
 		Game.run.floor_num = 10
 		main.go("combat", {"kind": "boss", "enemies": ["great_bellows"]})
 	else:
@@ -64,6 +66,8 @@ func _ready() -> void:
 			await _descarte()
 		"cola":
 			await _cola()
+		"rotulo", "rotulo_jefe":
+			await _rotulo(mode)
 		_:
 			await _golpe()
 	print("VIDA fin")
@@ -236,3 +240,57 @@ func _check_floats(tag: String, i: int) -> void:
 			if r.intersects(br):
 				con_cuerpo += 1
 	print("COLA %s %03d flotantes=%d solapes=%d sobre_intencion=%d sobre_cuerpo=%d" % [tag, i, rects.size(), pares, con_intencion, con_cuerpo])
+
+
+## F2-VIDA5: la heroína golpea y acaba el turno; por fotograma, rectángulo del rótulo de turno visible (el nuevo `_tag_bg`
+## o, en el código anterior, `_banner_bg` con «Turno enemigo» / «Tu turno») contra flotantes, intenciones y reliquias.
+func _rotulo(mode: String) -> void:
+	var g: Fighter = cs.engine.living_enemies()[0]
+	for c: Card in cs.engine.hand.duplicate():
+		if cs.engine.can_play(c) and c.type() == "attack":
+			cs._play(cs.card_views[c.uid], g)
+			break
+	await _frames(12)
+	g.intent = {"kind": "defend", "ops": [["block", 8], ["add_card", "soot", 2]]}
+	var stress := OS.get_environment("ROT_STRESS") == "1"
+	var stats := {}
+	cs._end_turn()
+	for i in 300:
+		await RenderingServer.frame_post_draw
+		if stress and i % 4 == 0:
+			for v: FighterView in cs.enemy_views + [cs.player_view]:
+				cs._float_over(v, "+%d Bloqueo" % i, Color.WHITE)
+		var bg: Control = cs.get("_tag_bg")
+		var txt := ""
+		if bg != null and bg.visible:
+			txt = String(cs._tag_label.text)
+		elif cs._banner_bg.visible and String(cs._turn_banner.text) in ["Turno enemigo", "Tu turno"]:
+			bg = cs._banner_bg
+			txt = String(cs._turn_banner.text)
+		if txt != "" and bg.size.y > 0.0:
+			var r: Rect2 = bg.get_global_rect()
+			var st: Dictionary = stats.get(txt, {"f": 0, "desde": i, "hasta": i, "flot": 0, "int": 0, "rel": 0, "rect": r})
+			st["f"] += 1
+			st["hasta"] = i
+			if r.size.y >= (st["rect"] as Rect2).size.y:
+				st["rect"] = r
+			var fl := 0
+			for n: Node in cs._fx_layer.get_children():
+				if n is Label and (n as Label).visible and (n as Label).z_index == 100 and (n as Label).get_global_rect().intersects(r):
+					fl += 1
+			var it := 0
+			for v: FighterView in cs.enemy_views:
+				if v._intent.visible and v._intent.get_global_rect().intersects(r):
+					it += 1
+			var rel: Variant = cs.get("_relic_row")
+			st["flot"] += 1 if fl > 0 else 0
+			st["int"] += 1 if it > 0 else 0
+			st["rel"] += 1 if rel != null and is_instance_valid(rel) and (rel as Control).get_global_rect().intersects(r) else 0
+			stats[txt] = st
+		if i % 3 == 0:
+			get_viewport().get_texture().get_image().save_png(dir.path_join("%s%s_%03d.png" % [mode, "_estres" if stress else "", i]))
+	for k: String in stats:
+		var st: Dictionary = stats[k]
+		print("ROT %s%s «%s» visible_f=%d (f%d–f%d = %d ms) rect=%s f_con_flotante=%d f_con_intencion=%d f_con_reliquias=%d" % [
+			mode, " estrés" if stress else "", k, st["f"], st["desde"], st["hasta"], int((st["hasta"] - st["desde"] + 1) * 1000 / 60.0),
+			st["rect"], st["flot"], st["int"], st["rel"]])

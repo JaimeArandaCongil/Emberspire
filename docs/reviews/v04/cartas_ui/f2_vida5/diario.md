@@ -40,3 +40,17 @@ Banda (44–88 de pantalla), rejilla ×2, duración ≤ 0,6 s, que «Turno enemi
 - «Tu turno» sigue en el banner grande (y 152–216); no medido contra flotantes.
 - Ajeno: en el jefe, un flotante «6» pisa la barra de ayuda (ya pasaba antes).
 - No visto en GPU real ni con jefe en fase 2 o con 4+ reliquias más anchas que la fila medida.
+
+## Ampliación: «Tu turno» con el mismo rótulo (`tu_turno_antes_despues.png`)
+
+- `_enemy_turn_tag()` pasa a ser `_turn_tag(text, color)`. Lo usan «Turno enemigo» (`blood 4`) y «Tu turno» (`UI.EMBER`), con
+  el mismo estilo, la misma banda (arte y 25–41), los mismos pasos sin alfa, los 450 ms, la misma búsqueda de hueco y la misma
+  guarda. «Tu turno» mide 96×32 y sale centrado (x 592).
+- La medida está ahora en `tests/art/vida_capturas.gd`, modos `rotulo` y `rotulo_jefe` (`ROT_STRESS=1` añade flotantes extra
+  cada 4 f). Mide 300 f desde el fin de turno, con una línea `ROT` por rótulo. Sirve también con el código anterior.
+- Antes → después, «Tu turno», fotogramas con flotante encima: 3 enemigos 0 → 0; con estrés **36 → 0**; jefe 0 → 0 y 0 → 0.
+  Intenciones y reliquias: 0 en todos los casos. En la tira, un «+44 Bloqueo» llega a la banda (y ≈ 80, x ≈ 840) y el rótulo
+  queda libre.
+- Tests: el contraste se comprueba con los dos colores, y «Tu turno» no puede volver a `_banner`.
+- Cierre: QA 1745/0. ARTE da 2 fallos, ambos ajenos y de `test_mv` (salas: «las fuentes cambiaron desde el último horneado» y
+  «juntas del paño central»), porque F2-SALA2 está rehorneando. SMOKE OK.

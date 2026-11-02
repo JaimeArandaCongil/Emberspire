@@ -168,7 +168,7 @@ func build() -> void:
 	_tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tag_bg.z_index = 140
 	add_child(_tag_bg)
-	_tag_label = UI.plabel("Turno enemigo", 2, Palette.color(&"blood", 4))
+	_tag_label = UI.plabel("", 2, Palette.color(&"blood", 4))
 	_tag_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tag_bg.add_child(_tag_label)
 
@@ -925,7 +925,7 @@ func _end_turn() -> void:
 	engine.end_player_turn()
 	_relayout()
 	await get_tree().create_timer(0.35).timeout
-	_enemy_turn_tag()
+	_turn_tag("Turno enemigo", Palette.color(&"blood", 4))
 	engine.begin_enemy_phase()
 	for v in enemy_views:
 		v.refresh()
@@ -1011,12 +1011,15 @@ func _banner_open(h: float) -> void:
 	_turn_banner.position.y = roundf((BANNER_H - float(PixelFont.px_size(4))) / 4.0) * 2.0 - (BANNER_H - h) * 0.5
 
 
-## F2-VIDA5 (DECISIONES): rótulo «Turno enemigo» breve en la banda superior (arte y 25–41). Entra y sale por pasos de
+## F2-VIDA5 (DECISIONES): rótulos de turno («Turno enemigo», «Tu turno») breves en la banda superior (arte y 25–41). Entra y sale por pasos de
 ## 33 ms (sin alfa) y dura ≈ 0,47 s. Se coloca en el primer hueco libre de flotantes, intenciones (la del jefe incluida)
 ## y reliquias; si no hay hueco no sale, y si un flotante o una intención lo alcanza mientras está, se quita de golpe.
-func _enemy_turn_tag() -> void:
+func _turn_tag(text: String, color: Color) -> void:
 	if _tag_tw != null:
 		_tag_tw.kill()
+	_tag_bg.visible = false
+	_tag_label.text = text
+	_tag_label.add_theme_color_override("font_color", color)
 	var tw := float(PixelFont.text_width(_tag_label.text)) * 2.0
 	var w := ceilf((tw + 24.0) / 4.0) * 4.0
 	var x := -1.0
@@ -1476,7 +1479,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 				v.refresh()
 			player_view.refresh()
 			if engine.turn > 1:
-				_banner("Tu turno", UI.EMBER, 0.35)
+				_turn_tag("Tu turno", UI.EMBER)
 				Sfx.play("turn")
 			if _hint_plate != null and engine.turn > HINT_TURNS:
 				_hint_plate.queue_free()
