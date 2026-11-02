@@ -30,7 +30,7 @@ chimenea. Subir = seguir el humo. Antorchas, braseros y hogueras son "de la Forj
 | Capa | Lienzo lógico | Escala a 1280×720 | Qué vive ahí |
 |---|---|---|---|
 | **Arte (mundo + interfaz)** | **640×360** | **×2** (×3 a 1080p, ×4 a 1440p, ×6 a 4K) | Fondos, luchadores, Forja, partículas, cartas, marcos, paneles, iconos, Fragua, Mini |
-| **Texto de cuerpo** | 1280×720 | ×1 | **Sólo** Pavesa: cuerpo de carta y tooltips. ÚNICA excepción; etiquetas de HUD en Mini ×2 |
+| **Texto de cuerpo** | 1280×720 | ×1 | **Sólo** Pavesa: cuerpo de carta y tooltips. ÚNICA excepción; etiquetas de HUD y títulos de carta largos en Mini ×2 |
 
 - El mundo se dibuja en `WorldView` (SubViewport 640×360, `snap_2d_*` activos): un píxel fuera de rejilla es **imposible**.
 - Prohibido: escala no entera, `scale`/`rotation` sobre arte en reposo, posiciones de arte fuera de enteros. Excepciones: cartas

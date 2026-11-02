@@ -25,3 +25,4 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Etiquetas del HUD | Pavesa ×1 sigue siendo sólo cuerpo de carta y tooltips. Toda etiqueta de HUD o aviso pequeño pasa a **Mini ×2** (o Fragua ×2 si es cifra o título). Origen: `ui.gd` aplicaba Pavesa a toda etiqueta < 20 px (`reviews/v04/director/f2_base/revision.md`) |
 | Horneado entre plataformas | Determinismo estricto en una misma máquina; la imagen dorada tolera ≤ 8 px de deriva Windows/Linux (libm). Los `.import` de `assets/baked/` se versionan |
 | Entorno en la nube | Godot Linux vía `tools/setup_cloud.sh`; capturas con `xvfb-run`. Commit y push al cerrar cada paquete (el contenedor es efímero) |
+| Títulos de carta | Fragua ×2 si cabe sin rozar orbes; si no, **Mini ×2** (nunca Pavesa ×1). Misma regla en mano, recompensa y tienda (F2-REV2, N4) |
