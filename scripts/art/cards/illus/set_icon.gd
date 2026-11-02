@@ -2,7 +2,8 @@ extends RefCounted
 ## Ilustraciones de las 4 cartas que eran «icono sobre degradado» (C10, F2-ILUS): composición propia por carta.
 ## Cada función devuelve una Image 68×46 en paleta. Gramática: FONDO + LUZ + SUJETO + FX + ENCUADRE (card_illus.gd).
 ## Combinaciones (fondo · encuadre · sujeto · posición), ninguna repetida en el registro:
-## - inner_fire: muro de la Torre cálido · capilla · mano abierta con una llama · centro, de abajo arriba.
+## - inner_fire: muro de la Torre que sólo la llama alumbra + antepecho de losas · capilla · hombro, brazo y mano de la
+##   heroína con la llama en la palma · el brazo entra desde abajo-izquierda y la llama sube en el centro-derecha.
 ## - brazier_flame: muro mitad cálido/mitad frío + losas · filo · tres braseros en fuga que lanzan un latigazo · diagonal
 ##   abajo-izq. → arriba-der. (murciélago alcanzado).
 ## - shield_bash: penumbra de fragua + losas · filo · rodela de perfil empujada por el brazo · izquierda, golpeando un
@@ -62,65 +63,95 @@ static func _flame(img: Image, bx: float, by: float, h: float, hw: float, lean: 
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# FUEGO INTERIOR · PM · una mano abierta, palma arriba, sostiene una llama que nace de ella; los dedos la enjaulan.
-# Luz: la propia llama (cantos de los dedos que la miran al rojo, antebrazo en sombra). Fondo: muro de la Torre que sólo la
-# llama ilumina.
+# FUEGO INTERIOR · PM · la heroína, de espaldas en la esquina inferior izquierda (hombro y capa), apoya el codo en el
+# antepecho de piedra y abre la mano, palma arriba: la llama nace de ella. Luz: sólo la llama (cantos que la miran al
+# rojo; hombro y capa casi en silueta). Fondo: muro de la Torre que la llama enciende a su alrededor y antepecho de losas.
+# Planos: muro · antepecho · brazo y hombro (primer término).
 static func inner_fire() -> Image:
 	var img := _Px.new_img()
-	var fc := Vector2(34, 20)
-	_Bg.tower_wall(img, fc, 30.0, 999.0, 0.02, 7)
+	var fc := Vector2(41, 17)
+	_Bg.tower_wall(img, fc, 40.0, 999.0, 0.04, 7)
 	# Halo de calor tramado en el muro (sube un paso alrededor de la llama).
 	for y in H:
 		for x in W:
 			var d := Vector2((x - fc.x) / 1.2, y - fc.y).length()
-			if d < 13.0:
-				_Px.veil(img, x, y, 1, 1.0 - d / 13.0 + 0.2)
-	# La llama nace de la palma; la mano se dibuja delante (los dedos la enjaulan y se recortan contra ella).
-	_flame(img, 34.0, 31.0, 30.0, 9.0, 1.5, 41)
-	_flame(img, 27.0, 30.0, 12.0, 3.0, -3.0, 43)
-	_flame(img, 41.0, 30.0, 13.0, 3.0, 3.0, 47)
-	# Mano abierta, palma arriba, que sube desde abajo: piezas como cápsulas [a, b, radio, parte].
+			if d < 15.0:
+				_Px.veil(img, x, y, 1, 1.0 - d / 15.0 + 0.2)
+	# Antepecho de losas: la llama lo alumbra desde arriba.
+	_Bg.floor_slabs(img, 37, 41.0)
+	# La llama nace de la palma (la mano se dibuja delante y los dedos la enjaulan).
+	_flame(img, 41.0, 31.0, 27.0, 7.5, 1.5, 41)
+	_flame(img, 36.0, 30.0, 10.0, 2.5, -3.0, 43)
+	_flame(img, 46.0, 30.0, 11.0, 2.5, 3.0, 47)
+	# Piezas como cápsulas [a, b, radio, parte]: 1 piel, 2 brazal, 3 manga, 4 capa, 5 pelo, 6 piel en sombra.
 	var caps := [
-		[Vector2(35.0, 39.0), Vector2(37.0, 52.0), 5.0, 2],     # muñeca y antebrazo (manga desde y 42)
-		[Vector2(28.0, 36.0), Vector2(22.0, 31.0), 1.9, 1],     # pulgar
-		[Vector2(29.0, 33.0), Vector2(26.5, 26.5), 1.6, 1],     # índice
-		[Vector2(32.5, 32.0), Vector2(32.0, 25.0), 1.6, 1],     # corazón
-		[Vector2(36.5, 32.5), Vector2(38.5, 25.5), 1.6, 1],     # anular
-		[Vector2(39.5, 34.0), Vector2(43.0, 28.5), 1.4, 1],     # meñique
+		[Vector2(35.5, 34.0), Vector2(30.0, 36.5), 2.4, 1],     # muñeca
+		[Vector2(31.0, 36.0), Vector2(20.0, 40.5), 3.0, 2],     # antebrazo con brazal
+		[Vector2(21.0, 41.0), Vector2(9.0, 36.0), 3.8, 3],      # brazo, codo sobre el antepecho
+		[Vector2(37.0, 33.0), Vector2(35.0, 27.5), 1.3, 1],     # pulgar
+		[Vector2(43.5, 33.0), Vector2(47.5, 27.0), 1.3, 1],     # índice y corazón, abiertos y curvados hacia arriba
+		[Vector2(44.0, 35.5), Vector2(50.0, 31.5), 1.3, 6],     # anular y meñique, un paso más en sombra
 	]
 	var occ := func(x: int, y: int) -> int:
 		var p := Vector2(x + 0.5, y + 0.5)
-		var e := pow((p.x - 34.0) / 7.5, 2.0) + pow((p.y - 36.0) / 4.2, 2.0)
-		if e <= 1.0:
+		if pow((p.x - 0.5) / 6.5, 2.0) + pow((p.y - 29.0) / 7.0, 2.0) <= 1.0:
+			return 5
+		if pow((p.x - 2.0) / 12.0, 2.0) + pow((p.y - 43.0) / 8.5, 2.0) <= 1.0:
+			return 4
+		if pow((p.x - 40.0) / 4.5, 2.0) + pow((p.y - 34.0) / 2.2, 2.0) <= 1.0:
 			return 1
 		for c: Array in caps:
 			var a0: Vector2 = c[0]
 			var ab: Vector2 = (c[1] as Vector2) - a0
 			var t := clampf((p - a0).dot(ab) / ab.length_squared(), 0.0, 1.0)
 			if p.distance_to(a0 + ab * t) <= float(c[2]):
-				return int(c[3]) if (int(c[3]) != 2 or p.y < 42.0) else 3
+				return int(c[3])
 		return 0
-	var flame_c := Vector2(34.0, 22.0)
-	var hand := _Px.new_img()
-	for y in range(14, H):
-		for x in range(14, 54):
+	var flame_c := Vector2(41.0, 22.0)
+	var fig := _Px.new_img()
+	for y in range(20, H):
+		for x in range(0, 54):
 			var part: int = occ.call(x, y)
 			if part == 0:
 				continue
 			var p2 := Vector2(x + 0.5, y + 0.5)
 			var dir := (flame_c - p2).normalized()
-			var lit := 0.42 - clampf((p2.distance_to(flame_c) - 8.0) / 40.0, 0.0, 0.3)
-			if int(occ.call(int(floor(p2.x + dir.x * 1.5)), int(floor(p2.y + dir.y * 1.5)))) == 0:
-				lit = 0.97
-			elif int(occ.call(int(floor(p2.x + dir.x * 3.0)), int(floor(p2.y + dir.y * 3.0)))) == 0:
-				lit = 0.72
-			var ramp: Array = _Px.R(&"cloth", 1, 6) if part == 3 else _Px.R(&"skin", 1, 6)
-			if part == 3 and y == 42:
-				lit = 0.1
-			hand.set_pixel(x, y, _Px.ramp_pick(ramp, lit, x, y, 0.25))
-	_Px.blit(img, _Px.outline(hand, _Px.ink()), 0, 0)
-	# Lengüetas secundarias y pavesas que suben.
-	for m: Vector2i in [Vector2i(26, 9), Vector2i(44, 6), Vector2i(40, 14), Vector2i(23, 16), Vector2i(31, 2), Vector2i(47, 12)]:
+			var lit := 0.48 - clampf((p2.distance_to(flame_c) - 8.0) / 36.0, 0.0, 0.34)
+			var o1 := int(occ.call(int(floor(p2.x + dir.x * 1.5)), int(floor(p2.y + dir.y * 1.5))))
+			var o3 := int(occ.call(int(floor(p2.x + dir.x * 3.0)), int(floor(p2.y + dir.y * 3.0))))
+			if o1 == 0 or (part <= 3 and o1 >= 4) or (part == 6 and o1 == 1):
+				lit = 0.95 if part <= 2 else 0.8
+				if part == 6:
+					lit = 0.62 if o1 == 0 else 0.0
+			elif o3 == 0:
+				lit = 0.68 if part <= 2 else 0.5
+			var ramp: Array = _Px.R(&"skin", 1, 6)
+			if part == 6:
+				ramp = _Px.R(&"skin", 0, 5)
+			elif part == 2:
+				ramp = _Px.R(&"leather", 1, 5)
+				# Correas del brazal (bandas oscuras) con hebilla de latón que mira a la llama.
+				var u := (p2 - Vector2(31.0, 36.0)).dot(Vector2(-11.0, 4.5).normalized())
+				if absf(u - 3.0) < 0.6 or absf(u - 8.0) < 0.6:
+					lit = minf(lit, 0.2)
+			elif part == 3:
+				ramp = _Px.R(&"cloth", 1, 5)
+			elif part == 4:
+				ramp = _Px.R(&"cloth", 0, 3)
+				lit *= 0.8
+			elif part == 5:
+				ramp = _Px.R(&"hair", 1, 5)
+			fig.set_pixel(x, y, _Px.ramp_pick(ramp, lit, x, y, 0.25))
+	_Px.put(fig, 26, 36, P(&"brass", 4))
+	_Px.put(fig, 27, 36, P(&"brass", 3))
+	_Px.blit(img, _Px.outline(fig, _Px.ink()), 0, 0)
+	# La sombra del brazo sobre el antepecho (la llama queda por encima: cae justo debajo, hacia la izquierda).
+	for x in range(14, 34):
+		for y in range(43, H):
+			if fig.get_pixel(x, y).a == 0.0 and fig.get_pixel(x + 1, y - 2).a > 0.0:
+				_Px.shift(img, x, y, -2)
+	# Pavesas que suben.
+	for m: Vector2i in [Vector2i(33, 9), Vector2i(50, 6), Vector2i(47, 14), Vector2i(30, 16), Vector2i(38, 3), Vector2i(54, 12)]:
 		_Px.put(img, m.x, m.y, P(&"fire", 6))
 		_Px.put(img, m.x, m.y + 1, P(&"fire", 3))
 	return img

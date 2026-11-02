@@ -1,7 +1,7 @@
 class_name CardView
 extends Control
 ## Vista de carta v0.4: marco 80×112 nativo con su ilustración 68×46 (`CardFrame` + `CardIllus`) mostrado a ×2
-## (160×224). Nombre en Fragua ×2 (o Pavesa ×1 si no cabe), tipo en Mini ×2, cuerpo en Pavesa ×1 (tinta sobre
+## (160×224). Nombre en Fragua ×2 (o Mini ×2 si no cabe), tipo en Mini ×2, cuerpo en Pavesa ×1 (tinta sobre
 ## pergamino, cifras en negrita). Auras animadas: jugable, quemable, en caliente (Mayús) y seleccionada.
 ## Brillo de rara (6 fotogramas cada 4 s). Emite `clicked(view, button)` y `hover_changed(view, hovering)`.
 ## `burn_away()` la quema sin alfa: baja pasos de rampa y se consume por celdas de arte tras un borde de brasa.
@@ -19,8 +19,10 @@ const SIZE := Vector2(160, 224)
 const PEEK := 128.0                      # px visibles en reposo (placa + ilustración)
 const S := 2
 const HINT_H := 38.0                     # alto de la placa "QUEMAR" que aparece sobre la carta
-const NAME_X0 := 26.0                    # zona del nombre en px de pantalla: el orbe propio llega a x 23
-const NAME_X1 := 118.0                   # y el del vecino en la mano empieza en x 122 (paso 132)
+const PLATE_X0 := 7                      # px de arte de la placa del nombre donde puede ir tinta o sombra: el canto `k`
+const PLATE_X1 := 72                     # está en x 5 y 74 y se deja 1 px de placa libre
+const PAVESA_X0 := 26                    # último recurso (Pavesa ×1): a la derecha del orbe propio (llega a x 23)
+const MINI_ROW := 7                      # fila de arte de la celda Mini ×2 del nombre (mayúsculas en 8–12, sombra hasta 13)
 ## Paso de la mano en px de arte (`combat_screen.HAND_MAX_STEP` / 2): el orbe de la carta vecina tapa la placa desde
 ## aquí. El nombre se coloca para no rozar ni el orbe propio ni ése, igual en mano, recompensa y tienda.
 const ORB_STEP := 81
@@ -50,6 +52,7 @@ var _name: Label
 var _type: Label
 var _desc: RichTextLabel
 var _burn_hint: Label
+var _hint_lines: Array[Label] = []
 var _frame_mat: ShaderMaterial
 var _frame_key := ""
 var _shimmer: Array = []
@@ -88,10 +91,12 @@ func _ready() -> void:
 	add_child(_name)
 
 	_type = UI.mlabel(String(CardDB.TYPE_NAMES.get(card.type(), "")).to_upper())
+	# Rejilla ×2 (N3): la celda Mini ×2 (16 px de alto) empieza en la fila de la cinta, así las mayúsculas caen en las
+	# filas de arte 63–67 y la sombra en la 68; el centrado vertical en 14 px la dejaba 1 px de pantalla arriba.
 	_type.position = Vector2(0, _Frame.RIBBON_Y * S)
-	_type.size = Vector2(SIZE.x, 14)
-	_type.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_type.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_type.size = Vector2(SIZE.x, PixelFont.mini_size(2))
+	_type.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_snap_mini(_type, 0.0, SIZE.x)
 	_type.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_type)
 
@@ -125,16 +130,22 @@ func _ready() -> void:
 	_cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_orb.add_child(_cost)
 
-	_burn_hint = UI.label("CLIC DCHO: QUEMAR", 12, UI.EMBER)
-	# Encima de la carta: al pasar el ratón la carta sube entera y debajo ya no queda pantalla.
+	# Placa "QUEMAR": la placa es un Label vacío y cada línea va en su propio Mini ×2 centrado en columna par (N2: el
+	# centrado de Label dejaba las líneas a medio píxel de arte).
+	_burn_hint = Label.new()
 	_burn_hint.position = Vector2(-30, -HINT_H - 16)
 	_burn_hint.size = Vector2(SIZE.x + 60, HINT_H)
-	_burn_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_burn_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_burn_hint.add_theme_stylebox_override("normal", UIKit.sb_plate(Palette.color(&"plate", 2), Palette.color(&"copper", 5), 1, 0, Vector4(4, 2, 4, 2)))
 	_burn_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_burn_hint.visible = false
 	add_child(_burn_hint)
+	for i in 2:
+		var hl := UI.mlabel("", UI.EMBER)
+		hl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_burn_hint.add_child(hl)
+		_hint_lines.append(hl)
+	set_burn_hint("CLIC DCHO: QUEMAR")
 
 	tooltip_text = _tooltip()
 	mouse_entered.connect(_on_enter)
@@ -186,9 +197,10 @@ func _tooltip() -> String:
 	return t
 
 
-## Disposición del nombre de carta: {"big": Fragua ×2 (si no, Pavesa ×1), "x": px de pantalla del origen del texto,
-## siempre par (rejilla ×2)}. Fragua se comprueba píxel a píxel (glifo + contorno + `NAME_GAP` en cruz) contra el rombo del
-## orbe propio y el del vecino de la mano; se elige la posición válida más cercana al centro de la carta.
+## Disposición del nombre de carta (DECISIONES «Títulos de carta»): {"font": "fragua" | "mini" | "pavesa", "big": es
+## Fragua, "x": px de pantalla del origen del texto, siempre par (rejilla ×2), "fits": false sólo si ni Mini cabe}. Las dos letras se comprueban
+## píxel a píxel (glifo + contorno o sombra + `NAME_GAP` en cruz) contra el rombo del orbe propio, el del vecino de la mano
+## y el canto de la placa; se elige la posición válida más cercana al centro de la carta. Nunca Pavesa ×1.
 static func title_layout(title: String) -> Dictionary:
 	var ink := {}
 	var pen := 0
@@ -208,17 +220,52 @@ static func title_layout(title: String) -> Dictionary:
 						for dx in range(-1, 2):
 							ink[Vector2i(pen + gx + dx, NAME_ROW + 1 + r + dy)] = true
 		pen += int(g["w"]) + 1
-	# Hueco de placa: `NAME_GAP` px libres en horizontal y vertical (un roce en diagonal de esquina no cuenta).
+	var tw := PixelFont.text_width(title)
+	var best := _best_x(_grow(ink), 7, _Frame.CW - 7 - tw, int(round((_Frame.CW - tw) / 2.0)))
+	if best >= 0:
+		return {"big": true, "font": "fragua", "x": best * S, "text": title, "fits": true}
+	# Mini ×2: glifo + sombra `k` de 1 px de arte abajo a la derecha, celda en las filas `MINI_ROW`.. de la placa.
+	var mink := {}
+	pen = 0
+	for i in title.length():
+		var ch := title[i]
+		if ch == " ":
+			pen += 3
+			continue
+		var g := PixelFont.mini_glyph(ch)
+		var rows: Array = g["rows"]
+		for r in rows.size():
+			var row: String = rows[r]
+			for gx in row.length():
+				if row[gx] == "#":
+					mink[Vector2i(pen + gx, MINI_ROW + r)] = true
+					mink[Vector2i(pen + gx + 1, MINI_ROW + r + 1)] = true
+		pen += int(g["w"]) + 1
+	var mw := PixelFont.mini_width(title) + 1
+	var mbest := _best_x(_grow(mink), PLATE_X0, PLATE_X1 + 1 - mw, int(round((_Frame.CW - mw) / 2.0)))
+	if mbest >= 0:
+		return {"big": false, "font": "mini", "x": mbest * S, "text": title, "fits": true}
+	# Ni Mini ×2 cabe (más de ~60 px de arte entre el orbe y el canto): último recurso pendiente de dirección (F2-ILUS3).
+	var pw := PixelFont.pavesa_width(title)
+	var px := clampi(int(round((SIZE.x - pw) * 0.5)), PAVESA_X0, maxi(PAVESA_X0, (PLATE_X1 + 1) * S - pw))
+	return {"big": false, "font": "pavesa", "x": px / 2 * 2, "text": title, "fits": false}
+
+
+## Hueco de placa: `NAME_GAP` px libres en horizontal y vertical (un roce en diagonal de esquina no cuenta).
+static func _grow(ink: Dictionary) -> Dictionary:
 	for _k in NAME_GAP:
 		var grown := ink.duplicate()
 		for p0: Vector2i in ink:
 			for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 				grown[p0 + d] = true
 		ink = grown
-	var tw := PixelFont.text_width(title)
-	var center := int(round((_Frame.CW - tw) / 2.0))
+	return ink
+
+
+## Origen (px de arte) en [x0, x1] más cercano a `center` en que `ink` no toca ningún orbe; -1 si no hay.
+static func _best_x(ink: Dictionary, x0: int, x1: int, center: int) -> int:
 	var best := -1
-	for s in range(7, _Frame.CW - 6 - tw):
+	for s in range(x0, x1 + 1):
 		var ok := true
 		for p: Vector2i in ink:
 			if _in_orb(p.x + s, p.y) or _in_orb(p.x + s - ORB_STEP, p.y):
@@ -226,11 +273,7 @@ static func title_layout(title: String) -> Dictionary:
 				break
 		if ok and (best < 0 or absi(s - center) < absi(best - center)):
 			best = s
-	if best >= 0:
-		return {"big": true, "x": best * S, "text": title}
-	var pw := PixelFont.pavesa_width(title)
-	var px := clampf(round((SIZE.x - pw) * 0.5), NAME_X0, maxf(NAME_X0, NAME_X1 - pw))
-	return {"big": false, "x": int(px / 2.0) * 2, "text": title}
+	return best
 
 
 ## Rombo del orbe de coste en px de arte de la carta (centro (3, 3), como `CardFrame.cost_gem` en (-6, -6)).
@@ -238,6 +281,31 @@ static func _in_orb(x: int, y: int) -> bool:
 	var ax := absi(x - 3)
 	var ay := absi(y - 3)
 	return ax + ay <= 12 and ax <= 8 and ay <= 8
+
+
+## Texto de la placa "QUEMAR" (una o dos líneas), cada línea centrada en la rejilla ×2 (x e y pares).
+func set_burn_hint(t: String) -> void:
+	var lines := t.split("\n")
+	var lh := PixelFont.mini_size(2)
+	var gap := 2
+	var y := roundf((HINT_H - (lh * lines.size() + gap * (lines.size() - 1))) / (2.0 * S)) * S
+	for i in _hint_lines.size():
+		var hl := _hint_lines[i]
+		hl.visible = i < lines.size()
+		if not hl.visible:
+			continue
+		hl.text = lines[i]
+		hl.position.y = y + i * (lh + gap)
+		hl.size.y = lh
+		_snap_mini(hl, 0.0, _burn_hint.size.x)
+
+
+## Centra una etiqueta Mini ×2 en [x0, x0 + width] con origen en columna par (el ancho de Mini es exacto, sin avance final).
+static func _snap_mini(l: Label, x0: float, width: float) -> void:
+	var tw := PixelFont.mini_width(l.text) * S
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.position.x = x0 + roundf((width - tw) / (2.0 * S)) * S
+	l.size.x = tw + S
 
 
 ## Estado visual del marco (lo que cambia la textura).
@@ -260,32 +328,47 @@ func refresh() -> void:
 			var frames: Array[Image] = _Frame.shimmer_frames(img)
 			for i in frames.size():
 				_shimmer.append(_tex("f:%s:sh%d" % [key, i], frames[i]))
-	# Si el nombre cabe en Fragua pero el «+» no, la mejora la dicen la placa de oro y la tinta de ascua: así una
+	# Si el nombre cabe en Fragua (o en Mini) pero con el «+» no, la mejora la dicen la placa de oro y la tinta de ascua: así una
 	# carta no cambia de letra al mejorarse.
 	var lay := title_layout(card.title())
-	if not lay["big"] and card.is_up() and title_layout(String(card.def()["name"]))["big"]:
-		lay = title_layout(String(card.def()["name"]))
+	var lay_base := title_layout(String(card.def()["name"]))
+	if card.is_up() and (not lay["big"] and lay_base["big"] or not lay["fits"] and lay_base["fits"]):
+		lay = lay_base
 	var title: String = lay["text"]
 	_name.text = title
 	# Mismo nombre, misma letra y sitio en todo el juego (C17): Fragua ×2 en la rejilla ×2 si cabe sin rozar ningún
-	# orbe; si no, Pavesa ×1 (los largos). Fragua lleva el contorno horneado: sin sombra (la de 1 px de pantalla
-	# quedaba a medio píxel de arte y fuera de paleta).
+	# orbe; si no, Mini ×2 con sombra `k` de 1 px de arte (DECISIONES, N4). Fragua lleva el contorno horneado: sin sombra
+	# (la de 1 px de pantalla quedaba a medio píxel de arte y fuera de paleta).
 	if lay["big"]:
 		var tw := PixelFont.text_width(title) * 2
 		UI.pixelize(_name, 2)
 		_name.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 		_name.position = Vector2(float(lay["x"]), NAME_Y)
 		_name.size = Vector2(tw + 4, 26)
+		_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	elif lay["font"] == "mini":
+		_name.material = null
+		_name.add_theme_font_override("font", PixelFont.mini())
+		_name.add_theme_font_size_override("font_size", PixelFont.mini_size(2))
+		_name.add_theme_constant_override("outline_size", 0)
+		_name.add_theme_color_override("font_shadow_color", Palette.UI[&"k"])
+		_name.add_theme_constant_override("shadow_offset_x", S)
+		_name.add_theme_constant_override("shadow_offset_y", S)
+		_name.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		_name.position = Vector2(float(lay["x"]), MINI_ROW * S)
+		_name.size = Vector2((PixelFont.mini_width(title) + 2) * S, PixelFont.mini_size(2))
 	else:
-		var pw := PixelFont.pavesa_width(title)
+		# Último recurso, sólo para los nombres que ni en Mini ×2 caben (pendiente de dirección, F2-ILUS3).
+		_name.material = null
 		_name.add_theme_font_override("font", PixelFont.pavesa())
 		_name.add_theme_font_size_override("font_size", PixelFont.P_LINE)
 		_name.add_theme_constant_override("outline_size", 0)
 		_name.add_theme_color_override("font_shadow_color", Palette.UI[&"k"])
 		_name.add_theme_constant_override("shadow_offset_x", 1)
 		_name.add_theme_constant_override("shadow_offset_y", 1)
+		_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_name.position = Vector2(float(lay["x"]), 12)
-		_name.size = Vector2(pw + 4, 18)
+		_name.size = Vector2(PixelFont.pavesa_width(title) + 4, 18)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_name.add_theme_color_override("font_color", Palette.color(&"ember_ui", 5) if card.is_up() else UI.TEXT)
 	_desc.text = ink(CardDB.describe(card, engine))
@@ -510,7 +593,7 @@ func _on_enter() -> void:
 			if engine.can_burn_hot(card):
 				var hc := engine.hot_burn_cost(card)
 				t += "\nMAYÚS: EN CALIENTE ×2 (%s)" % ("gratis" if hc == 0 else "−%d Energía" % hc)
-			_burn_hint.text = t
+			set_burn_hint(t)
 	_update_glow()
 	hover_changed.emit(self, true)
 

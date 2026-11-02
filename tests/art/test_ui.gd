@@ -11,6 +11,8 @@ const TYPES := ["attack", "skill", "power", "fuel", "status"]
 const RARITIES := ["starter", "common", "uncommon", "rare", "status", "token"]
 const BODY_W := 124
 const BODY_LINES := 5
+## Nombres que ni en Mini ×2 caben entre el orbe y el canto de la placa (F2-ILUS3); la cifra sólo puede bajar.
+const TITLES_PAVESA_MAX := 18
 ## Diferencia media mínima (0–1) entre dos miniaturas en grises para considerarlas composiciones distintas.
 const MIN_THUMB_DIFF := 0.03
 
@@ -260,17 +262,33 @@ func _text_fit() -> void:
 			var c := Card.new(id, up)
 			var n := _lines(CardDB.describe_plain(c))
 			_check(n <= BODY_LINES, "texto de %s%s: %d líneas (máx. %d)" % [id, "+" if up else "", n, BODY_LINES])
-	# Los nombres caben (Fragua ×2 o Pavesa ×1) a la derecha del orbe.
+	# N4 / DECISIONES «Títulos de carta»: Fragua ×2 si cabe sin rozar orbes; si no, Mini ×2. Se comprueban los nombres
+	# con y sin «+»: rejilla ×2, sin orbe (lo mide `title_layout` píxel a píxel) y dentro de la placa. Pavesa ×1 queda
+	# sólo para los que ni en Mini ×2 caben (F2-ILUS3: pendiente de dirección) y no puede crecer.
+	var tiers := {"fragua": [], "mini": [], "pavesa": []}
 	for id2: String in CardDB.CARDS:
-		var t: String = CardDB.get_def(id2)["name"] + "+"
-		_check(PixelFont.pavesa_width(t) <= int(CardView.SIZE.x - CardView.NAME_X0 - 8.0), "nombre demasiado largo: %s" % t)
-		# C17: el nombre va en la rejilla ×2 y, en Fragua, no roza el orbe propio ni el del vecino de la mano.
-		var lay := CardView.title_layout(t)
-		_check(int(lay["x"]) % 2 == 0, "nombre fuera de la rejilla ×2: %s (x %d)" % [t, int(lay["x"])])
+		var base: String = CardDB.get_def(id2)["name"]
+		for t: String in [base, base + "+"]:
+			var lay := CardView.title_layout(t)
+			_check(int(lay["x"]) % 2 == 0, "nombre fuera de la rejilla ×2: %s (x %d)" % [t, int(lay["x"])])
+			var w := PixelFont.pavesa_width(t) + 1
+			if lay["font"] == "fragua":
+				w = PixelFont.text_width(t) * CardView.S
+			elif lay["font"] == "mini":
+				w = (PixelFont.mini_width(t) + 1) * CardView.S
+			_check(int(lay["x"]) >= CardView.PLATE_X0 * CardView.S and int(lay["x"]) + w <= (CardView.PLATE_X1 + 1) * CardView.S,
+				"nombre fuera de la placa: %s" % t)
+			_check(bool(lay["fits"]) == (lay["font"] != "pavesa"), "title_layout: «fits» incoherente en %s" % t)
+			if t == base:
+				(tiers[lay["font"]] as Array).append(t)
+	if OS.get_environment("TITULOS") != "":
+		print("    · títulos: %d Fragua ×2, %d Mini ×2, %d Pavesa ×1 %s" % [tiers["fragua"].size(), tiers["mini"].size(),
+			tiers["pavesa"].size(), str(tiers["pavesa"])])
+	_check((tiers["pavesa"] as Array).size() <= TITLES_PAVESA_MAX, "títulos en Pavesa ×1: %d (máx. %d)" % [tiers["pavesa"].size(), TITLES_PAVESA_MAX])
 	_check(CardView.title_layout("Tajo Ígneo")["big"], "Tajo Ígneo debe caber en Fragua ×2 sin rozar orbes")
+	_check(not CardView.title_layout("Fuego Interior")["big"], "Fuego Interior pasa a Mini ×2")
 	var hand_step: float = (load("res://scripts/ui/screens/combat_screen.gd") as Script).get_script_constant_map().get("HAND_MAX_STEP", 0.0)
 	_check(int(hand_step) == CardView.ORB_STEP * CardView.S, "CardView.ORB_STEP no sigue al paso de la mano (%d)" % int(hand_step))
-	_check(not CardView.title_layout("Muralla de Engranajes")["big"], "los nombres largos pasan a Pavesa ×1")
 
 
 # ------------------------------------------------------------------------------------------- CardView
@@ -304,6 +322,14 @@ func _card_view() -> void:
 	cv2.selected = false
 	_check(not cv2._aura.visible, "CardView: sin motor no hay aura")
 	_check(cv2._desc.text.contains("[b]"), "CardView: las cifras van en negrita")
+	# N2 y N3 (F2-ILUS3): placa QUEMAR y cinta de tipo en la rejilla ×2 (origen en x e y pares).
+	for t: String in ["QUEMAR +1 · Maestría 0/3", "QUEMAR +16.1K · Maestría 2/6\nMAYÚS: EN CALIENTE ×2 (−1 Energía)"]:
+		cv2.set_burn_hint(t)
+		for hl: Label in cv2._hint_lines:
+			if hl.visible:
+				_check(int(hl.position.x) % 2 == 0 and int(hl.position.y) % 2 == 0, "placa QUEMAR fuera de la rejilla ×2: %s" % hl.text)
+	_check(int(cv2._type.position.x) % 2 == 0 and int(cv2._type.position.y) % 2 == 0
+		and cv2._type.vertical_alignment == VERTICAL_ALIGNMENT_TOP, "cinta de tipo fuera de la rejilla ×2")
 	cv2.free()
 	var inked := CardView.ink("Inflige [color=#ffd36a]6[/color] y [color=#ff9a4a]Agotar.[/color]")
 	_check(inked.contains("[b][color=#%s]6" % Palette.UI[&"num"].to_html(false)), "ink: cifra")
