@@ -1,11 +1,12 @@
 extends RefCounted
 ## GÓLEM DE HOLLÍN (`soot_golem`, acto 1) — PER · v0.4, motor de rig v1.
 ## Concepto: un horno de ladrillo encorvado que anda con los nudillos y lleva el fuego en la barriga.
-## Silueta: joroba alta con chimenea detrás, cabeza de carbón hundida delante, puño enorme apoyado (gorila).
+## Silueta: joroba alta con chimenea detrás, cabeza de carbón ARRIBA sobre el hombro delantero, puño enorme apoyado (gorila).
 ## ≈ 88 px de alto en un lienzo de 128×128; pies en y = 120; mira a la izquierda.
 ## Rasgo vivo (6 f): la chimenea humea, la puerta late, cae una gota de hollín; el cuerpo sólo sube y baja 1 px.
 ## Muerte por material: se agrieta, se le van las extremidades de carbón, la bóveda de ladrillo se hunde y queda un muñón de muro con la puerta apagándose.
-## Telegrafía (cast): alza el puño sobre la cabeza y la puerta del horno se pone al blanco.
+## Telegrafía (cast): alza el puño por delante de la cabeza (despejado, sin taparla) y la puerta se pone al blanco.
+## Ataque: carga el peso atrás y descarga el puño avanzando 9 px; recupera a 4 px.
 
 static func _bricks(l: Vector2, st: int, n: int) -> int:
 	# Ladrillo refractario 9×4 en el espacio del hueso; el mortero sólo en luz media (en sombra se pierde).
@@ -41,7 +42,7 @@ static func build() -> RigDef:
 	b.bone(&"spine", &"root", Vector2(0, -2))
 	b.bone(&"smoke", &"spine", Vector2(20, -60))
 	b.bone(&"drip", &"spine", Vector2(-4, 0))
-	b.bone(&"head", &"spine", Vector2(-27, -31), {"z": 22.0})
+	b.bone(&"head", &"spine", Vector2(-21, -42), {"z": 22.0})
 	b.bone(&"arm_f", &"spine", Vector2(15, -28), {"z": -14.0, "angle": -0.55})
 	b.bone(&"fore_f", &"arm_f", Vector2(0, 20), {"angle": 0.5})
 	b.bone(&"arm_n", &"spine", Vector2(-16, -28), {"z": 16.0, "angle": 0.75})
@@ -243,27 +244,33 @@ static func _anims(b: RigBuilder) -> void:
 		_puffs(k, f)
 		idle[f] = _alive(k)
 	b.anim(&"idle", 6, 170, idle, {"interp": &"hold"})
-	# Telegrafía (cast): puño alzado sobre la cabeza, la puerta al blanco, rugido.
-	var tell := {&"spine": 0.12, &"head": -0.15, &"arm_n": 2.3, &"fore_n": 0.9, &"arm_f": -0.2, &"@root": Vector2i(2, -1),
-		&"emit:door_fire": 2, &"emit:face": 1, &"view:head": &"roar", &"z:arm_n": 4.0, &"view:drip": &"d0", &"hide:knuckles": true}
+	# Telegrafía (cast): el peso atrás, la cabeza arriba rugiendo y el puño alzado POR DELANTE de la cara (silueta despejada).
+	var tell := {&"spine": 0.1, &"head": -0.12, &"arm_n": 1.15, &"fore_n": 0.9, &"arm_f": -0.2, &"leg_n": -0.05, &"@root": Vector2i(2, -1),
+		&"emit:door_fire": 2, &"emit:face": 1, &"view:head": &"roar", &"view:drip": &"d0", &"hide:knuckles": true}
 	var tell2 := tell.duplicate()
-	tell2[&"@root"] = Vector2i(2, -2)
+	tell2[&"@root"] = Vector2i(3, -2)
+	tell2[&"spine"] = 0.14
 	tell2[&"emit:door_fire"] = 3
 	_puffs(tell, 0)
 	_puffs(tell2, 1)
 	_alive(tell)
 	_alive(tell2)
 	b.anim(&"cast", 2, [120, 400], {0: tell, 1: tell2}, {"loop": false, "interp": &"hold"})
-	# Ataque: carga (= telegrafía) → estela → puñetazo al suelo → recuperación.
-	var smash := {&"spine": -0.08, &"head": 0.1, &"arm_n": 0.1, &"fore_n": 0.08, &"arm_f": 0.15, &"@root": Vector2i(-3, 2),
-		&"emit:door_fire": 2, &"emit:knuckles": 3, &"view:head": &"roar", &"view:drip": &"d0"}
-	var settle := {&"spine": -0.04, &"head": 0.05, &"arm_n": 0.05, &"fore_n": 0.04, &"@root": Vector2i(-1, 1), &"emit:door_fire": 1,
-		&"view:drip": &"d0"}
+	# Ataque: carga atrás (= telegrafía) → estela con el cuerpo ya en marcha → puñetazo al suelo 9 px por delante, pierna
+	# cercana adelantada y la lejana estirada atrás (el peso cae sobre el puño) → recuperación a medio camino.
+	var swing := {&"spine": -0.06, &"head": 0.02, &"arm_n": 0.45, &"fore_n": 0.2, &"arm_f": 0.1, &"leg_n": 0.12, &"leg_f": -0.08,
+		&"@root": Vector2i(-5, 0), &"emit:door_fire": 2, &"emit:knuckles": 2, &"view:head": &"roar", &"view:drip": &"d0", &"z:arm_n": 24.0}
+	var smash := {&"spine": -0.16, &"head": 0.08, &"arm_n": 0.05, &"fore_n": 0.05, &"arm_f": 0.2, &"leg_n": 0.22, &"leg_f": -0.16,
+		&"@root": Vector2i(-9, 2), &"emit:door_fire": 2, &"emit:knuckles": 3, &"view:head": &"roar", &"view:drip": &"d0"}
+	var settle := {&"spine": -0.07, &"head": 0.04, &"arm_n": 0.04, &"fore_n": 0.03, &"leg_n": 0.1, &"leg_f": -0.06,
+		&"@root": Vector2i(-4, 1), &"emit:door_fire": 1, &"view:drip": &"d0"}
+	_puffs(swing, 2)
 	_puffs(smash, 2)
 	_puffs(settle, 3)
+	_alive(swing)
 	_alive(smash)
 	_alive(settle)
-	b.anim(&"attack", 4, [140, 40, 110, 160], {0: tell2, 1: smash, 2: smash, 3: settle}, {"loop": false, "interp": &"hold"})
+	b.anim(&"attack", 4, [140, 40, 110, 160], {0: tell2, 1: swing, 2: smash, 3: settle}, {"loop": false, "interp": &"hold"})
 	b.smear(&"attack", 1, &"fore_n", Vector2(0, 24), &"fire", 15.0, false).samples = 48
 	# Golpe recibido: retrocede, la cabeza atrás, ojos cerrados un instante.
 	var h1 := {&"spine": 0.1, &"head": -0.2, &"arm_n": 0.15, &"@root": Vector2i(3, 0), &"view:head": &"hurt", &"emit:door_fire": -1}
