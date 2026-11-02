@@ -28,6 +28,7 @@ Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 | F2-SALA2 | Juntas −1 paso tras enemigos (desviación ≤ 12) | `world-artist` | `bg_act1.gd`, salas | hecho |
 | F2-ILUS3 | Títulos largos en Mini ×2 (N4), carta alzada a la rejilla (N2, N3), «Fuego Interior» con escena | `card-illustrator` | `card_view.gd`, `set_icon.gd` | hecho |
 | F2-ILUS4, F2-VIDA5 | Nombres cortos de carta, ffe173, rótulos de turno breves | varios | ver diarios | hecho |
+| F2-PULIDO-A–D | Defectos menores del corte tras F2-REV3 | varios | ver diarios `f2_pulido_*` | hecho |
 | F2-REV3 | Revisión corta con el mismo `medir.py` | `art-director` | `director/f2_rev3/` | hecho: **pasa**. Heroína 8, criaturas 8, jefe 8, sala 8, Forja 8,5, cartas 8, HUD 8, efectos 8, vida 8, conjunto 8 |
 
 ## Hecho hasta ahora
@@ -37,8 +38,8 @@ Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 - Ilustraciones: 12 de 93. Las otras 81 usan respaldo temporal.
 
 ## Pendiente conocido
-- Del corte (no bloquean): N6 barra del tutorial sobre estandartes (09); N7 mano desfasada 1 px al recolocarse (09b); N8 flotantes grandes a ×3 (`ui.gd:436`), fuera de la rejilla ×2; martillo junto a las botas; muro del tiro y saeteras. Criaturas, cartas, efectos y conjunto entran justos en 8.
-- Rendimiento: BackBufferCopy de viewport por carta en vuelo (optimizable a rect); sin medir en GPU real.
+- Del corte, cerrado en F2-PULIDO (A–D): N6 y avisos de combate en la barra de ayuda, N7 mano en la rejilla, N8 flotantes a ×2, martillo separado de las botas, muro del tiro y saeteras, contraste ≥ 0,10 de polilla y gólem (base y tiznado) en sus huecos reales. `smoke.gd` fuerza un encuentro artificial (gólem en x 350, delante del arco).
+- Rendimiento: BackBufferCopy de viewport por carta en vuelo; el modo rect deja la carta negra (F2-PULIDO-A). Sin medir en GPU real.
 - Actos 2 y 3 siguen con arte legado sin luz. `TopHud` sólo en combate.
 - Sin probar: GPU integrada y WebGL2. Quema en caliente con ratón.
 - Pasada de nivel A de las ilustraciones y regla de combinación única: comprobar el estado en `tests/art/test_ui.gd`.
