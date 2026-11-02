@@ -11,8 +11,10 @@ const TYPES := ["attack", "skill", "power", "fuel", "status"]
 const RARITIES := ["starter", "common", "uncommon", "rare", "status", "token"]
 const BODY_W := 124
 const BODY_LINES := 5
-## Nombres que ni en Mini ×2 caben entre el orbe y el canto de la placa (F2-ILUS3); la cifra sólo puede bajar.
-const TITLES_PAVESA_MAX := 18
+## Títulos en Pavesa ×1: ninguno (F2-ILUS4). Los que ni en Mini ×2 caben muestran su nombre corto de `CardDB` (`short`).
+const TITLES_PAVESA_MAX := 0
+## Ancho máximo, en px de arte Mini, del nombre corto de presentación (sin «+»).
+const SHORT_MAX_W := 58
 ## Diferencia media mínima (0–1) entre dos miniaturas en grises para considerarlas composiciones distintas.
 const MIN_THUMB_DIFF := 0.03
 
@@ -264,18 +266,31 @@ func _text_fit() -> void:
 			_check(n <= BODY_LINES, "texto de %s%s: %d líneas (máx. %d)" % [id, "+" if up else "", n, BODY_LINES])
 	# N4 / DECISIONES «Títulos de carta»: Fragua ×2 si cabe sin rozar orbes; si no, Mini ×2. Se comprueban los nombres
 	# con y sin «+»: rejilla ×2, sin orbe (lo mide `title_layout` píxel a píxel) y dentro de la placa. Pavesa ×1 queda
-	# sólo para los que ni en Mini ×2 caben (F2-ILUS3: pendiente de dirección) y no puede crecer.
+	# sólo como respaldo de un nombre largo sin corto: con los nombres cortos de F2-ILUS4 no queda ninguno.
 	var tiers := {"fragua": [], "mini": [], "pavesa": []}
+	var all_names := {}
+	for id1: String in CardDB.CARDS:
+		all_names[String(CardDB.get_def(id1)["name"]).to_lower()] = id1
+	var shorts := {}
 	for id2: String in CardDB.CARDS:
 		var base: String = CardDB.get_def(id2)["name"]
+		var sh: String = CardDB.get_def(id2).get("short", "")
+		# F2-ILUS4: el corto sólo existe si el completo no cabe ni en Mini ×2; es único, ≤ SHORT_MAX_W y no choca con otro nombre.
+		if sh != "":
+			_check(not CardView.title_layout(base)["fits"], "%s: lleva nombre corto pero el completo cabe en Mini ×2" % base)
+			_check(PixelFont.mini_width(sh) <= SHORT_MAX_W, "%s: corto «%s» mide %d (máx. %d)" % [base, sh, PixelFont.mini_width(sh), SHORT_MAX_W])
+			_check(not all_names.has(sh.to_lower()) and not shorts.has(sh.to_lower()), "corto repetido o igual a otro nombre: %s" % sh)
+			_check(not sh.contains("."), "corto con abreviatura: %s" % sh)
+			shorts[sh.to_lower()] = id2
 		for t: String in [base, base + "+"]:
-			var lay := CardView.title_layout(t)
+			var lay := CardView.title_layout(t, "" if sh == "" else sh + t.substr(base.length()))
+			var shown: String = lay["text"]
 			_check(int(lay["x"]) % 2 == 0, "nombre fuera de la rejilla ×2: %s (x %d)" % [t, int(lay["x"])])
-			var w := PixelFont.pavesa_width(t) + 1
+			var w := PixelFont.pavesa_width(shown) + 1
 			if lay["font"] == "fragua":
-				w = PixelFont.text_width(t) * CardView.S
+				w = PixelFont.text_width(shown) * CardView.S
 			elif lay["font"] == "mini":
-				w = (PixelFont.mini_width(t) + 1) * CardView.S
+				w = (PixelFont.mini_width(shown) + 1) * CardView.S
 			_check(int(lay["x"]) >= CardView.PLATE_X0 * CardView.S and int(lay["x"]) + w <= (CardView.PLATE_X1 + 1) * CardView.S,
 				"nombre fuera de la placa: %s" % t)
 			_check(bool(lay["fits"]) == (lay["font"] != "pavesa"), "title_layout: «fits» incoherente en %s" % t)
@@ -313,6 +328,18 @@ func _card_view() -> void:
 		cv._burn_step(1.0, [])
 		_check(not cv.visible, "CardView %s: al acabar la quema no queda nada" % id)
 		cv.free()
+	# F2-ILUS4: el marco en reposo va sin material (el `dissolve_material` legado pintaba `ffe173` en el canto inferior).
+	var cv0 := CardView.new(Card.new("ember_slash"))
+	host.add_child(cv0)
+	_check(cv0._frame.material == null, "CardView: el marco en reposo no lleva material (ffe173)")
+	# Título con nombre corto: la carta muestra el corto y el tooltip conserva el nombre completo.
+	_check(cv0._name.text == "Tajo Ígneo", "CardView: «Tajo Ígneo» no usa nombre corto")
+	cv0.free()
+	var cv1 := CardView.new(Card.new("gen_wall"))
+	host.add_child(cv1)
+	_check(cv1._name.text == String(CardDB.get_def("gen_wall")["short"]), "CardView: «Muralla de Engranajes» muestra su corto")
+	_check(cv1.tooltip_text.begins_with("Muralla de Engranajes"), "CardView: el tooltip conserva el nombre completo")
+	cv1.free()
 	var src := FileAccess.get_file_as_string("res://scripts/ui/card_view.gd")
 	_check(not src.contains("modulate:a") and not src.contains("modulate.a"), "CardView: la quema no funde con alfa")
 	var cv2 := CardView.new(Card.new("strike"))

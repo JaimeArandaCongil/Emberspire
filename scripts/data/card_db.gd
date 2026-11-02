@@ -3,6 +3,8 @@ extends RefCounted
 ## Tabla de cartas. Diseño edita aquí; la lógica vive en CombatEngine.
 ##
 ## Campos:
+##   short: nombre corto de presentación, sólo para el título de la carta cuando el completo no cabe ni en Mini ×2
+##          (DECISIONES «Títulos de carta», F2-ILUS4). El nombre completo (`name`) sigue en datos, tooltips, tienda y compendio.
 ##   type: attack | skill | power | fuel | status
 ##   cost: -1 = X (gasta toda la energía)
 ##   target: true si requiere elegir enemigo
@@ -46,11 +48,11 @@ const CARDS := {
 		"rarity": "common", "pack": "base", "fx": [["weak", 2], ["block", 4]], "up": [["weak", 3], ["block", 6]]},
 	"forge_heart": {"name": "Corazón de Forja", "type": "power", "cost": 1, "icon": "heart_gear",
 		"rarity": "uncommon", "pack": "base", "fx": [["power", "forge_block", 3]], "up": [["power", "forge_block", 5]]},
-	"temper_steel": {"name": "Templar el Acero", "type": "power", "cost": 1, "icon": "anvil",
+	"temper_steel": {"name": "Templar el Acero", "short": "Templar Acero", "type": "power", "cost": 1, "icon": "anvil",
 		"rarity": "uncommon", "pack": "base", "fx": [["str", 2]], "up": [["str", 3]]},
 	"slag_shot": {"name": "Escupir Escoria", "type": "attack", "cost": 1, "target": true, "icon": "slag",
 		"rarity": "common", "pack": "base", "fx": [["dmg", 4], ["vuln", 2]], "up": [["dmg", 6], ["vuln", 3]]},
-	"body_slam": {"name": "Embestida Blindada", "type": "attack", "cost": 1, "up_cost": 0, "target": true, "icon": "shield_bash",
+	"body_slam": {"name": "Embestida Blindada", "short": "Embestida", "type": "attack", "cost": 1, "up_cost": 0, "target": true, "icon": "shield_bash",
 		"rarity": "uncommon", "pack": "base", "fx": [["block_dmg"]], "up": [["block_dmg"]]},
 	"second_wind": {"name": "Segundo Aliento", "type": "skill", "cost": 1, "icon": "heart", "exhaust": true,
 		"rarity": "uncommon", "pack": "base", "fx": [["heal", 5]], "up": [["heal", 8]]},
@@ -58,7 +60,7 @@ const CARDS := {
 		"rarity": "common", "pack": "base", "fx": [["dmg_x", 5, 2]], "up": [["dmg_x", 7, 2]]},
 	"shield_bash": {"name": "Golpe de Escudo", "type": "attack", "cost": 1, "target": true, "icon": "shield_bash",
 		"rarity": "common", "pack": "base", "fx": [["dmg", 5], ["block", 5]], "up": [["dmg", 7], ["block", 7]]},
-	"ember_guard": {"name": "Guardia de Ascuas", "type": "skill", "cost": 1, "icon": "shield",
+	"ember_guard": {"name": "Guardia de Ascuas", "short": "Guardia Ígnea", "type": "skill", "cost": 1, "icon": "shield",
 		"rarity": "common", "pack": "base", "fx": [["block", 8]], "up": [["block", 11]],
 		"burn": [["block", 8]], "up_burn": [["block", 11]]},
 	"fan_flames": {"name": "Abanicar", "type": "skill", "cost": 1, "icon": "fan",
@@ -84,7 +86,7 @@ const CARDS := {
 	# --- Grimorio de la Pira (quemar) ----------------------------------------
 	"inner_fire": {"name": "Fuego Interior", "type": "power", "cost": 1, "icon": "flame",
 		"rarity": "uncommon", "pack": "pyre", "fx": [["power", "inner_fire", 4]], "up": [["power", "inner_fire", 6]]},
-	"ash_armor": {"name": "Armadura de Ceniza", "type": "power", "cost": 1, "icon": "armor",
+	"ash_armor": {"name": "Armadura de Ceniza", "short": "Cota de Ceniza", "type": "power", "cost": 1, "icon": "armor",
 		"rarity": "uncommon", "pack": "pyre", "fx": [["power", "ash_armor", 4]], "up": [["power", "ash_armor", 6]]},
 	"gunpowder": {"name": "Pólvora", "type": "fuel", "cost": 1, "icon": "bomb",
 		"rarity": "common", "pack": "pyre", "burn": [["dmg_all", 10]], "up_burn": [["dmg_all", 15]]},
@@ -106,19 +108,19 @@ const CARDS := {
 		"rarity": "rare", "pack": "pyre", "fx": [["dmg_all_per_burned", 6, 3]], "up": [["dmg_all_per_burned", 8, 4]]},
 	"stoke_rage": {"name": "Atizar la Furia", "type": "skill", "cost": 0, "icon": "blood_flame",
 		"rarity": "common", "pack": "pyre", "fx": [["lose_hp", 3], ["burn_charge", 2]], "up": [["lose_hp", 2], ["burn_charge", 2], ["draw", 1]]},
-	"ash_feast": {"name": "Banquete de Ceniza", "type": "skill", "cost": 1, "icon": "goblet", "exhaust": true,
+	"ash_feast": {"name": "Banquete de Ceniza", "short": "Festín de Hollín", "type": "skill", "cost": 1, "icon": "goblet", "exhaust": true,
 		"rarity": "rare", "pack": "pyre", "fx": [["heal_per_burned", 2]], "up": [["heal_per_burned", 3]]},
 	"forge_lung": {"name": "Pulmón de Forja", "type": "power", "cost": 2, "up_cost": 1, "icon": "lung",
 		"rarity": "rare", "pack": "pyre", "fx": [["power", "bellows_pw", 1]], "up": [["power", "bellows_pw", 1]]},
 	"tinder_box": {"name": "Caja de Yesca", "type": "skill", "cost": 1, "icon": "box",
 		"rarity": "common", "pack": "pyre", "fx": [["add_hand", "spark_card", 2]], "up": [["add_hand", "spark_card", 3]]},
-	"cinder_storm": {"name": "Tormenta de Cisco", "type": "fuel", "cost": 2, "icon": "sparks",
+	"cinder_storm": {"name": "Tormenta de Cisco", "short": "Racha de Cisco", "type": "fuel", "cost": 2, "icon": "sparks",
 		"rarity": "uncommon", "pack": "pyre", "burn": [["dmg_rand", 5, 3], ["scorch_all", 2]], "up_burn": [["dmg_rand", 5, 4], ["scorch_all", 3]]},
 
 	# --- Grimorio del Yunque (fuerza y bloqueo) ------------------------------
-	"anvil_stance": {"name": "Postura de Yunque", "type": "power", "cost": 2, "up_cost": 1, "icon": "anvil",
+	"anvil_stance": {"name": "Postura de Yunque", "short": "Pose de Yunque", "type": "power", "cost": 2, "up_cost": 1, "icon": "anvil",
 		"rarity": "rare", "pack": "anvil", "fx": [["power", "temper", 1]], "up": [["power", "temper", 1]]},
-	"hammer_flurry": {"name": "Ráfaga de Martillo", "type": "attack", "cost": 1, "target": true, "icon": "hammer",
+	"hammer_flurry": {"name": "Ráfaga de Martillo", "short": "Martilleo", "type": "attack", "cost": 1, "target": true, "icon": "hammer",
 		"rarity": "common", "pack": "anvil", "fx": [["dmg_x", 4, 3]], "up": [["dmg_x", 5, 4]]},
 	"double_shield": {"name": "Redoblar Escudo", "type": "skill", "cost": 1, "up_cost": 0, "icon": "twin_shields",
 		"rarity": "uncommon", "pack": "anvil", "fx": [["double_block"]], "up": [["double_block"]]},
@@ -138,7 +140,7 @@ const CARDS := {
 		"rarity": "uncommon", "pack": "anvil", "fx": [["dmg", 24], ["weak", 2]], "up": [["dmg", 32], ["weak", 3]]},
 	"unbreakable": {"name": "Inquebrantable", "type": "skill", "cost": 2, "icon": "fortress", "exhaust": true,
 		"rarity": "rare", "pack": "anvil", "fx": [["block", 30]], "up": [["block", 40]]},
-	"anvil_ward": {"name": "Guarda del Yunque", "type": "skill", "cost": 1, "icon": "shield", "retain": true,
+	"anvil_ward": {"name": "Guarda del Yunque", "short": "Yunque Guardián", "type": "skill", "cost": 1, "icon": "shield", "retain": true,
 		"rarity": "common", "pack": "anvil", "fx": [["block", 9]], "up": [["block", 13]]},
 
 	# --- Grimorio de la Ceniza (quemadura) -----------------------------------
@@ -148,7 +150,7 @@ const CARDS := {
 		"rarity": "common", "pack": "ash", "fx": [["scorch_all", 3]], "up": [["scorch_all", 5]]},
 	"detonate": {"name": "Detonar", "type": "attack", "cost": 1, "target": true, "icon": "bomb",
 		"rarity": "uncommon", "pack": "ash", "fx": [["scorch", 3], ["detonate", 2]], "up": [["scorch", 4], ["detonate", 3]]},
-	"cinder_breath": {"name": "Aliento de Brasas", "type": "attack", "cost": 2, "icon": "breath",
+	"cinder_breath": {"name": "Aliento de Brasas", "short": "Vaho de Brasas", "type": "attack", "cost": 2, "icon": "breath",
 		"rarity": "common", "pack": "ash", "fx": [["dmg_all", 6], ["scorch_all", 3]], "up": [["dmg_all", 8], ["scorch_all", 4]]},
 	"smoke_veil": {"name": "Velo de Humo", "type": "skill", "cost": 1, "icon": "smoke",
 		"rarity": "common", "pack": "ash", "fx": [["block", 7], ["weak_all", 1]], "up": [["block", 10], ["weak_all", 2]]},
@@ -158,11 +160,11 @@ const CARDS := {
 		"rarity": "uncommon", "pack": "ash", "fx": [["scorch_double"]], "up": [["scorch_double"]]},
 	"smoldering": {"name": "Rescoldo", "type": "power", "cost": 1, "icon": "coal",
 		"rarity": "uncommon", "pack": "ash", "fx": [["power", "smolder", 1]], "up": [["power", "smolder", 2]]},
-	"ashen_shroud": {"name": "Mortaja de Ceniza", "type": "skill", "cost": 1, "icon": "cloak",
+	"ashen_shroud": {"name": "Mortaja de Ceniza", "short": "Velo de Ceniza", "type": "skill", "cost": 1, "icon": "cloak",
 		"rarity": "common", "pack": "ash", "fx": [["block_scorch", 3]], "up": [["block_scorch", 7]]},
-	"firestorm": {"name": "Tormenta de Fuego", "type": "attack", "cost": 3, "icon": "volcano",
+	"firestorm": {"name": "Tormenta de Fuego", "short": "Tormenta Ígnea", "type": "attack", "cost": 3, "icon": "volcano",
 		"rarity": "rare", "pack": "ash", "fx": [["dmg_all", 8], ["scorch_all", 8]], "up": [["dmg_all", 10], ["scorch_all", 10]]},
-	"flashpoint": {"name": "Punto de Ignición", "type": "attack", "cost": 0, "target": true, "icon": "brand", "exhaust": true,
+	"flashpoint": {"name": "Punto de Ignición", "short": "Ignición", "type": "attack", "cost": 0, "target": true, "icon": "brand", "exhaust": true,
 		"rarity": "common", "pack": "ash", "fx": [["detonate", 1]], "up": [["detonate", 2]]},
 
 	# --- Grimorio Solar (raras) ----------------------------------------------
@@ -184,9 +186,9 @@ const CARDS := {
 		"rarity": "uncommon", "pack": "solar", "fx": [["dmg_all", 7], ["draw", 1]], "up": [["dmg_all", 10], ["draw", 1]]},
 
 	# --- Grimorio de la Forja (crecen con tu progreso incremental) -----------
-	"brazier_flame": {"name": "Llama de Brasero", "type": "attack", "cost": 1, "target": true, "icon": "brazier",
+	"brazier_flame": {"name": "Llama de Brasero", "short": "Brasero", "type": "attack", "cost": 1, "target": true, "icon": "brazier",
 		"rarity": "common", "pack": "forge", "fx": [["dmg_braziers", 4, 5]], "up": [["dmg_braziers", 6, 4]]},
-	"gen_wall": {"name": "Muralla de Engranajes", "type": "skill", "cost": 1, "icon": "gear",
+	"gen_wall": {"name": "Muralla de Engranajes", "short": "Muro Dentado", "type": "skill", "cost": 1, "icon": "gear",
 		"rarity": "common", "pack": "forge", "fx": [["block_gens", 4, 50]], "up": [["block_gens", 6, 40]]},
 	"stardust_strike": {"name": "Golpe Estelar", "type": "attack", "cost": 1, "target": true, "icon": "star_sword",
 		"rarity": "uncommon", "pack": "forge", "fx": [["dmg_dust", 4, 2]], "up": [["dmg_dust", 6, 3]]},
@@ -196,9 +198,9 @@ const CARDS := {
 		"rarity": "rare", "pack": "forge", "fx": [["str_mastery", 8, 4]], "up": [["str_mastery", 6, 6]]},
 	"ember_cannon": {"name": "Cañón de Ascuas", "type": "attack", "cost": 2, "target": true, "icon": "cannon",
 		"rarity": "rare", "pack": "forge", "fx": [["dmg_prod", 10, 5]], "up": [["dmg_prod", 14, 7]]},
-	"hearth_song": {"name": "Canción del Hogar", "type": "skill", "cost": 1, "icon": "bell", "exhaust": true,
+	"hearth_song": {"name": "Canción del Hogar", "short": "Canto del Hogar", "type": "skill", "cost": 1, "icon": "bell", "exhaust": true,
 		"rarity": "uncommon", "pack": "forge", "fx": [["heal_braziers", 3, 8]], "up": [["heal_braziers", 5, 6]]},
-	"relic_echo": {"name": "Eco del Reliquario", "type": "skill", "cost": 1, "icon": "chest",
+	"relic_echo": {"name": "Eco del Reliquario", "short": "Eco de Reliquia", "type": "skill", "cost": 1, "icon": "chest",
 		"rarity": "uncommon", "pack": "forge", "fx": [["block_codex", 4, 4]], "up": [["block_codex", 7, 4]]},
 
 	# --- Grimorio del Crisol (alquimia) --------------------------------------
@@ -212,7 +214,7 @@ const CARDS := {
 		"rarity": "rare", "pack": "crucible", "fx": [["power", "philo", 1]], "up": [["power", "philo", 1]]},
 	"retort": {"name": "Alambique", "type": "attack", "cost": 1, "target": true, "icon": "flask",
 		"rarity": "common", "pack": "crucible", "fx": [["dmg_hand", 2]], "up": [["dmg_hand", 3]]},
-	"fuel_search": {"name": "Buscar Combustible", "type": "skill", "cost": 1, "up_cost": 0, "icon": "poker",
+	"fuel_search": {"name": "Buscar Combustible", "short": "Acopio de Leña", "type": "skill", "cost": 1, "up_cost": 0, "icon": "poker",
 		"rarity": "common", "pack": "crucible", "fx": [["draw_type", "fuel", 2], ["burn_charge", 1]], "up": [["draw_type", "fuel", 2], ["burn_charge", 1]]},
 	"golden_flux": {"name": "Flujo Áureo", "type": "fuel", "cost": 0, "icon": "ingot",
 		"rarity": "uncommon", "pack": "crucible", "burn": [["ember_mult", 5], ["draw", 1]], "up_burn": [["ember_mult", 7], ["draw", 1]]},

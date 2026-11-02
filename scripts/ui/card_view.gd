@@ -53,7 +53,6 @@ var _type: Label
 var _desc: RichTextLabel
 var _burn_hint: Label
 var _hint_lines: Array[Label] = []
-var _frame_mat: ShaderMaterial
 var _frame_key := ""
 var _shimmer: Array = []
 var _aura_kind := ""
@@ -77,8 +76,8 @@ func _ready() -> void:
 	add_child(_aura)
 
 	_frame = _texrect(Vector2(-_Frame.M * S, -_Frame.M * S))
-	_frame_mat = UI.dissolve_material(Vector2(_Frame.CW + _Frame.M * 2, _Frame.CH + _Frame.M * 2))
-	_frame.material = _frame_mat
+	# Sin material en reposo (F2-ILUS4): el `dissolve_material` legado, con progress 0, pintaba su borde `edge_a`
+	# (ffe173, fuera de paleta) en las celdas de ruido bajo del canto inferior. La quema usa `_burn_material`.
 	add_child(_frame)
 
 	_name = Label.new()
@@ -179,10 +178,19 @@ static func _tex(key: String, img: Image) -> ImageTexture:
 	return t
 
 
+## Nombre corto de presentación con el «+» de la mejora ("" si la carta no tiene corto).
+func _short_title() -> String:
+	var sh := String(card.def().get("short", ""))
+	return "" if sh == "" else sh + ("+" if card.is_up() else "")
+
+
 func _tooltip() -> String:
 	var lvl := card.mastery()
 	var prog := Game.mastery_progress(card.id)
 	var t := "%s · %s" % [CardDB.RARITY_NAMES.get(card.rarity(), ""), CardDB.PACK_NAMES.get(card.def()["pack"], "")]
+	# Si el título muestra el nombre corto, el completo va en el tooltip.
+	if title_layout(card.title(), _short_title()).get("short", false):
+		t = card.title() + "\n" + t
 	if card.rarity() in ["status", "token"]:
 		return t
 	if lvl >= Game.MASTERY_MAX:
@@ -200,8 +208,10 @@ func _tooltip() -> String:
 ## Disposición del nombre de carta (DECISIONES «Títulos de carta»): {"font": "fragua" | "mini" | "pavesa", "big": es
 ## Fragua, "x": px de pantalla del origen del texto, siempre par (rejilla ×2), "fits": false sólo si ni Mini cabe}. Las dos letras se comprueban
 ## píxel a píxel (glifo + contorno o sombra + `NAME_GAP` en cruz) contra el rombo del orbe propio, el del vecino de la mano
-## y el canto de la placa; se elige la posición válida más cercana al centro de la carta. Nunca Pavesa ×1.
-static func title_layout(title: String) -> Dictionary:
+## y el canto de la placa; se elige la posición válida más cercana al centro de la carta. Si el nombre no cabe ni en
+## Mini ×2 y hay `short` (nombre corto de `CardDB`, F2-ILUS4), se dispone el corto con las mismas reglas ("short": true).
+## Pavesa ×1 sólo queda como respaldo de un nombre largo sin corto.
+static func title_layout(title: String, short := "") -> Dictionary:
 	var ink := {}
 	var pen := 0
 	for i in title.length():
@@ -245,7 +255,12 @@ static func title_layout(title: String) -> Dictionary:
 	var mbest := _best_x(_grow(mink), PLATE_X0, PLATE_X1 + 1 - mw, int(round((_Frame.CW - mw) / 2.0)))
 	if mbest >= 0:
 		return {"big": false, "font": "mini", "x": mbest * S, "text": title, "fits": true}
-	# Ni Mini ×2 cabe (más de ~60 px de arte entre el orbe y el canto): último recurso pendiente de dirección (F2-ILUS3).
+	# Ni Mini ×2 cabe (más de ~60 px de arte entre el orbe y el canto): nombre corto de presentación (F2-ILUS4).
+	if short != "" and short != title:
+		var sl := title_layout(short)
+		sl["short"] = true
+		return sl
+	# Respaldo para un nombre largo sin corto: `test_ui` exige que no quede ninguno (TITLES_PAVESA_MAX = 0).
 	var pw := PixelFont.pavesa_width(title)
 	var px := clampi(int(round((SIZE.x - pw) * 0.5)), PAVESA_X0, maxi(PAVESA_X0, (PLATE_X1 + 1) * S - pw))
 	return {"big": false, "font": "pavesa", "x": px / 2 * 2, "text": title, "fits": false}
@@ -330,8 +345,8 @@ func refresh() -> void:
 				_shimmer.append(_tex("f:%s:sh%d" % [key, i], frames[i]))
 	# Si el nombre cabe en Fragua (o en Mini) pero con el «+» no, la mejora la dicen la placa de oro y la tinta de ascua: así una
 	# carta no cambia de letra al mejorarse.
-	var lay := title_layout(card.title())
-	var lay_base := title_layout(String(card.def()["name"]))
+	var lay := title_layout(card.title(), _short_title())
+	var lay_base := title_layout(String(card.def()["name"]), String(card.def().get("short", "")))
 	if card.is_up() and (not lay["big"] and lay_base["big"] or not lay["fits"] and lay_base["fits"]):
 		lay = lay_base
 	var title: String = lay["text"]
@@ -358,7 +373,7 @@ func refresh() -> void:
 		_name.position = Vector2(float(lay["x"]), MINI_ROW * S)
 		_name.size = Vector2((PixelFont.mini_width(title) + 2) * S, PixelFont.mini_size(2))
 	else:
-		# Último recurso, sólo para los nombres que ni en Mini ×2 caben (pendiente de dirección, F2-ILUS3).
+		# Respaldo para un nombre largo sin corto en `CardDB` (ninguno hoy: F2-ILUS4).
 		_name.material = null
 		_name.add_theme_font_override("font", PixelFont.pavesa())
 		_name.add_theme_font_size_override("font_size", PixelFont.P_LINE)
