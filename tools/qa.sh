@@ -6,7 +6,11 @@
 # Variable GODOT para otra ruta del binario. Devuelve 0 sólo si todo pasa.
 set -u
 cd "$(dirname "$0")/.."
-GODOT="${GODOT:-/c/Users/Jaime/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe}"
+WIN_GODOT=/c/Users/Jaime/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe
+LINUX_GODOT=/opt/godot/Godot_v4.7.2-stable_linux.x86_64   # nube: lo instala tools/setup_cloud.sh
+if [ -z "${GODOT:-}" ]; then
+	if [ -x "$WIN_GODOT" ]; then GODOT="$WIN_GODOT"; else GODOT="$LINUX_GODOT"; fi
+fi
 MODE="${1:-all}"; ONLY="${2:-}"; RC=0
 filter() { grep -E "$1" | cut -c1-200 | sort -u | head -n "${2:-25}"; }
 if [ "$MODE" = bake ]; then

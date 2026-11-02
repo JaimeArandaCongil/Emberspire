@@ -6,6 +6,9 @@ Roguelike de cartas + incremental en Godot 4.7.2 (GDScript tipado, `gl_compatibi
 - Hornear: `tools/qa.sh bake --only=id1,id2` (sin `--only` hornea todo)
 - Binario, para capturas o escenas con ventana: `/c/Users/Jaime/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe`
 - Recorrido con capturas: `<binario> --path . res://tests/smoke.tscn` → `screenshots/`
+- En la nube (Linux): `tools/setup_cloud.sh` instala Godot en `/opt/godot` y `qa.sh` lo usa solo. Binario con ventana:
+  `xvfb-run -a -s "-screen 0 1280x720x24" /opt/godot/Godot_v4.7.2-stable_linux.x86_64 --path . <escena>`. Render por software:
+  sirve para capturas, no para medir rendimiento. No subas capturas de `screenshots/` regeneradas sin motivo.
 - Nunca vuelques registros completos de Godot: filtra con `grep -E "ERROR|fallos"` y `tail`.
 
 ## Qué leer (y sólo esto)

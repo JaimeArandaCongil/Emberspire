@@ -5,3 +5,5 @@
 /build/
 *.exe
 *.pck
+# Los .import del arte horneado SÍ se versionan: el horneador los escribe sin fix_alpha_border (los canales son datos)
+!assets/baked/**/*.import
