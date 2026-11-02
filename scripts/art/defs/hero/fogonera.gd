@@ -1,6 +1,6 @@
 extends RefCounted
 ## LA FOGONERA — definición de rig (PER · v0.4) sobre el motor v1 de TEC.
-## 66 px de alto (+ moño) en un lienzo de 96×96, pies en y = 89, mira a la DERECHA (facing = +1).
+## 74 px de alto (+ moño; enmienda F2-BASE) en un lienzo de 96×96, pies en y = 89, mira a la DERECHA (facing = +1).
 ## Diseño y enmiendas de DA: docs/reviews/v04/personajes/fogonera_final.md.
 ##
 ## Las poses se escriben como ARTICULACIONES en el lienzo (hombro, codo, muñeca, cadera, tobillo, cabeza, martillo…)
@@ -60,26 +60,27 @@ const J := {
 		"kn_b": Vector2(37, 72), "an_b": Vector2(32, 83), "kn_f": Vector2(56, 71), "an_f": Vector2(59, 83),
 		"hammer": Vector2(75, 79),
 	},
+	# C3: el martillo NO cambia de mano. Brazo cercano idéntico a `idle` (martillo a x ≈ 61); la mano lejana hace el gesto.
 	"cast": {
-		"head": Vector2(48, 27), "chest": Vector2(46, 45), "waist": Vector2(45, 55),
-		"sh_n": Vector2(52, 40), "el_n": Vector2(60, 44), "wr_n": Vector2(66, 39),
-		"sh_f": Vector2(38, 40), "el_f": Vector2(37, 50), "wr_f": Vector2(41, 57),
-		"kn_b": Vector2(38, 72), "an_b": Vector2(36, 83), "kn_f": Vector2(53, 72), "an_f": Vector2(56, 83),
-		"hammer": Vector2(31, 79), "hf": true,
+		"head": Vector2(46, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(56.5, 58.5),
+		"sh_f": Vector2(38, 40), "el_f": Vector2(32, 33), "wr_f": Vector2(32, 24),
+		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
+		"hammer": Vector2(61, 78),
 	},
 	"toss_back": {
-		"head": Vector2(46, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
-		"sh_n": Vector2(51.5, 40), "el_n": Vector2(58, 46), "wr_n": Vector2(60, 37),
-		"sh_f": Vector2(38, 40), "el_f": Vector2(37, 50), "wr_f": Vector2(41, 57),
+		"head": Vector2(47, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(55, 50), "wr_n": Vector2(56.5, 58.5),
+		"sh_f": Vector2(38, 40), "el_f": Vector2(33, 48), "wr_f": Vector2(30, 40),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(31, 79), "hf": true,
+		"hammer": Vector2(61, 78),
 	},
 	"toss": {
-		"head": Vector2(48, 28), "chest": Vector2(46, 46), "waist": Vector2(45, 56),
-		"sh_n": Vector2(52, 41), "el_n": Vector2(58, 49), "wr_n": Vector2(57, 57),
-		"sh_f": Vector2(38, 41), "el_f": Vector2(37, 51), "wr_f": Vector2(41, 58),
+		"head": Vector2(43, 28), "chest": Vector2(44, 46), "waist": Vector2(45, 56),
+		"sh_n": Vector2(51, 41), "el_n": Vector2(55, 51), "wr_n": Vector2(56.5, 59.5),
+		"sh_f": Vector2(37, 41), "el_f": Vector2(28, 38), "wr_f": Vector2(20, 36),
 		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
-		"hammer": Vector2(31, 80), "hf": true,
+		"hammer": Vector2(61, 79),
 	},
 	"hurt": {
 		"head": Vector2(43, 29), "chest": Vector2(42, 46), "waist": Vector2(43, 56),
@@ -102,26 +103,60 @@ const J := {
 		"kn_b": Vector2(40, 75), "an_b": Vector2(36, 83), "kn_f": Vector2(55, 74), "an_f": Vector2(55, 83),
 		"hammer": Vector2(62, 82),
 	},
-	"die2": {
-		"head": Vector2(51, 41), "chest": Vector2(47, 57), "waist": Vector2(44, 67),
-		"sh_n": Vector2(53, 52), "el_n": Vector2(57, 62), "wr_n": Vector2(60, 70),
-		"sh_f": Vector2(40, 52), "el_f": Vector2(39, 62), "wr_f": Vector2(42, 70),
-		"kn_b": Vector2(36, 80), "an_b": Vector2(30, 84), "kn_f": Vector2(57, 77), "an_f": Vector2(56, 84),
-		"hammer": Vector2(68, 83),
+	# Muerte (C4): rodillas → se vence hacia delante → de bruces en el suelo. `rot` gira la raíz (cadera incluida),
+	# `drop` suelta el martillo (cadena hd: centro de la cabeza `hd`, eje `hd_a`; `end` = cabeza vista de punta, tumbado),
+	# `ft_*` = ángulo absoluto de la bota (rodilla calculada como el IK).
+	"die_kneel": {
+		"head": Vector2(53, 42), "chest": Vector2(47, 57), "waist": Vector2(45, 66),
+		"sh_n": Vector2(51.5, 51), "el_n": Vector2(57.8, 59.4), "wr_n": Vector2(66, 62),
+		"sh_f": Vector2(40, 52), "el_f": Vector2(38, 62), "wr_f": Vector2(40, 69),
+		"kn_b": Vector2(42, 86), "an_b": Vector2(31, 85), "kn_f": Vector2(51, 86), "an_f": Vector2(40, 85),
+		"ft_b": 3.0, "ft_f": 3.0,
+		"hammer": Vector2(66, 84),
 	},
-	"die3": {
-		"head": Vector2(53, 47), "chest": Vector2(48, 61), "waist": Vector2(44, 70),
-		"sh_n": Vector2(54, 56), "el_n": Vector2(58, 66), "wr_n": Vector2(61, 73),
-		"sh_f": Vector2(41, 56), "el_f": Vector2(41, 66), "wr_f": Vector2(44, 73),
-		"kn_b": Vector2(35, 82), "an_b": Vector2(27, 84), "kn_f": Vector2(57, 78), "an_f": Vector2(56, 84),
-		"hammer": Vector2(70, 83),
+	"die_slump": {
+		"head": Vector2(67, 50), "chest": Vector2(53, 61), "waist": Vector2(47, 69),
+		"sh_n": Vector2(57, 57), "el_n": Vector2(61, 66), "wr_n": Vector2(64, 75),
+		"sh_f": Vector2(46, 53), "el_f": Vector2(50, 62), "wr_f": Vector2(54, 70),
+		"kn_b": Vector2(42, 86), "an_b": Vector2(31, 85), "kn_f": Vector2(51, 86), "an_f": Vector2(40, 85),
+		"ft_b": 3.0, "ft_f": 3.0,
+		"hammer": Vector2(62, 88), "drop": true, "hd": Vector2(69, 85), "hd_a": -0.6,
 	},
-	"die4": {
-		"head": Vector2(54, 50), "chest": Vector2(48, 63), "waist": Vector2(44, 71),
-		"sh_n": Vector2(54, 58), "el_n": Vector2(58, 68), "wr_n": Vector2(61, 75),
-		"sh_f": Vector2(41, 58), "el_f": Vector2(42, 68), "wr_f": Vector2(45, 75),
-		"kn_b": Vector2(35, 82), "an_b": Vector2(27, 84), "kn_f": Vector2(57, 78), "an_f": Vector2(56, 84),
-		"hammer": Vector2(70, 83),
+	"die_fall": {
+		"rot": 0.9,
+		"head": Vector2(77, 62), "chest": Vector2(59, 67), "waist": Vector2(50, 72),
+		"sh_n": Vector2(63, 72), "el_n": Vector2(70, 80), "wr_n": Vector2(77, 86),
+		"sh_f": Vector2(55, 60), "el_f": Vector2(64, 62), "wr_f": Vector2(72, 66),
+		"kn_b": Vector2(40, 86), "an_b": Vector2(29, 83), "kn_f": Vector2(48, 87), "an_f": Vector2(36, 85),
+		"ft_b": 2.8, "ft_f": 2.8,
+		"hammer": Vector2(62, 88), "drop": true, "hd": Vector2(80, 80), "hd_a": -1.2, "end": true,
+	},
+	"die_lie1": {
+		"rot": 1.5708,
+		"head": Vector2(62, 75), "chest": Vector2(44, 74), "waist": Vector2(34, 74),
+		"sh_n": Vector2(54, 84), "el_n": Vector2(63, 87), "wr_n": Vector2(71, 88),
+		"sh_f": Vector2(54, 72), "el_f": Vector2(63, 70), "wr_f": Vector2(71, 70),
+		"kn_b": Vector2(24, 78), "an_b": Vector2(16, 70), "kn_f": Vector2(23, 84), "an_f": Vector2(12, 84),
+		"ft_b": 1.2, "ft_f": 1.57,
+		"hammer": Vector2(56, 88), "drop": true, "hd": Vector2(88, 88), "hd_a": -1.5708, "end": true,
+	},
+	"die_lie2": {
+		"rot": 1.5708,
+		"head": Vector2(62, 76), "chest": Vector2(44, 74), "waist": Vector2(34, 74),
+		"sh_n": Vector2(54, 84), "el_n": Vector2(63, 87), "wr_n": Vector2(71, 88),
+		"sh_f": Vector2(54, 72), "el_f": Vector2(63, 71), "wr_f": Vector2(71, 72),
+		"kn_b": Vector2(24, 78), "an_b": Vector2(14, 75), "kn_f": Vector2(23, 84), "an_f": Vector2(12, 84),
+		"ft_b": 1.4, "ft_f": 1.57,
+		"hammer": Vector2(56, 88), "drop": true, "hd": Vector2(87, 85), "hd_a": -1.4, "end": true,
+	},
+	"die_lie3": {
+		"rot": 1.5708,
+		"head": Vector2(62, 77), "chest": Vector2(44, 74), "waist": Vector2(34, 74),
+		"sh_n": Vector2(54, 84), "el_n": Vector2(63, 87), "wr_n": Vector2(71, 88),
+		"sh_f": Vector2(54, 72), "el_f": Vector2(63, 72), "wr_f": Vector2(71, 74),
+		"kn_b": Vector2(24, 78), "an_b": Vector2(13, 78), "kn_f": Vector2(23, 84), "an_f": Vector2(12, 84),
+		"ft_b": 1.57, "ft_f": 1.57,
+		"hammer": Vector2(56, 88), "drop": true, "hd": Vector2(88, 88), "hd_a": -1.5708, "end": true,
 	},
 }
 
@@ -129,9 +164,10 @@ const J := {
 const VIEWS := {
 	"idle": ["n", "grip", "fist"], "shoulder": ["n", "knuckles", "fist"], "windup": ["e", "grip", "open"],
 	"smear": ["e", "grip", "fist"], "strike": ["e", "knuckles", "fist"], "recover": ["n", "grip", "fist"],
-	"cast": ["n", "open", "grip"], "toss_back": ["n", "open", "grip"], "toss": ["e", "open", "grip"],
+	"cast": ["n", "grip", "open"], "toss_back": ["w", "grip", "open"], "toss": ["w", "grip", "open"],
 	"hurt": ["h", "grip", "open"], "hurt2": ["h", "grip", "open"], "die1": ["h", "grip", "open"],
-	"die2": ["h", "grip", "open"], "die3": ["h", "open", "open"], "die4": ["h", "open", "open"],
+	"die_kneel": ["h", "grip", "open"], "die_slump": ["h", "open", "open"], "die_fall": ["h", "open", "open"],
+	"die_lie1": ["h", "open", "open"], "die_lie2": ["h", "open", "open"], "die_lie3": ["h", "open", "open"],
 }
 
 
@@ -151,11 +187,16 @@ static func _keys(name: String, extra := {}) -> Dictionary:
 	var k := {}
 	var waist: Vector2 = P["waist"]
 	var chest: Vector2 = P["chest"]
+	var rot: float = P.get("rot", 0.0)
 	var sp := _abs_up(waist, chest)
-	k[&"@root"] = Vector2i(roundi(waist.x - WAIST0.x), roundi(waist.y - WAIST0.y))
-	k[&"spine"] = sp
+	var root_off := Vector2i(roundi(waist.x - WAIST0.x), roundi(waist.y - WAIST0.y))
+	var root_at := Vector2(ORIGIN + root_off)
+	k[&"@root"] = root_off
+	k[&"root"] = rot
+	k[&"spine"] = sp - rot
 	k[&"head"] = _abs_up(chest, P["head"]) - HEAD_REST - sp
 	var hf: bool = P.get("hf", false)
+	var drop: bool = P.get("drop", false)
 	for side: String in ["n", "f"]:
 		var sh: Vector2 = P["sh_" + side]
 		var el: Vector2 = P["el_" + side]
@@ -169,23 +210,63 @@ static func _keys(name: String, extra := {}) -> Dictionary:
 			k[StringName("hammer_" + side)] = _abs_down(wr, P["hammer"]) - fa
 	k[&"ik:leg_b"] = P["an_b"]
 	k[&"ik:leg_f"] = P["an_f"]
-	k[&"foot_b"] = -_abs_down(P["kn_b"], P["an_b"])
-	k[&"foot_f"] = -_abs_down(P["kn_f"], P["an_f"])
-	# martillo en una sola mano
+	for leg: String in ["b", "f"]:
+		var an: Vector2 = P["an_" + leg]
+		if P.has("ft_" + leg):
+			var hip := root_at + Vector2(-4.0 if leg == "b" else 4.0, 1.0).rotated(rot)
+			k[StringName("foot_" + leg)] = float(P["ft_" + leg]) - _abs_down(_knee(hip, an), an)
+		else:
+			k[StringName("foot_" + leg)] = -_abs_down(P["kn_" + leg], an)
+	# martillo: en una sola mano, o soltado (cadena hd1 → hd2 → hammer_d colgada de la raíz)
 	for id: String in HAMMER_PIECES:
-		k[StringName("hide:%s_%s" % [id, "n" if hf else "f"])] = true
+		k[StringName("hide:%s_n" % id)] = hf or drop
+		k[StringName("hide:%s_f" % id)] = (not hf) or drop
 	k[&"hide:hotface_f"] = true   # en la mano lejana el martillo va frío (y la franja no asoma entre las piernas)
+	var end_on: bool = P.get("end", false)
+	for id: String in HAMMER_PIECES + ["hbox"]:
+		var shown := drop
+		if id == "hbox":
+			shown = drop and end_on
+		elif id != "handle":
+			shown = drop and not end_on
+		k[StringName("hide:%s_d" % id)] = not shown
+	if drop:
+		var phi: float = P["hd_a"]
+		var tgt: Vector2 = P["hd"] - HAMMER_HEAD * Vector2(-sin(phi), cos(phi))
+		var d := tgt - root_at
+		var al := _abs_down(root_at, tgt)
+		var be := acos(clampf(d.length() / (2.0 * DROP_L), 0.0, 1.0))
+		k[&"hd1"] = al + be - rot
+		k[&"hd2"] = -2.0 * be
+		k[&"hammer_d"] = phi - (al - be)
 	# vistas de cara y manos
 	var v: Array = VIEWS[name]
 	k[&"view:head"] = StringName(v[0])
 	k[&"view:fore_n"] = StringName(v[1])
 	k[&"view:fore_f"] = StringName(v[2])
+	# tumbada o cayendo: la cara va contra el suelo y los sellos de la cabeza (que no giran) se ocultan
+	var down: bool = rot > 0.5
+	for id: String in ROT_STAMPS:
+		k[StringName("hide:" + id)] = down
+		k[StringName("hide:%s_r" % id)] = not down
 	for e in extra.keys():
 		k[e] = extra[e]
 	return k
 
 
-const HAMMER_PIECES := ["handle", "hhead", "groove", "collar", "hotface"]
+## Rodilla que da el IK de la pierna (mismo cálculo que `RigPose._solve_ik`, bend = 1).
+static func _knee(hip: Vector2, an: Vector2) -> Vector2:
+	var l1 := 12.0
+	var l2 := 11.0
+	var d := an - hip
+	var dl := clampf(d.length(), absf(l1 - l2) + 0.01, l1 + l2 - 0.01)
+	var c1 := clampf((l1 * l1 + dl * dl - l2 * l2) / (2.0 * l1 * dl), -1.0, 1.0)
+	return hip + Vector2.from_angle(d.angle() - acos(c1)) * l1
+
+
+const HAMMER_HEAD := 22.0   # centro de la cabeza del martillo sobre su eje (desde la muñeca)
+const DROP_L := 32.0        # largo de cada eslabón de la cadena del martillo soltado
+const HAMMER_PIECES := ["handle", "hhead", "collar", "hotface"]
 
 
 # ------------------------------------------------------------------------------------------------- definición
@@ -225,6 +306,10 @@ static func build() -> RigDef:
 	b.bone(&"arm_n", &"spine", Vector2(6.5, -17), {"z": 9.0})
 	b.bone(&"fore_n", &"arm_n", Vector2(0, 10.5))
 	b.bone(&"hammer_n", &"fore_n", Vector2(0, 8.5), {"z": -1.0})
+	# martillo soltado (muerte): cadena sin piezas desde la raíz; `_keys` la resuelve para dejar la cabeza donde caiga
+	b.bone(&"hd1", &"root", Vector2.ZERO)
+	b.bone(&"hd2", &"hd1", Vector2(0, DROP_L))
+	b.bone(&"hammer_d", &"hd2", Vector2(0, DROP_L), {"z": 20.0})
 	b.ik(&"leg_b", &"thigh_b", &"shin_b", Vector2(0, 11), 1)
 	b.ik(&"leg_f", &"thigh_f", &"shin_f", Vector2(0, 11), 1)
 
@@ -271,11 +356,17 @@ static func build() -> RigDef:
 	var face := StampLib.get_stamp("face_34")
 	b.stamp(&"face", &"head", Vector2(0, -9), face["rows"], _legend(face["legend"], {}), {
 		"anchor": face["anchor"], "z_top": false, "views": {
-			&"n": face["rows"], &"e": StampLib.get_stamp("face_34_effort")["rows"], &"h": StampLib.get_stamp("face_34_hurt")["rows"]}})
+			&"n": face["rows"], &"e": StampLib.get_stamp("face_34_effort")["rows"], &"h": StampLib.get_stamp("face_34_hurt")["rows"], &"w": _face_west(face["rows"])}})
 	_lib(b, &"goggles", &"head", Vector2(4, -17), "goggles", {}, {"z_top": false})
 	_lib(b, &"lock_fringe", &"head", Vector2(2, -14), "lock_fringe", {}, {"z_top": false})
 	_lib(b, &"lock_nape", &"head", Vector2(-7, -6), "lock_nape", {}, {"z_top": false})
 	_lib(b, &"lock_bun", &"bun", Vector2(-5, -4), "lock_bun_tail", {}, {"z_top": false})
+	# Tumbada (cabeza girada ~90°): los mismos sellos girados 90° exactos (sin remuestreo); la cara, con ojos cerrados.
+	_lib_r(b, &"face_r", &"head", Vector2(0, -9), StampLib.get_stamp("face_34_hurt"))
+	_lib_r(b, &"goggles_r", &"head", Vector2(4, -17), StampLib.get_stamp("goggles"))
+	_lib_r(b, &"lock_fringe_r", &"head", Vector2(2, -14), StampLib.get_stamp("lock_fringe"))
+	_lib_r(b, &"lock_nape_r", &"head", Vector2(-7, -6), StampLib.get_stamp("lock_nape"))
+	_lib_r(b, &"lock_bun_r", &"bun", Vector2(-5, -4), StampLib.get_stamp("lock_bun_tail"))
 	b.stamp(&"ear_in", &"head", Vector2(-2.5, -6.5), ["k"], {"k": [&"skin", 2]}, {"z_top": false})
 
 	# --- brazos (lino remangado + antebrazo tiznado con cicatrices de chispa) + martillo en cada mano
@@ -287,25 +378,64 @@ static func build() -> RigDef:
 		b.cap(StringName("cuff_" + s), arm, &"linen", Vector3(0, 7.5, 0.5), Vector3(0, 10.5, 0.5), 3.7, 3.5, {"ao": ao})
 		b.cap(StringName("forearm_" + s), fore, &"soot", Vector3(0, 0, 0), Vector3(0, 8.5, 0), 3.1, 2.6, {"ao": ao})
 		b.stamp(StringName("scars_" + s), fore, Vector2(0, 4), ["F", ".", ".f"], {"F": [&"hot", 3], "f": [&"hot", 2]}, {"z_top": false})
-		var hm := StringName("hammer_" + s)
-		b.cap(StringName("handle_" + s), hm, &"wood", Vector3(0, -3, 0), Vector3(0, 16, 0), 1.5, 1.6)
-		b.poly(StringName("hhead_" + s), hm, &"iron", PackedVector2Array([
-			Vector2(-8.5, 16), Vector2(8.5, 16), Vector2(8.5, 26), Vector2(-8.5, 26)]), 0.0, 1.8, 3.0)
-		b.cap(StringName("groove_" + s), hm, &"iron", Vector3(-6, 21, 3.2), Vector3(5, 21, 3.2), 0.5, 0.5, {"line": false, "ao": 2.0})
-		b.cap(StringName("collar_" + s), hm, &"steel", Vector3(-1.8, 15.6, 3.5), Vector3(1.8, 15.6, 3.5), 1.1, 1.1)
-		b.poly(StringName("hotface_" + s), hm, &"hot", PackedVector2Array([
-			Vector2(6.2, 16), Vector2(8.6, 16), Vector2(8.6, 26), Vector2(6.2, 26)]), 0.2, 0.8, 3.0, {"line": false})
+		_hammer(b, s, StringName("hammer_" + s))
 		# Mano: agarre / nudillos / puño / abierta (sello con vistas; la ranura @hand = tizne).
 		_hand(b, StringName("hand_" + s), fore, Vector2(0, 8.5), s == "f")
 
+	_hammer(b, "d", &"hammer_d")
+	b.box(&"hbox_d", &"hammer_d", &"iron", Vector3(0, HAMMER_HEAD, 0), Vector3(9, 9, 6), 2.0)
+
 	# --- sockets
-	b.socket(&"hit", &"hammer_n", Vector2(8.5, 21))
+	b.socket(&"hit", &"hammer_n", Vector2(8.5, HAMMER_HEAD))
 	b.socket(&"lantern", &"spine", Vector2(9, 2))
 	b.socket(&"head", &"head", Vector2(0, -20))
 	b.socket(&"chest", &"spine", Vector2(0, -12))
 
 	_anims(b)
 	return b.def
+
+
+const ROT_STAMPS := ["face", "goggles", "lock_fringe", "lock_nape", "lock_bun"]
+
+
+## Sello girado 90° en sentido horario (filas y ancla), para la heroína tumbada.
+static func _lib_r(b: RigBuilder, id: StringName, bone: StringName, at: Vector2, st: Dictionary) -> void:
+	var rows: Array = st["rows"]
+	var h := rows.size()
+	var w := 0
+	for r: String in rows:
+		w = maxi(w, r.length())
+	var out: Array = []
+	for x in w:
+		var line := ""
+		for c in h:
+			var src: String = rows[h - 1 - c]
+			line += src[x] if x < src.length() else "."
+		out.append(line)
+	var a: Vector2i = st["anchor"]
+	b.stamp(id, bone, at, out, _legend(st["legend"], {}), {"anchor": Vector2i(h - 1 - a.y, a.x), "z_top": false})
+
+
+## Cara ¾ con la mirada al oeste (hacia la Forja, al quemar): iris a la izquierda en los dos ojos.
+static func _face_west(rows: Array) -> Array:
+	var out := rows.duplicate()
+	out[3] = "4hw4444i43.."
+	out[4] = "4i44444i43.."
+	return out
+
+
+## Martillo (C14): mango largo que asoma delante del delantal y cabeza de maza — caras ensanchadas con chaflán y
+## cintura en el ojo del mango, en vez del bloque rectangular «de maleta». La cara caliente sigue al calor (emisiva).
+static func _hammer(b: RigBuilder, s: String, hm: StringName) -> void:
+	b.cap(StringName("handle_" + s), hm, &"wood", Vector3(0, -3, 0), Vector3(0, 19, 0), 1.5, 1.7)
+	b.poly(StringName("hhead_" + s), hm, &"iron", PackedVector2Array([
+		Vector2(-8.5, 18.5), Vector2(-7, 17.5), Vector2(-4, 18.8), Vector2(4, 18.8), Vector2(7, 17.5), Vector2(8.5, 18.5),
+		Vector2(8.5, 25.5), Vector2(7, 26.5), Vector2(4, 25.2), Vector2(-4, 25.2), Vector2(-7, 26.5), Vector2(-8.5, 25.5)]),
+		0.0, 1.8, 3.0)
+	b.cap(StringName("collar_" + s), hm, &"steel", Vector3(-2, 18.6, 3.5), Vector3(2, 18.6, 3.5), 1.1, 1.1)
+	b.poly(StringName("hotface_" + s), hm, &"hot", PackedVector2Array([
+		Vector2(6.4, 17.9), Vector2(7, 17.5), Vector2(8.6, 18.5), Vector2(8.6, 25.5), Vector2(7, 26.5), Vector2(6.4, 26.1)]),
+		0.2, 0.8, 3.0, {"line": false})
 
 
 ## Sello de la biblioteca con los alias de material de `StampLib.MAT` resueltos a materiales de paleta.
@@ -411,29 +541,30 @@ static func _anims(b: RigBuilder) -> void:
 	_unwrap(rk2, rk)
 	b.anim(&"windup", 1, 140, {0: wk}, {"loop": false})
 	b.anim(&"smear", 2, [40, 33], {0: wk, 1: mk}, {"loop": false, "interp": &"hold"})
-	b.smear(&"smear", 1, &"hammer_n", Vector2(8.5, 21), &"trail", 9.0, false).samples = 64
+	b.smear(&"smear", 1, &"hammer_n", Vector2(8.5, HAMMER_HEAD), &"trail", 9.0, false).samples = 64
 	b.anim(&"strike", 2, [33, 90], {0: mk, 1: tk}, {"loop": false, "interp": &"hold"})
-	b.smear(&"strike", 1, &"hammer_n", Vector2(8.5, 21), &"trail", 9.0, false).samples = 64
+	b.smear(&"strike", 1, &"hammer_n", Vector2(8.5, HAMMER_HEAD), &"trail", 9.0, false).samples = 64
 	b.anim(&"recover", 2, [90, 120], {0: rk, 1: rk2}, {"loop": false, "interp": &"hold"})
 	b.anim(&"attack", 5, [140, 33, 90, 90, 120], {0: wk, 1: mk, 2: tk, 3: rk, 4: rk2}, {"loop": false, "interp": &"hold"})
-	b.smear(&"attack", 1, &"hammer_n", Vector2(8.5, 21), &"trail", 9.0, false).samples = 64
-	b.smear(&"attack", 2, &"hammer_n", Vector2(8.5, 21), &"trail", 9.0, false).samples = 64
-	# Habilidad: alza la mano abierta (las tenazas/brasa las pone el VFX en el socket); martillo a la otra mano.
+	b.smear(&"attack", 1, &"hammer_n", Vector2(8.5, HAMMER_HEAD), &"trail", 9.0, false).samples = 64
+	b.smear(&"attack", 2, &"hammer_n", Vector2(8.5, HAMMER_HEAD), &"trail", 9.0, false).samples = 64
+	# Habilidad: alza la mano lejana abierta (las tenazas/brasa las pone el VFX); el martillo sigue en la cercana (C3).
 	var ck := _keys("cast", {&"emit:lantern": 1, &"bun": 0.1})
 	b.anim(&"cast", 2, [100, 200], {0: _keys("toss_back"), 1: ck}, {"loop": false, "interp": &"hold"})
-	# Quemar: la carta va al fogón de cinto; el farol estalla (+2) en el segundo fotograma.
-	b.anim(&"toss", 2, [120, 260], {0: _keys("toss_back", {&"emit:lantern": 0}), 1: _keys("toss", {&"emit:lantern": 3, &"bun": 0.2})},
+	# Quemar: la mano lejana lanza la carta al oeste, a la Forja, con la mirada detrás; el farol estalla (+3) al soltarla.
+	b.anim(&"toss", 2, [120, 260], {0: _keys("toss_back", {&"emit:lantern": 0}), 1: _keys("toss", {&"emit:lantern": 3, &"bun": -0.2, &"scarf": -0.2})},
 		{"loop": false, "interp": &"hold"})
 	b.anim(&"hurt", 2, [80, 160], {0: _keys("hurt", {&"bun": -0.4, &"scarf": -0.4}), 1: _keys("hurt2", {&"bun": -0.2, &"scarf": -0.5})},
 		{"loop": false, "interp": &"hold"})
-	# Muerte: se dobla, cae de rodillas, se apoya en el martillo y el fogón de cinto se apaga.
+	# Muerte (C4): tambaleo → se le doblan las rodillas → de rodillas → suelta el martillo y se vence → cae (el martillo
+	# rebota) → de bruces en el suelo → se asienta → quieta, el fogón de cinto y la cara del martillo se apagan.
 	var d := {}
 	d[0] = _keys("hurt2", {&"emit:lantern": 0})
 	d[1] = _keys("die1", {&"emit:lantern": 0, &"bun": 0.2})
-	d[2] = _keys("die2", {&"emit:lantern": -1, &"bun": 0.35})
-	d[3] = _keys("die3", {&"emit:lantern": -1, &"bun": 0.4, &"scarf": 0.4})
-	d[4] = _keys("die4", {&"emit:lantern": -2, &"bun": 0.3, &"scarf": 0.5})
-	d[5] = _keys("die4", {&"emit:lantern": -2, &"bun": 0.35, &"scarf": 0.55})
-	d[6] = _keys("die4", {&"emit:lantern": -3, &"bun": 0.35, &"scarf": 0.55, &"emit:hotface_n": -2})
-	d[7] = _keys("die4", {&"emit:lantern": -4, &"bun": 0.35, &"scarf": 0.55, &"emit:hotface_n": -3})
-	b.anim(&"death", 8, [80, 90, 100, 110, 140, 180, 220, 400], d, {"loop": false, "interp": &"hold"})
+	d[2] = _keys("die_kneel", {&"emit:lantern": -1, &"bun": 0.35, &"scarf": 0.2})
+	d[3] = _keys("die_slump", {&"emit:lantern": -1, &"bun": 0.4, &"scarf": 0.4})
+	d[4] = _keys("die_fall", {&"emit:lantern": -2, &"bun": -0.3, &"scarf": -0.4})
+	d[5] = _keys("die_lie1", {&"emit:lantern": -2, &"bun": 0.3, &"scarf": 0.4})
+	d[6] = _keys("die_lie2", {&"emit:lantern": -3, &"bun": 0.1, &"scarf": 0.2})
+	d[7] = _keys("die_lie3", {&"emit:lantern": -4, &"bun": 0.0, &"scarf": 0.0})
+	b.anim(&"death", 8, [90, 110, 160, 110, 80, 90, 160, 500], d, {"loop": false, "interp": &"hold"})

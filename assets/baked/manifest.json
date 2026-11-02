@@ -113,7 +113,7 @@
 		},
 		"fogonera": {
 			"src": "res://scripts/art/defs/hero/fogonera.gd",
-			"hash": "83347f04672ba00991c24908e7bb788ebbb69d2644907d54587d892550b395ae",
+			"hash": "2f3042db64d8004d9e029a6cdbdd737f8e235ba337d92b888f956a045c71c4e7",
 			"group": "hero",
 			"files": [
 				"res://assets/baked/hero/fogonera_idx.png",
@@ -121,8 +121,8 @@
 				"res://assets/baked/hero/fogonera.json"
 			],
 			"md5": {
-				"res://assets/baked/hero/fogonera_idx.png": "eb48035d9294cdde9023136fdbcd0105",
-				"res://assets/baked/hero/fogonera_prev.png": "b450a6d63811aec4293762fb6f8963dd"
+				"res://assets/baked/hero/fogonera_idx.png": "51477bc4150c52ce765344a69d6eee68",
+				"res://assets/baked/hero/fogonera_prev.png": "117b1d194536236ffd92aa1746900926"
 			}
 		},
 		"golem_example": {
