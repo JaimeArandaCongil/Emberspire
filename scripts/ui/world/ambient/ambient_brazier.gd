@@ -18,6 +18,8 @@ var phase := 0
 var patches: Array = []      # [{"preview": Image}, …] ×3 (radio −1, 0, +1)
 var patch_rect := Rect2i()
 var use_patches := true
+## Con `palette_lit` en `material`, dibuja los fotogramas de índice (llama con pulso emisivo, humo con luz).
+var use_index := false
 var flicker_step := 0
 
 var _t := 0.0
@@ -88,9 +90,9 @@ func _draw() -> void:
 		var tex: Texture2D = _patch_tex[flicker_step + 1]
 		draw_texture(tex, Vector2(patch_rect.position) - position)
 	var dens := 1 if state != null and state.heat > 0.7 else 0
-	var sm := AmbientFrames.smoke(_frame, dens)
+	var sm := AmbientFrames.smoke(_frame, dens, use_index)
 	draw_texture(sm, Vector2(-AmbientFrames.SMOKE_BASE.x, -AmbientFrames.SMOKE_BASE.y - 30))
-	var fl := AmbientFrames.flame(_frame, _lean(), _size())
+	var fl := AmbientFrames.flame(_frame, _lean(), _size(), use_index)
 	draw_texture(fl, Vector2(-AmbientFrames.FLAME_BASE.x, -AmbientFrames.FLAME_BASE.y - 2))
 
 

@@ -56,19 +56,27 @@ func _build(p_kind: String, p_floor: int, p_cycle: int, patches: bool = true) ->
 	room_seed = floor_num * 31 + cycle * 1009 + (7 if kind == "flue" else 0)
 	var local_floor := ((floor_num - 1) % 10) + 1
 	if kind == "flue":
-		braziers = [Vector2i(222, 150), Vector2i(618, 142)]
+		braziers = [Vector2i(222, 150), Vector2i(625, 136)]
 	else:
 		braziers = [Vector2i(226, 156), Vector2i(520, 150)]
 	anchors = {"braziers": braziers, "drips": [], "crucibles": [], "flue": Rect2i(), "window": Rect2i(),
-		"grate": Vector2i(320, 276), "gauge": Vector2i(-1, -1), "forge_zone": Rect2i(8, 120, 104, 144)}
+		"grate": Vector2i(320, 276), "gauge": Vector2i(-1, -1), "forge_zone": Rect2i(8, 120, 104, 144),
+		# Adónde suben las brasas de los muertos: el vacío del tiro o el fondo del corredor.
+		"ember_sink": Vector2i(440, 44) if kind == "flue" else Vector2i(320, 214),
+		# Recorrido del calor al quemar: de la Forja a la toma del fuelle, brida a brida.
+		"pipe": [Vector2i(105, 214), Vector2i(105, 68), Vector2i(236, 68)],
+		"flanges": [Rect2i(97, 160, 16, 4), Rect2i(97, 110, 16, 4), Rect2i(144, 61, 4, 16), Rect2i(206, 61, 4, 16), Rect2i(236, 58, 8, 22)]}
 	lights = _static_lights()
 	var mid := BgCanvas.new(W, H, 0)
 	_build_mid(mid, local_floor)
+	# Lo lejano y el primer plano no dependen del piso: se comparten entre variantes al hornear.
+	room_seed = 7 if kind == "flue" else 0
 	var far := BgCanvas.new(W + 2 * M_FAR, H, M_FAR)
 	if kind == "flue":
 		_build_shaft(far)
 	else:
 		_build_corridor(far)
+	room_seed = 0
 	var sky := BgCanvas.new(W + 2 * M_SKY, H, M_SKY)
 	_build_sky(sky)
 	var fore := BgCanvas.new(W + 2 * M_FORE, H, M_FORE)
@@ -94,6 +102,9 @@ func _static_lights() -> Array:
 	for b: Vector2i in braziers:
 		L.append(_brazier_light(b, 0))
 		L.append({"t": "pt", "p": Vector2(b.x, FY + 6), "r": [20.0, 44.0, 72.0], "ys": 2.6, "y0": FY})
+	# La Forja grande: su luz nominal (calor 0,5) va horneada; LightRig sólo suma la diferencia con el calor actual.
+	L.append({"t": "pt", "p": Vector2(60, 226), "r": [56.0, 84.0, 118.0, 158.0, 206.0], "ys": 1.0, "y1": FY - 1})
+	L.append({"t": "pt", "p": Vector2(60, FY + 4), "r": [56.0, 100.0, 150.0, 210.0], "ys": 2.8, "y0": FY})
 	# Rejilla del suelo: el calor de la Forja sube.
 	L.append({"t": "pt", "p": Vector2(320, 278), "r": [16.0, 34.0, 60.0], "ys": 2.4, "y0": FY})
 	if kind == "flue":
@@ -172,7 +183,7 @@ func _build_mid(c: BgCanvas, local_floor: int) -> void:
 		_static_chain(c, 636, 18, 22)
 		anchors["crucibles"] = [{"pivot": Vector2i(444, 32), "len": 66}]
 	# Atrezo de taller sobre la heroína (elegido por piso: herramientero o estante de crisoles).
-	if h3(local_floor, 1, 5) < 0.6:
+	if not local_floor in [4, 9, 10]:
 		_tool_rack(c, 130, 108)
 	else:
 		_crucible_shelf(c, 128, 116)
@@ -201,11 +212,11 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 			var ci := xx / 16
 			var rx := xx % 16
 			var s := soot(x, y)
+			if _vein(x, y):
+				c.put(x, y, FIRE, int(_veins[Vector2i(x, y)]))
+				continue
 			if ry == 0 or rx == 0:
-				if _vein(x, y):
-					c.put(x, y, FIRE, int(_veins[Vector2i(x, y)]))
-				else:
-					c.joint(x, y, BRICK, 1 + mini(0, s + 1))
+				c.joint(x, y, BRICK, 1 + mini(0, s + 1))
 				continue
 			var hb := h3(ci, row, 11)
 			var v := 2
@@ -247,8 +258,8 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 				c.shift(xx2, y4, -1)
 
 
-## Vetas de brasa del ciclo II+: grietas que CAMINAN por las juntas (tendel → llaga → tendel…) desde focos bajos,
-## más calientes abajo. Se calculan una vez por sala (`_veins`: píxel → paso de fuego).
+## Vetas de brasa del ciclo II+: GRIETAS que suben atravesando ladrillos en diagonal, siguen a ratos un tendel y se
+## ramifican. Rescoldos oscuros en reposo (el pulso de quemar los enciende); se apagan al subir.
 var _veins := {}
 
 
@@ -256,40 +267,38 @@ func _build_veins() -> void:
 	_veins.clear()
 	if cycle <= 0:
 		return
-	var foci: Array = [Vector2i(170, 241), Vector2i(470, 241), Vector2i(560, 150)]
+	var foci: Array = [Vector2i(170, 244), Vector2i(470, 244), Vector2i(556, 160)]
 	if cycle >= 2:
-		foci.append_array([Vector2i(206, 199), Vector2i(420, 122)])
+		foci.append_array([Vector2i(206, 200), Vector2i(420, 126)])
 	for fi in foci.size():
 		var o: Vector2i = foci[fi]
-		var x := o.x
-		var row := o.y / 7
-		var rows := 7 + int(h3(fi, 1, 73) * 6.0) + cycle * 2
-		for r in rows:
-			var y := row * 7
-			if y < 64:
-				break
-			# En reposo son rescoldos oscuros (el pulso de quemar los enciende); arriba se apagan.
-			var heat := 2 if r < 2 else 1
-			var dir := (-1 if h3(fi, 0, 74) < 0.5 else 1) * (-1 if h3(fi, r, 76) < 0.25 else 1)
-			var run := 6 + int(pow(h3(fi, r, 75), 0.7) * 20.0)
-			for i in run:
-				# Tramos rotos: la veta se interrumpe (ceniza en la junta), más cuanto más sube.
-				if h3(x + dir * i, y, 77) > 0.22 + float(r) / rows * 0.4:
-					_veins[Vector2i(x + dir * i, y)] = heat
-			x += dir * (run - 1)
-			# Sube por la llaga más cercana de la hilada de arriba.
-			var off := ((row - 1) % 2) * 8
-			var lx := x - posmod(x + off, 16)
-			if absi(lx + 16 - x) < absi(lx - x):
-				lx += 16
-			for i2 in range(min(x, lx), max(x, lx) + 1):
-				if h3(i2, y, 78) > 0.3:
-					_veins[Vector2i(i2, y)] = heat
-			for yy in range(y - 6, y):
-				if h3(lx, yy, 79) > 0.25:
-					_veins[Vector2i(lx, yy)] = heat
-			x = lx
-			row -= 1
+		_walk_crack(o, 62 + int(h3(fi, 1, 73) * 40.0) + cycle * 12, -1 if h3(fi, 2, 74) < 0.5 else 1, 0, fi * 37 + 1)
+
+
+func _walk_crack(start: Vector2i, length: int, dir0: int, depth: int, sd: int) -> void:
+	var x := start.x
+	var y := start.y
+	var dir := dir0
+	var run := 0
+	for t in length:
+		if y < 62:
+			return
+		var u := float(t) / length
+		if h3(t, sd, 77) > 0.08 + u * 0.35:
+			_veins[Vector2i(x, y)] = 2 if u < 0.3 and depth == 0 else 1
+		if run > 0:
+			x += dir
+			run -= 1
+			continue
+		y -= 1
+		if y % 7 == 0 and h3(t, sd, 75) < 0.55:
+			run = 3 + int(h3(t, sd, 76) * 11.0)
+		elif h3(t, sd, 78) < 0.45:
+			x += dir
+		if h3(t, sd, 79) < 0.07:
+			dir = -dir
+		if depth < 1 and t > 8 and h3(t, sd, 80) < 0.035:
+			_walk_crack(Vector2i(x, y), length / 3, -dir, depth + 1, sd + t + 101)
 
 
 func _vein(x: int, y: int) -> bool:
@@ -1031,55 +1040,87 @@ func _corridor_end(c: BgCanvas, x: int, y: int) -> void:
 func _build_shaft(c: BgCanvas) -> void:
 	var R := 220.0
 	var cx := 440.0
+	var eye := 150.0
 	far_lights = [{"t": "pt", "p": Vector2(440, 330), "r": [74.0, 108.0, 146.0, 196.0, 260.0], "ys": 1.2}]
+	# Galerías del otro lado del tiro: [ángulo, altura en el cilindro, encendida].
+	var arches := [[-0.62, 120.0, 1], [-0.30, 120.0, 0], [0.02, 120.0, 1], [0.34, 120.0, 0], [0.66, 120.0, 1],
+		[-0.46, 58.0, 0], [-0.14, 58.0, 1], [0.18, 58.0, 0], [0.50, 58.0, 1], [-0.46, 186.0, 1], [0.18, 186.0, 1], [0.50, 186.0, 0]]
 	for y in range(0, FY + 4):
 		for x in range(270, 612):
 			var dx := clampf((x - cx) / R, -0.98, 0.98)
 			var th := asin(dx)
-			var row := y / 4
-			var ry := y % 4
-			var cc := th / (PI * 0.5) * 60.0 + 0.5 * (row % 2)
-			var fr := fposmod(cc, 1.0)
-			var mortar := ry == 0 or fr < 0.12 / maxf(0.4, cos(th))
+			# Hiladas curvas: un cilindro visto desde dentro (las hiladas se alejan del horizonte hacia los lados).
+			var yr := eye + (y - eye) * (0.62 + 0.38 * cos(th * 1.5))
+			var iy := int(floor(yr))
+			var row := iy / 4 if iy >= 0 else -1
+			var ry := posmod(iy, 4)
+			# Foso: la luz de la Forja como bruma en bandas, abajo del todo.
+			var wave := 4.0 * sin(x * 0.05) + 2.0 * sin(x * 0.13 + 1.0)
+			if y > 222 + wave:
+				c.put(x, y, FIRE, 3 if y > 230 + wave else 2)
+				continue
+			if y > 212 + wave:
+				c.put(x, y, FIRE, 1)
+				continue
+			# Oscurece hacia los lados y hacia arriba: profundidad.
 			var v := 1
-			if absf(dx) > 0.7:
+			if absf(dx) > 0.62:
 				v -= 1
+			if y < 46:
+				v -= 1
+			# Cornisas anulares cada 66 de altura de cilindro.
+			var band := posmod(iy - 40, 66)
+			if band < 4:
+				var bv := 3 if band == 0 else (2 if band == 1 else (1 if band == 2 else 0))
+				c.put(x, y, STONE, bv + (0 if absf(dx) < 0.62 else -1))
+				continue
+			# Nervios.
 			var rib := false
-			for rth: float in [-0.9, -0.3, 0.3, 0.9]:
+			for rth: float in [-0.92, -0.46, 0.46, 0.92]:
 				var rxx := cx + sin(rth) * R
 				var rw := 7.0 * cos(rth) + 1.0
 				if absf(x - rxx) < rw:
 					rib = true
-					# Nervio: canto izquierdo claro, cara media, sombra derecha (lee el cilindro).
 					v = 2 if x < rxx - rw * 0.55 else (0 if x > rxx + rw * 0.45 else 1)
 			if rib:
-				if y % 16 == 0:
-					c.joint(x, y, STONE, 0)
-				else:
-					c.put(x, y, STONE, v, Vector2i(x, y / 16 * 16 + 8))
+				c.put(x, y, STONE, v)
 				continue
-			if mortar:
+			# Arcadas de otras galerías (siguen la curvatura: son coordenadas de cilindro).
+			var painted := false
+			for ar: Array in arches:
+				var u := (th - float(ar[0])) * R
+				var w := yr - float(ar[1])
+				var hw := 8.0
+				var top := -18.0
+				if absf(u) > hw + 2.0 or w < top - 2.0 or w > 1.0:
+					continue
+				var inside: bool = (w > top + hw and absf(u) < hw) or Vector2(u, w - (top + hw)).length() < hw
+				var trim: bool = (w > top + hw and absf(u) < hw + 2.0) or Vector2(u, w - (top + hw)).length() < hw + 2.0
+				if inside:
+					if int(ar[2]) == 1:
+						# Interior encendido: la luz viene del suelo de esa galería.
+						var t2 := clampf((w - top) / -top, 0.0, 1.0)
+						c.put(x, y, FIRE, 1 if t2 < 0.4 else (2 if t2 < 0.8 else 3))
+						if w > -5.0 and w < -3.0 or (w > -5.0 and posmod(int(u), 4) == 0):
+							c.put(x, y, IRON, 0, Vector2i(-1, -1), BgCanvas.F_FIXED)   # barandilla en silueta
+					else:
+						c.fixed(x, y, BRICK, 0)
+					painted = true
+					break
+				elif trim:
+					c.put(x, y, STONE, 2)
+					painted = true
+					break
+			if painted:
+				continue
+			var cc := th / (PI * 0.5) * 60.0 + 0.5 * posmod(row, 2)
+			var fr := fposmod(cc, 1.0)
+			if ry == 0 or fr < 0.12 / maxf(0.4, cos(th)):
 				c.joint(x, y, BRICK, v - 1)
 			else:
 				if h3(int(floorf(cc)), row, 33) < 0.15:
 					v -= 1
 				c.put(x, y, BRICK, v)
-	# Ventanas de otras galerías (las encendidas son pisos donde el fuego ya llega).
-	var wins := [Vector3i(318, 70, 1), Vector3i(352, 112, 0), Vector3i(512, 96, 1), Vector3i(300, 176, 0), Vector3i(334, 168, 1),
-		Vector3i(470, 60, 0), Vector3i(560, 150, 1), Vector3i(410, 40, 1)]
-	for wv: Vector3i in wins:
-		for dy in range(-1, 8):
-			for dx2 in range(0, 4):
-				if dy == -1 and (dx2 == 0 or dx2 == 3):
-					continue
-				if wv.z == 1:
-					c.put(wv.x + dx2, wv.y + dy, FIRE, 2 if dy < 1 else (3 if dx2 < 2 else 2))
-				else:
-					c.fixed(wv.x + dx2, wv.y + dy, BRICK, 0)
-		for dx3 in range(-1, 5):
-			c.put(wv.x + dx3, wv.y + 8, STONE, 3)
-		if wv.z == 1:
-			far_lights.append({"t": "pt", "p": Vector2(wv.x + 2, wv.y + 5), "r": [5.0, 10.0], "ys": 1.0})
 	# Dos pasarelas cruzando el tiro.
 	for py: int in [128, 54]:
 		for x in range(270, 612):

@@ -75,7 +75,7 @@ class Smear:
 	var slot: StringName
 	var width := 6.0               # grosor máximo (en la cabeza de la estela)
 	var front := true              # delante o detrás del cuerpo
-	var samples := 16
+	var samples := 0               # 0 = automático según la longitud del arco (sin puntos sueltos)
 
 
 class Anim:

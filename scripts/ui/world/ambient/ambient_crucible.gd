@@ -10,6 +10,8 @@ var amp := 7
 var patches: Array = []
 var patch_rect := Rect2i()
 var use_patches := true
+## Con `palette_lit` en `material`, el hierro recibe la luz de la escena (reacciona a la onda de quemar).
+var use_index := false
 
 var _t := 0.0
 var _k := 0
@@ -54,7 +56,7 @@ func _draw() -> void:
 		draw_texture(_patch_tex[_k], Vector2(patch_rect.position) - position)
 	var a := 11 if _shake > 0 else amp
 	var glow := 1 if state != null and state.heat > 0.7 else 0
-	var tex := AmbientFrames.crucible(_k, length, a, glow)
+	var tex := AmbientFrames.crucible(_k, length, a, glow, use_index)
 	draw_texture(tex, Vector2(-tex.get_width() / 2, 0))
 
 

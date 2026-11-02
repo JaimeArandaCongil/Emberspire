@@ -4,9 +4,9 @@ extends RefCounted
 ## el generador sea legible; el color y el índice de material salen SIEMPRE de `Palette` (nadie escribe hex).
 ## La luz fría no es un material: es la rampa fría de cada material (`cold = true`).
 
-enum {EMPTY = 0, BRICK = 1, STONE = 2, IRON = 3, COPPER = 4, WOOD = 5, ASH = 6, SKY = 7, FIRE = 8, CLOTH = 9}
+enum {EMPTY = 0, BRICK = 1, STONE = 2, IRON = 3, COPPER = 4, WOOD = 5, ASH = 6, SKY = 7, FIRE = 8, CLOTH = 9, FURNACE = 10, COAL = 11}
 
-const NAMES: Array[StringName] = [&"void", &"brick", &"stone", &"iron", &"copper", &"wood", &"ash", &"sky", &"fire", &"cloth"]
+const NAMES: Array[StringName] = [&"void", &"brick", &"stone", &"iron", &"copper", &"wood", &"ash", &"sky", &"fire", &"cloth", &"furnace_brick", &"coal"]
 
 
 static func pal_name(m: int) -> StringName:

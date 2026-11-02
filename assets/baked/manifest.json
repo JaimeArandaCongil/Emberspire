@@ -3,7 +3,7 @@
 	"entries": {
 		"ash_slime": {
 			"src": "res://scripts/art/defs/creatures/ash_slime.gd",
-			"hash": "788d1e998986446dcd519dde4663e733361f4bb9ae24d6ea3541c7fc7c1c18cf",
+			"hash": "8c76d60e1eb8f9b6f1b6680d38793f348618dc9b79ea2789412fd52be3f4a470",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/ash_slime_idx.png",
@@ -17,7 +17,7 @@
 		},
 		"boss_example": {
 			"src": "res://scripts/art/rig/examples/boss_example.gd",
-			"hash": "f52b1b110f1efb1562cdf9d6741507344b89daf6ea0b40089f49a200c8766ba5",
+			"hash": "6369dab781967fa87b1dffdc977ecca800925c44e7ade27131e2a09b9975ee9f",
 			"group": "examples",
 			"files": [
 				"res://assets/baked/examples/boss_example_idx.png",
@@ -43,7 +43,7 @@
 		},
 		"candle_mite": {
 			"src": "res://scripts/art/defs/creatures/candle_mite.gd",
-			"hash": "81865657bcb2718ed86ee872c7477de770300044d323c252a5e7a2f82274c80b",
+			"hash": "52b6ed9caa54b4c1f3fceec0646c89c4d76bcd9df7407736087ca9cb2e71da1a",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/candle_mite_idx.png",
@@ -51,13 +51,13 @@
 				"res://assets/baked/creatures/candle_mite.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/candle_mite_idx.png": "a82184ecdf0e5beec91d6ca5694085aa",
-				"res://assets/baked/creatures/candle_mite_prev.png": "05ba72f7ca9032ceab2f78d52f8e784a"
+				"res://assets/baked/creatures/candle_mite_idx.png": "77cde644949942b04d63268795d5db6d",
+				"res://assets/baked/creatures/candle_mite_prev.png": "edbd09cda21a810b6242463673ec8886"
 			}
 		},
 		"cinder_bat": {
 			"src": "res://scripts/art/defs/creatures/cinder_bat.gd",
-			"hash": "63767c7ce5d09361edfb256215f0c59bba7e30b64f10922c02ab376f632c2de4",
+			"hash": "1fe7036f84d8e5151f91c5cf9c1a714120ebf99dd68831b254857776294948b7",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/cinder_bat_idx.png",
@@ -65,13 +65,13 @@
 				"res://assets/baked/creatures/cinder_bat.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/cinder_bat_idx.png": "f011b1727c0db24b9cf894c003eb36a6",
-				"res://assets/baked/creatures/cinder_bat_prev.png": "b54d8bdb63ab5b165bff85b74b8151bd"
+				"res://assets/baked/creatures/cinder_bat_idx.png": "7de3b10c3934f93c112e2c677c4f44b4",
+				"res://assets/baked/creatures/cinder_bat_prev.png": "13c598ad7bb3222824712ca0a16b6378"
 			}
 		},
 		"ember_magpie": {
 			"src": "res://scripts/art/defs/creatures/ember_magpie.gd",
-			"hash": "11147b4f59cb3d7c703a63a34d398442a2d083f6a33f2b9d2167dfeb17522136",
+			"hash": "6a7cfadb59a0c83fed3666662012b86e8182fb98a0afb1488062597b35225975",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/ember_magpie_idx.png",
@@ -83,9 +83,23 @@
 				"res://assets/baked/creatures/ember_magpie_prev.png": "a6dd1a6c03cdc6b3c55c4ea30749a920"
 			}
 		},
+		"flame_moth": {
+			"src": "res://scripts/art/defs/creatures/flame_moth.gd",
+			"hash": "241e27ad800eee82b576b8e5c4065ccf3d8161e1a8a11566e62af64f8a046824",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/flame_moth_idx.png",
+				"res://assets/baked/creatures/flame_moth_prev.png",
+				"res://assets/baked/creatures/flame_moth.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/flame_moth_idx.png": "841826b6242bbd6ee96b1a60f200e3f5",
+				"res://assets/baked/creatures/flame_moth_prev.png": "24aa2e600daeb16bd938e10ed90b65e0"
+			}
+		},
 		"fogonera": {
 			"src": "res://scripts/art/defs/hero/fogonera.gd",
-			"hash": "db0a086d3374ddba03e56fd6c4b5fa7ae1b27e651491e8fc0897c0e6b9c5700d",
+			"hash": "83347f04672ba00991c24908e7bb788ebbb69d2644907d54587d892550b395ae",
 			"group": "hero",
 			"files": [
 				"res://assets/baked/hero/fogonera_idx.png",
@@ -93,13 +107,13 @@
 				"res://assets/baked/hero/fogonera.json"
 			],
 			"md5": {
-				"res://assets/baked/hero/fogonera_idx.png": "7675c56eb0facfbb013e13e226f86249",
-				"res://assets/baked/hero/fogonera_prev.png": "8d68580e3de31057c9739712ca65870c"
+				"res://assets/baked/hero/fogonera_idx.png": "eb48035d9294cdde9023136fdbcd0105",
+				"res://assets/baked/hero/fogonera_prev.png": "b450a6d63811aec4293762fb6f8963dd"
 			}
 		},
 		"golem_example": {
 			"src": "res://scripts/art/rig/examples/golem_example.gd",
-			"hash": "759c63760c39d112143d163b5f60a0de8a7016ec82b44098b56ad34cb73ae20c",
+			"hash": "fc64661103f0e2d879fe563d1e85dbe14e78e1e04470a7ec54fa8fd96e4db4e9",
 			"group": "examples",
 			"files": [
 				"res://assets/baked/examples/golem_example_idx.png",
@@ -111,17 +125,31 @@
 				"res://assets/baked/examples/golem_example.json"
 			],
 			"md5": {
-				"res://assets/baked/examples/golem_example_idx.png": "104f0c874281850a820f3f9539ab5816",
-				"res://assets/baked/examples/golem_example_prev.png": "93d2e8ec790e69d1ecf25c980d1f3b5e",
-				"res://assets/baked/examples/golem_example@chained_idx.png": "904282f7b71799708fd54ec1c029afea",
-				"res://assets/baked/examples/golem_example@chained_prev.png": "10f237577b4feac45d170860370f7457",
-				"res://assets/baked/examples/golem_example@sooty_idx.png": "d550609086da88a017fd444c4e766195",
-				"res://assets/baked/examples/golem_example@sooty_prev.png": "2b8a09d87cb49c4b793361738bd7156e"
+				"res://assets/baked/examples/golem_example_idx.png": "41c264712d79ba8a004773946c6ce327",
+				"res://assets/baked/examples/golem_example_prev.png": "442ba9c875831bdc30fdf1ad320d87d9",
+				"res://assets/baked/examples/golem_example@chained_idx.png": "f4c09a1f9caae00504a3e13b6fbb8b73",
+				"res://assets/baked/examples/golem_example@chained_prev.png": "efcca254092de8359063f7bafb8a113b",
+				"res://assets/baked/examples/golem_example@sooty_idx.png": "ff0bf899e369c6ec8b3a7940e7b0bb69",
+				"res://assets/baked/examples/golem_example@sooty_prev.png": "28ac24061ab91c0a52a34e5daf090d7c"
+			}
+		},
+		"hollow_knight": {
+			"src": "res://scripts/art/defs/creatures/hollow_knight.gd",
+			"hash": "eedd7fbda22515b5b30441616ab83440bb2e5d833ca4c0883fa383b7f124e1b5",
+			"group": "creatures",
+			"files": [
+				"res://assets/baked/creatures/hollow_knight_idx.png",
+				"res://assets/baked/creatures/hollow_knight_prev.png",
+				"res://assets/baked/creatures/hollow_knight.json"
+			],
+			"md5": {
+				"res://assets/baked/creatures/hollow_knight_idx.png": "070836a2d26b89b8b9a13e3a11c58be7",
+				"res://assets/baked/creatures/hollow_knight_prev.png": "d5f75ec1baf1cc3ac1b13e3b9a4006d5"
 			}
 		},
 		"soot_golem": {
 			"src": "res://scripts/art/defs/creatures/soot_golem.gd",
-			"hash": "b164ff52ca5b9751035a6a45530e7f1210861a51bbc8568d69872c618a05d7e3",
+			"hash": "8a6f2392a24713f1e6e1fa485e064b6e7beeaaccefefdf5bc54e6ce8151f8cde",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/soot_golem_idx.png",
@@ -131,10 +159,10 @@
 				"res://assets/baked/creatures/soot_golem.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/soot_golem_idx.png": "c2f0af0ad08ba4d4e8b2ca015f1d51a6",
-				"res://assets/baked/creatures/soot_golem_prev.png": "9e96e70a4a3e4de83a45ade76ceca91a",
-				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "e5080d0dab020e8bf9a3a5bc721c393f",
-				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "c24a53221ee4e3c8cf5996efea0c0132"
+				"res://assets/baked/creatures/soot_golem_idx.png": "a02cd6f42f3b9d99d153311a8c68706e",
+				"res://assets/baked/creatures/soot_golem_prev.png": "c09ad8bee1b1e71982446ab5b0df9f04",
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "968de65de731917f8e1026ea896dae6f",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "ae36c06b64c2874ca87a3804afcb4312"
 			}
 		}
 	}

@@ -6,6 +6,9 @@ extends RefCounted
 ## Rasgo vivo: aleteo de 6 fotogramas con vaivén, venas de brasa en las alas, chispas que caen por los agujeros, parpadeo.
 ## Telegrafía (cast): pliega las alas hacia arriba y se inclina para caer en picado. Ataque: dos pasadas. Muerte: se deshace en pavesas.
 
+## Altura de vuelo: px de arte del origen (centro del cuerpo) al suelo.
+const HOVER := 46
+
 const IN := [
 	"..............BBB.",
 	"............BBB#%.",
@@ -122,6 +125,8 @@ static func build() -> RigDef:
 		&"d1": _sparks([[3, 3, "o"], [25, 1, "y"], [8, 24, "y"], [35, 10, "o"], [22, 30, "o"], [13, 5, "y"], [30, 24, "y"]]),
 		&"d2": _sparks([[1, 8, "o"], [22, 3, "o"], [6, 30, "o"], [36, 14, "o"], [20, 34, "y"]]),
 	}})
+	# Vuelo: el socket `ground` es el suelo bajo el cuerpo (idle:0); colocar el lienzo para que caiga en la línea de suelo.
+	b.socket(&"ground", &"root", Vector2(0, HOVER))
 	b.socket(&"hit", &"head", Vector2(-8, 3))
 	b.socket(&"intent", &"head", Vector2(0, -14))
 	b.socket(&"core", &"body", Vector2(-2, 1))
@@ -152,7 +157,7 @@ static func _anims(b: RigBuilder) -> void:
 	# Aleteo de 6: golpe rápido hacia abajo (2 f), subida lenta (4 f); el cuerpo sube cuando el ala baja.
 	var ang := [-0.35, 0.15, 0.6, 0.35, 0.05, -0.2]
 	var fold := [-0.15, 0.1, 0.5, 0.45, 0.25, 0.0]
-	var dy := [1, -1, -2, -1, 0, 1]
+	var dy := [0, -2, -3, -2, -1, 0]
 	var idle := {}
 	for f in 6:
 		var k := _wings(ang[f], fold[f], {&"@root": Vector2i(0, dy[f]), &"head": 0.05 * sin(TAU * f / 6.0), &"body": 0.04 * sin(TAU * f / 6.0)})

@@ -17,6 +17,7 @@ extends RefCounted
 ##   &"z:<hueso>": float      z animable (pasar el brazo detrás de la cabeza)
 ##   &"ik:<cadena>": Vector2  objetivo de IK de 2 huesos en el lienzo (pies plantados, mano en el mango)
 ##   &"view:<hueso>": StringName   vista de los sellos de ese hueso (34 | profile | back …)
+##   &"view:<sello|losa>": StringName   vista de UN sello o losa (manda sobre la del hueso)
 ##   &"emit:<sello|pieza>": int    desplazamiento de paso de un emisivo (fogón, ojos, puerta del horno)
 ##   &"hide:<pieza|sello>": bool   oculta una pieza o sello en esa clave
 
@@ -136,12 +137,13 @@ func poly(id: StringName, bone_name: StringName, slot: StringName, pts: PackedVe
 
 ## Losa: silueta ASCII a mano extruida con bisel. `legend` {char: ranura | [ranura, paso_forzado]}.
 ## Con pasos forzados es el "modo pequeño": la losa manda y el rig sólo la mueve.
+## opts.views {vista: rows}: siluetas alternativas elegidas con &"view:<id>" (deformaciones sin 4 losas ocultas).
 func slab(id: StringName, bone_name: StringName, rows: Array, top_left: Vector2, legend: Dictionary, z0 := 0.0, bevel := 2.0, height := 3.0, opts := {}) -> RigDef.Piece:
 	var first_slot: StringName = &""
 	for v in legend.values():
 		first_slot = StringName(v[0]) if v is Array else StringName(v)
 		break
-	return _piece(id, bone_name, &"slab", first_slot, {"rows": rows, "tl": top_left, "legend": legend, "z0": z0, "bevel": bevel, "h": height}, opts)
+	return _piece(id, bone_name, &"slab", first_slot, {"rows": rows, "views": opts.get("views", {}), "tl": top_left, "legend": legend, "z0": z0, "bevel": bevel, "h": height}, opts)
 
 
 # ------------------------------------------------------------------------------------- sellos

@@ -108,7 +108,7 @@ static func build() -> RigDef:
 	# humo de chimenea: 4 bocanadas a distintas alturas; la animación enseña una u otra (suben)
 	for i in 4:
 		var r := 3.0 + i * 0.7
-		b.ell(StringName("puff_%d" % i), &"smoke", &"smoke", Vector3(i * 2.0, -i * 5.0, 0), Vector3(r, r * 0.85, r), {"line": false, "flat": 0.4})
+		b.ell(StringName("puff_%d" % i), &"smoke", &"smoke", Vector3(i * 1.5, 1.0 - i * 4.0, 0), Vector3(r, r * 0.85, r), {"line": false, "flat": 0.4})
 	# --- pierna cercana, cabeza, brazo cercano (delante)
 	b.ell(&"skull", &"head", &"coal", Vector3(0, 0, 0), Vector3(10.5, 9, 8.5), {"tags": [&"face", &"eye"]})
 	b.poly(&"brow", &"head", &"brick", PackedVector2Array([Vector2(-11, -4), Vector2(7, -10), Vector2(11, -4), Vector2(-9, -1)]), 7.0, 1.4, 2.0)
@@ -171,10 +171,10 @@ const PUFFS := ["puff_0", "puff_1", "puff_2", "puff_3"]
 
 
 static func _puffs(k: Dictionary, f: int) -> void:
-	# Ciclo de humo de 8 fotogramas: cada bocanada nace abajo y sube; sólo se ven 2 a la vez.
+	# Ciclo de humo de 8 fotogramas: la columna crece y mengua desde la boca de la chimenea; nunca se despega.
+	var n: int = [2, 3, 4, 3][(f / 2) % 4]
 	for i in 4:
-		var on := (f / 2 + 4 - i) % 4 < 2
-		k[StringName("hide:" + PUFFS[i])] = not on
+		k[StringName("hide:" + PUFFS[i])] = i >= n
 
 
 static func _anims(b: RigBuilder) -> void:
@@ -250,7 +250,7 @@ static func _anims(b: RigBuilder) -> void:
 		for i in 4:
 			(d[f] as Dictionary)[StringName("hide:rubble_%d" % i)] = true
 		for i in 4:
-			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = i != mini(f, 3)
+			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = i > 2 - mini(f, 3)
 	for f in [5, 6, 7]:
 		for i in 4:
 			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = true

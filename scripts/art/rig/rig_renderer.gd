@@ -70,6 +70,7 @@ class _Ctx:
 	var active: Array[bool] = []            # piezas activas (accesorios / ocultas)
 	var seeds: Array = []                   # por pieza: PackedVector3Array
 	var slab_cache := {}
+	var pose_now := {}                      # pose del fotograma (vistas por pieza)
 	var errors: Array[String] = []
 
 	func _init(d: RigDef, p: Dictionary) -> void:
@@ -101,6 +102,7 @@ class _Ctx:
 
 	# ----------------------------------------------------------------------------------------- run
 	func run(pose: Dictionary, a: RigDef.Anim, frame: int) -> Frame:
+		pose_now = pose
 		solved = RigPose.solve(def, pose)
 		active.clear()
 		for pc in def.pieces:
@@ -163,7 +165,7 @@ class _Ctx:
 					r2 = r2.expand(q)
 				return r2
 			&"slab":
-				var rows: Array = p["rows"]
+				var rows: Array = _slab_rows(pc)
 				return Rect2(p["tl"], Vector2(String(rows[0]).length(), rows.size()))
 		return Rect2()
 
@@ -281,9 +283,11 @@ class _Ctx:
 
 	## Campo de distancia al borde de una losa (una vez por pieza).
 	func _slab(pi: int, pc: RigDef.Piece) -> Dictionary:
-		if slab_cache.has(pi):
-			return slab_cache[pi]
-		var rows: Array = pc.p["rows"]
+		var view: Variant = pose_now.get(StringName("view:%s" % pc.id))
+		var skey := "%d|%s" % [pi, view]
+		if slab_cache.has(skey):
+			return slab_cache[skey]
+		var rows: Array = _slab_rows(pc)
 		var legend: Dictionary = pc.p["legend"]
 		var w := 0
 		for r: String in rows:
@@ -312,8 +316,16 @@ class _Ctx:
 						m = minf(m, 0.0 if (nx < 0 or ny < 0 or nx >= w or ny >= h) else d[ny * w + nx])
 					d[i] = minf(d[i], m + 1.0)
 		var sd := {"w": w, "h": h, "d": d, "chars": chars}
-		slab_cache[pi] = sd
+		slab_cache[skey] = sd
 		return sd
+
+	## Filas de la losa según la vista de la pose (`view:<id de la losa>`).
+	func _slab_rows(pc: RigDef.Piece) -> Array:
+		var views: Dictionary = pc.p.get("views", {})
+		var view: Variant = pose_now.get(StringName("view:%s" % pc.id))
+		if view != null and views.has(view):
+			return views[view]
+		return pc.p["rows"]
 
 	func _make_seeds() -> void:
 		seeds.clear()
@@ -780,7 +792,9 @@ class _Ctx:
 			errors.append("sello %s: hueso %s inexistente" % [s.id, s.bone])
 			return 0
 		var rows: Array = s.rows
-		var view: Variant = pose.get(StringName("view:%s" % s.bone))
+		# La vista del propio sello manda sobre la de su hueso (ojos y brillo en el mismo hueso, vistas distintas).
+		var own_view: Variant = pose.get(StringName("view:%s" % s.id))
+		var view: Variant = own_view if own_view != null else pose.get(StringName("view:%s" % s.bone))
 		if view != null and s.views.has(view):
 			rows = s.views[view]
 		var at: Vector2 = (solved.xf[s.bone] as Transform2D) * s.at
@@ -857,8 +871,9 @@ class _Ctx:
 		var ns := Palette.steps(pal)
 		var emissive := Palette.is_emissive(pal)
 		var best := {}
-		for k in sm.samples + 1:
-			var u := float(k) / sm.samples
+		var samples := sm.samples if sm.samples > 0 else _smear_samples(sm, p0, p1)
+		for k in samples + 1:
+			var u := float(k) / samples
 			var sp := RigPose.solve(def, RigPose.blend(p0, p1, u))
 			if not sp.xf.has(sm.bone):
 				return
@@ -893,6 +908,21 @@ class _Ctx:
 			if front:
 				piece[key] = maxi(piece[key], 0)
 				zb[key] = 1e6
+
+	## Muestras para que dos discos consecutivos de la estela se solapen: longitud del arco / medio píxel de avance
+	## por radio pequeño. Se mide con 12 tramos; acotado para no disparar el coste en arcos enormes.
+	func _smear_samples(sm: RigDef.Smear, p0: Dictionary, p1: Dictionary) -> int:
+		var length := 0.0
+		var prev := Vector2.ZERO
+		for k in 13:
+			var sp := RigPose.solve(def, RigPose.blend(p0, p1, float(k) / 12.0))
+			if not sp.xf.has(sm.bone):
+				return 16
+			var c: Vector2 = (sp.xf[sm.bone] as Transform2D) * sm.point
+			if k > 0:
+				length += c.distance_to(prev)
+			prev = c
+		return clampi(ceili(length / 1.5), 16, 160)
 
 	# ----------------------------------------------------------------------------------------- limpieza y contorno
 	func _orphans() -> void:

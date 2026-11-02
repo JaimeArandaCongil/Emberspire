@@ -329,7 +329,7 @@ static func _lib(b: RigBuilder, id: StringName, bone: StringName, at: Vector2, l
 	b.stamp(id, bone, at, s["rows"], _legend(s["legend"], remap), o)
 
 
-## Mano con vistas. Las filas se rellenan para que todas compartan el ancla (2, 3).
+## Mano con vistas. Las filas se rellenan para que todas compartan el ancla (3, 3).
 static func _hand(b: RigBuilder, id: StringName, bone: StringName, at: Vector2, far: bool) -> void:
 	var views := {}
 	var legend := {}
@@ -341,12 +341,12 @@ static func _hand(b: RigBuilder, id: StringName, bone: StringName, at: Vector2, 
 		for i in 3 - a.y:
 			padded.append("")
 		for r: String in rows:
-			padded.append(".".repeat(2 - a.x) + r)
+			padded.append(".".repeat(3 - a.x) + r)
 		views[pair[0]] = padded
 		for ch: String in s["legend"].keys():
 			legend[ch] = s["legend"][ch]
 	var lg := _legend(legend, {"@hand": "@soot"})
-	b.stamp(id, bone, at, views[&"grip"], lg, {"anchor": Vector2i(2, 3), "views": views, "z_top": not far})
+	b.stamp(id, bone, at, views[&"grip"], lg, {"anchor": Vector2i(3, 3), "views": views, "z_top": not far})
 
 
 # ------------------------------------------------------------------------------------------------- animaciones
@@ -399,9 +399,6 @@ static func _anims(b: RigBuilder) -> void:
 		k[&"emit:lantern"] = [0, 1, 1, 0, -1, 0][f]
 		sh[f] = k
 	b.anim(&"idle_shoulder", 6, 160, sh, {"interp": &"linear", "overlap": {&"bun": 2.0, &"scarf": 2.0}})
-	# Parche (PER-6): la mano tiznada sobre el pecho de lino se separa con dos brillos de nudillo y un canto.
-	for f in 6:
-		b.patch(&"idle_shoulder", f, &"fore_n", Vector2(-2, 6), ["5.5.5", ".....", "4...."], {"5": [&"soot", 5], "4": [&"soot", 4]})
 	# Ataque completo y sus piezas sueltas (el juego encadena windup → smear → strike → recover).
 	var wk := _keys("windup", {&"z:arm_n": -2.0, &"hide:hand_n": true, &"bun": -0.3, &"scarf": -0.3, &"emit:lantern": 1})
 	var mk := _keys("smear", {&"bun": 0.2, &"scarf": 0.3, &"emit:lantern": 1})

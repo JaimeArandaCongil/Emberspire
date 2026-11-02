@@ -67,6 +67,9 @@ func build(p_room: Dictionary, p_state: AmbientState = null, p_rig: LightRig = n
 		b.position = Vector2(bz[i])
 		b.setup(state, particles_front, i * 3, flick[i] if i < flick.size() else {})
 		b.use_patches = not use_index
+		b.use_index = use_index
+		if use_index:
+			b.material = lit_material
 		amb.add_child(b)
 		braziers.append(b)
 	var cps: Array = room.get("crucible_patches", [])
@@ -76,6 +79,9 @@ func build(p_room: Dictionary, p_state: AmbientState = null, p_rig: LightRig = n
 		cr.position = Vector2(crs[i]["pivot"])
 		cr.setup(state, int(crs[i]["len"]), cps[i] if i < cps.size() else {})
 		cr.use_patches = not use_index
+		cr.use_index = use_index
+		if use_index:
+			cr.material = lit_material
 		amb.add_child(cr)
 		crucibles.append(cr)
 	if (anchors["gauge"] as Vector2i).x >= 0:

@@ -28,6 +28,15 @@ const PRESETS := {
 	# Nieve (acto 3 y tras las ventanas).
 	"snow": {"ramp": [[&"sky", 9], [&"sky", 10]], "life": [3.0, 5.0], "speed": [6.0, 12.0], "gravity": Vector2(0, 8),
 		"drag": 0.6, "wobble": 5.0},
+	# Mota dorada del Resplandor: sube lenta y brilla.
+	"glow": {"ramp": [[&"gold", 3], [&"gold", 5], [&"gold", 6], [&"gold", 4], [&"gold", 2]], "life": [1.6, 2.8],
+		"speed": [8.0, 18.0], "gravity": Vector2(0, -8), "drag": 0.3, "wobble": 6.0},
+	# Copo de papel ardiendo (carta quemada): cae poco, se apaga.
+	"paper": {"ramp": [[&"fire", 7], [&"fire", 6], [&"fire", 4], [&"fire", 2], [&"ash", 2]], "life": [0.35, 0.7],
+		"speed": [6.0, 20.0], "gravity": Vector2(0, 30), "drag": 1.2, "wobble": 8.0},
+	# Polvo de impacto en el suelo.
+	"puff": {"ramp": [[&"ash", 6], [&"ash", 5], [&"ash", 4], [&"ash", 3]], "life": [0.25, 0.5],
+		"speed": [14.0, 40.0], "gravity": Vector2(0, 20), "drag": 3.0},
 	# Chispa fría (Bloqueo).
 	"frost": {"ramp": [[&"frost_glow", 5], [&"frost_glow", 4], [&"frost_glow", 3], [&"frost_glow", 2]], "life": [0.3, 0.6],
 		"speed": [50.0, 120.0], "gravity": Vector2(0, 200), "drag": 1.8, "streak": true},

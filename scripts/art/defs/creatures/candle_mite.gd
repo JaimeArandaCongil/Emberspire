@@ -13,8 +13,8 @@ static func build() -> RigDef:
 	b.material(&"fire", &"fire")
 	b.bone(&"root", &"", Vector2.ZERO)
 	for i in 3:
-		b.bone(StringName("leg_f%d" % i), &"root", Vector2(-5 + i * 5, 1), {"z": -4.0, "angle": 0.8 - i * 0.8})
-		b.bone(StringName("leg_n%d" % i), &"root", Vector2(-6 + i * 6, 2), {"z": 6.0, "angle": 0.9 - i * 0.9})
+		b.bone(StringName("leg_f%d" % i), &"root", Vector2(-5 + i * 5, 1), {"z": -4.0, "angle": [0.7, 0.15, -0.65][i]})
+		b.bone(StringName("leg_n%d" % i), &"root", Vector2(-6 + i * 6, 2), {"z": 6.0, "angle": [0.95, 0.3, -0.8][i]})
 	b.bone(&"body", &"root", Vector2.ZERO)
 	b.bone(&"head", &"body", Vector2(-9, 0), {"z": 2.0})
 	b.bone(&"candle", &"body", Vector2(1, -4), {"z": 1.0})
@@ -25,8 +25,9 @@ static func build() -> RigDef:
 		for i in 3:
 			var bn := StringName("leg_%s%d" % [s, i])
 			var ao := 1.5 if s == "f" else 1.0
-			b.cap(StringName("%s_a" % bn), bn, &"leg", Vector3(0, 0, 0), Vector3(0, 4, 0), 1.1, 0.8, {"ao": ao})
-			b.cap(StringName("%s_b" % bn), bn, &"leg", Vector3(0, 4, 0), Vector3(-1, 6, 0), 0.8, 0.6, {"ao": ao, "line": false})
+			var kx: float = [-2.0, -1.5, 2.0][i]   # rodilla hacia fuera: ninguna pata queda recta
+			b.cap(StringName("%s_a" % bn), bn, &"leg", Vector3(0, 0, 0), Vector3(0, 3, 0), 1.1, 0.9, {"ao": ao})
+			b.cap(StringName("%s_b" % bn), bn, &"leg", Vector3(0, 3, 0), Vector3(kx, 6, 0), 0.9, 0.6, {"ao": ao, "line": false})
 	# Caparazón: losa a mano. c/d/e = cuero oscuro → claro.
 	b.slab(&"shell", &"body", [
 		"....eeeeeee.....",
@@ -106,6 +107,18 @@ static func _legs(k: Dictionary, a: float) -> void:
 		k[StringName("leg_f%d" % i)] = -a * sg
 
 
+## Las patas ceden hacia fuera (la punta sube, nunca atraviesa el suelo); las centrales se esconden bajo el cuerpo.
+static func _splay(k: Dictionary, a: float) -> void:
+	for s: String in ["f", "n"]:
+		k[StringName("leg_%s0" % s)] = a
+		k[StringName("leg_%s2" % s)] = -a
+		if a > 0.6:
+			k[StringName("hide:leg_%s1_a" % s)] = true
+			k[StringName("hide:leg_%s1_b" % s)] = true
+		else:
+			k[StringName("leg_%s1" % s)] = a * 0.6
+
+
 static func _anims(b: RigBuilder) -> void:
 	var idle := {}
 	for f in 6:
@@ -141,12 +154,12 @@ static func _anims(b: RigBuilder) -> void:
 	# Muerte: las patas ceden, la cera se derrite, la mecha estalla, queda el charco.
 	var d := {}
 	d[0] = h0.duplicate()
-	d[1] = {&"body": 0.05, &"candle": 0.2, &"@root": Vector2i(1, 2), &"view:wick": &"big", &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d2"}
-	_legs(d[1], 0.5)
-	d[2] = {&"body": 0.05, &"candle": 0.3, &"@root": Vector2i(1, 3), &"view:wick": &"burst", &"emit:flame": 1, &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d3"}
-	_legs(d[2], 0.8)
-	d[3] = {&"candle": 0.35, &"@root": Vector2i(1, 3), &"view:wick": &"burst", &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d3", &"hide:head": true, &"hide:wax_body": true}
-	_legs(d[3], 1.0)
+	d[1] = {&"body": 0.05, &"candle": 0.2, &"@root": Vector2i(1, 1), &"view:wick": &"big", &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d2"}
+	_splay(d[1], 0.5)
+	d[2] = {&"body": 0.05, &"candle": 0.3, &"@root": Vector2i(1, 2), &"view:wick": &"burst", &"emit:flame": 1, &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d3"}
+	_splay(d[2], 0.8)
+	d[3] = {&"candle": 0.35, &"@root": Vector2i(1, 2), &"view:wick": &"burst", &"hide:puddle": false, &"hide:eye": true, &"view:drip": &"d3", &"hide:head": true, &"hide:wax_body": true}
+	_splay(d[3], 1.0)
 	d[4] = {&"@root": Vector2i(1, 3), &"view:wick": &"small", &"hide:puddle": false, &"hide:eye": true, &"hide:jaws": true, &"hide:antennae": true, &"hide:head": true,
 		&"hide:wax_body": true, &"hide:drip": true, &"hide:shell": true}
 	d[5] = {&"@root": Vector2i(1, 3), &"view:wick": &"out", &"hide:puddle": false, &"hide:eye": true, &"hide:jaws": true, &"hide:antennae": true, &"hide:head": true,
