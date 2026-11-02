@@ -502,18 +502,64 @@ func _build_top() -> void:
 ## Consejo del tutorial sobre placa opaca, justo bajo la banda de intención de jefe; en Mini ×2. Desaparece al empezar
 ## el turno `HINT_TURNS + 1` (C16).
 func _build_hint(text: String) -> void:
-	var w := PixelFont.mini_width(text) * 2.0 + 24.0
+	_hint_plate = _hint_bar(text, UI.TEXT)
+
+
+## Placa del consejo (Mini ×2, centrada en x, en `HINT_Y`). La usan el consejo fijo y los avisos del tutorial.
+func _hint_bar(text: String, color: Color) -> Panel:
 	var plate := Panel.new()
-	_hint_plate = plate
 	plate.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 4), 1, 0, Vector4.ZERO))
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
-	plate.size = Vector2(w, 24)
 	add_child(plate)
-	var hint := UI.mlabel(text, UI.TEXT)
+	var hint := UI.mlabel(text, color)
+	hint.name = "Text"
 	hint.position = Vector2(12, 4)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(hint)
+	_fit_hint(plate, text)
+	return plate
+
+
+func _fit_hint(plate: Panel, text: String) -> void:
+	var w := PixelFont.mini_width(text) * 2.0 + 24.0
+	plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
+	plate.size = Vector2(w, 24)
+
+
+## N6 (F2-PULIDO-A): aviso del tutorial en la barra de ayuda (px y 92–116), no en una segunda barra bajo ella que cruzaba
+## los estandartes. Mientras dura, la barra muestra el aviso y luego vuelve al consejo; si el consejo ya se quitó, el
+## aviso sale en una placa igual en el mismo sitio.
+const TIP_SECS := 3.0
+var _tip_serial := 0
+
+func _tutorial_tip(text: String, color: Color) -> void:
+	_tip_serial += 1
+	var serial := _tip_serial
+	var plate := _hint_plate
+	var lbl: Label = plate.get_node_or_null("Text") if plate != null else null
+	var restore := ""
+	if lbl != null:
+		restore = lbl.text if not plate.has_meta(&"hint") else String(plate.get_meta(&"hint"))
+		plate.set_meta(&"hint", restore)
+		lbl.text = text
+		lbl.add_theme_color_override("font_color", color)
+		_fit_hint(plate, text)
+	else:
+		plate = _hint_bar(text, color)
+		_hint_plate = plate   # así se retira con la interfaz de combate al acabar
+	get_tree().create_timer(TIP_SECS).timeout.connect(func() -> void:
+		if not is_instance_valid(plate) or plate.is_queued_for_deletion() or serial != _tip_serial:
+			return
+		if restore == "":
+			plate.queue_free()
+			if _hint_plate == plate:
+				_hint_plate = null
+			return
+		var l2: Label = plate.get_node("Text")
+		l2.text = restore
+		l2.add_theme_color_override("font_color", UI.TEXT)
+		plate.remove_meta(&"hint")
+		_fit_hint(plate, restore))
 
 
 ## Aviso de combate. Como `main.toast`, pero bajo el rótulo del piso y el consejo: ni los tapa ni se apila sobre ellos.
@@ -639,6 +685,8 @@ func _card_dim(cv: CardView) -> void:
 	r.size = cv.size
 	# La pantalla se copia una vez por fotograma (la viñeta ya la usó, antes de la mano): copia propia justo antes.
 	var bb := BackBufferCopy.new()
+	# F2-PULIDO-A: `COPY_MODE_RECT` (rect de la carta, y aun 5 veces mayor) deja la carta en negro en gl_compatibility;
+	# sólo un rect que cubre toda la pantalla da el mismo resultado, y eso ya es esta copia. Se queda en modo viewport.
 	bb.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	bb.z_as_relative = false
 	bb.z_index = r.z_index
@@ -702,10 +750,18 @@ func _relayout(instant: bool = false) -> void:
 			cv.scale = Vector2.ONE
 		else:
 			var tw := cv.create_tween().set_parallel()
-			tw.tween_property(cv, "position", target, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			_tween_hand_pos(tw, cv, cv.position, target, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			tw.tween_property(cv, "rotation", 0.0, 0.18)
 			tw.tween_property(cv, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_refresh_labels()
+
+
+## N7 (F2-PULIDO-A): la mano se recoloca en la rejilla ×2 en cada fotograma (antes la interpolación dejaba las cartas a
+## medio píxel y salían desfasadas 1 px). Interpola `from` → `to` y redondea cada paso a px pares.
+func _tween_hand_pos(tw: Tween, cv: CardView, from: Vector2, to: Vector2, dur: float) -> MethodTweener:
+	return tw.tween_method(func(p: Vector2) -> void:
+		if is_instance_valid(cv):
+			cv.position = (p / UI.UI_PX).round() * UI.UI_PX, from, to, dur)
 
 
 func _refresh_labels() -> void:
@@ -821,10 +877,17 @@ func _on_card_clicked(cv: CardView, button: int) -> void:
 
 func _deny(cv: CardView) -> void:
 	# "No": vaivén horizontal (sin rotar el pixel art).
+	# Sólo la x, en px pares en cada fotograma (N7); la y la lleva la recolocación si la hay.
+	var set_x := func(x: float) -> void:
+		if is_instance_valid(cv):
+			cv.position.x = roundf(x / UI.UI_PX) * UI.UI_PX
 	var tw := cv.create_tween()
+	var x0 := cv.position.x
 	for i in 4:
-		tw.tween_property(cv, "position:x", cv.home_pos.x + (8.0 if i % 2 == 0 else -8.0), 0.04)
-	tw.tween_property(cv, "position:x", cv.home_pos.x, 0.05)
+		var x1 := cv.home_pos.x + (8.0 if i % 2 == 0 else -8.0)
+		tw.tween_method(set_x, x0, x1, 0.04)
+		x0 = x1
+	tw.tween_method(set_x, x0, cv.home_pos.x, 0.05)
 
 
 func _set_selected(cv: CardView) -> void:
@@ -852,7 +915,10 @@ func _play(cv: CardView, target: Fighter) -> void:
 	if wait > 0.0:
 		busy = true
 		cv.interactive = false
-		cv.create_tween().tween_property(cv, "position:y", SELECT_Y - 16.0, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		cv.create_tween().tween_method(func(y: float) -> void:
+			if is_instance_valid(cv):
+				cv.position.y = roundf(y / UI.UI_PX) * UI.UI_PX, cv.position.y, SELECT_Y - 16.0, 0.08) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_refresh_labels()
 		await get_tree().create_timer(wait).timeout
 		if not is_inside_tree():
@@ -894,7 +960,7 @@ func _try_burn(cv: CardView, hot: bool = false) -> void:
 		_toast("¡En caliente! ×2 Ascuas y Maestría", UI.FIRE)
 	if run.tutorial and not Game.seen_tips.has("mastery"):
 		Game.seen_tips["mastery"] = true
-		_toast("Cada carta que quemas gana Maestría para siempre (+10% por nivel)", Palette.color(&"magic", 5))
+		_tutorial_tip("Cada carta que quemas gana Maestría para siempre (+10% por nivel)", Palette.color(&"magic", 5))
 	_after_action()
 
 

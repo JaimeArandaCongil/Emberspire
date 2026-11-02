@@ -430,3 +430,21 @@ func _dim_steps() -> void:
 		var ratio := (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
 		_check(ratio >= 4.5, "rótulo de turno %s: contraste %.2f:1 (mín. 4,5)" % [tint.to_html(false), ratio])
 	_check(not cs.contains("_banner(\"Tu turno\""), "combate: «Tu turno» vuelve al banner grande")
+	# F2-PULIDO-A (N8): flotantes siempre a ×2 (rejilla 640×360), también en el "pop"; legibles sobre su contorno.
+	_check(UI.FLOAT_SCALE == 2, "UI.FLOAT_SCALE = %d (debe ser ×2)" % UI.FLOAT_SCALE)
+	_check(not ft.contains("pixel_scale(") and not ft.contains("s + 1"), "UI.float_text: escala derivada de `size` (×3 fuera de rejilla)")
+	var ink: float = lum.call(Palette.color(&"ink", 1))   # contorno horneado de la fuente
+	for fc: Color in [UI.TEXT, UI.DIM, UI.EMBER, UI.FIRE, UI.RED, UI.BLUE, UI.GREEN, UI.PURPLE]:
+		var fb := UI.float_color(fc)
+		for c2: Color in [fb, UI.float_pop_color(fb)]:
+			_check(Palette.is_palette_color(c2) or c2 == fc or Palette.find(fc) == null, "flotante: pop %s fuera de paleta" % c2.to_html(false))
+			var lf: float = lum.call(c2)
+			var rf := (maxf(lf, ink) + 0.05) / (minf(lf, ink) + 0.05)
+			_check(rf >= 4.5, "flotante %s sobre contorno: %.2f:1 (mín. 4,5)" % [c2.to_html(false), rf])
+	# N7: la mano se recoloca en px pares en cada fotograma.
+	var rl := cs.substr(cs.find("func _relayout("), 2600)
+	_check(rl.contains("_tween_hand_pos(") and not rl.contains("tween_property(cv, \"position\""), "mano: la recolocación no redondea a px pares (N7)")
+	# N6: el aviso de Maestría va en la barra de ayuda, no en una segunda barra sobre los estandartes.
+	_check(not cs.contains("_toast(\"Cada carta que quemas"), "tutorial: aviso de Maestría en segunda barra (N6)")
+	var lt: float = lum.call(Palette.color(&"magic", 5))
+	_check((maxf(lt, lb) + 0.05) / (minf(lt, lb) + 0.05) >= 4.5, "aviso de Maestría: contraste < 4,5 sobre la placa")

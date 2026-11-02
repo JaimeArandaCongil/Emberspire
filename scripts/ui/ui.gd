@@ -426,28 +426,27 @@ static func expand(c: Control) -> Control:
 	return c
 
 
-## Texto flotante (daño, ascuas...) con la fuente pixel: aparece con "pop" de escala entera
-## (×s−1 → ×s+1 → ×s en 120 ms), sube y se apaga. Alto máximo ≈ 40 px.
+## Texto flotante (daño, ascuas...) con la fuente pixel, siempre a `FLOAT_SCALE` (×2, rejilla 640×360; F2-PULIDO-A, N8:
+## antes ×3 desde `size` 30 y "pop" de escala ×s+1, fuera de rejilla). `_size` ya no cambia la escala: la cola entera va igual.
+## El "pop" es de color: los primeros 60 ms, un paso más claro de su rampa (si la tiene); luego sube y se apaga.
 ## F2-VIDA4 (cola sobre la cabeza): con `bottom` = true, `pos` es el centro del borde INFERIOR (el texto queda encima
 ## de ese punto). La meta `lift` (px, la tween `FloatQueue`) sube el texto además de `rise` y la meta `ceil` (y local) es
 ## el techo que no cruza; la subida es lineal para que un texto nuevo no alcance al anterior. Devuelve la etiqueta.
-static func float_text(parent: Node, pos: Vector2, text: String, color: Color, size: int = 30, rise: float = 70.0,
+static func float_text(parent: Node, pos: Vector2, text: String, color: Color, _size: int = 30, rise: float = 70.0,
 		bottom := false) -> Label:
-	var s := clampi(pixel_scale(size), 2, 3)
-	var l := plabel(text, s + 1, color)
+	color = float_color(color)
+	var l := plabel(text, FLOAT_SCALE, float_pop_color(color))
 	l.z_index = 100
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	l.reset_size()
 	var jitter := 0.0 if bottom else randf_range(-12, 12)
 	var cy := func() -> float: return pos.y - (l.size.y if bottom else l.size.y * 0.5)
-	l.position = (Vector2(pos.x - l.size.x * 0.5 + jitter, cy.call())).round()
+	l.position = (Vector2(pos.x - l.size.x * 0.5 + jitter, cy.call()) / 2.0).round() * 2.0   # rejilla ×2
 	var tw := l.create_tween()
 	tw.tween_interval(0.06)
 	tw.tween_callback(func() -> void:
-		l.add_theme_font_size_override("font_size", PixelFont.px_size(s))
-		l.reset_size()
-		l.position = Vector2(pos.x - l.size.x * 0.5, cy.call()).round())
+		l.add_theme_color_override("font_color", color))
 	tw.tween_method(func(v: float) -> void:
 		var y: float = cy.call() - rise * v - float(l.get_meta(&"lift", 0.0))
 		y = maxf(y, float(l.get_meta(&"ceil", -INF)))
@@ -462,6 +461,39 @@ static func float_text(parent: Node, pos: Vector2, text: String, color: Color, s
 		fade.tween_interval(0.09)
 	tw.tween_callback(l.queue_free)
 	return l
+
+
+## Escala única de los textos flotantes (N8): ×2 como el resto de la interfaz.
+const FLOAT_SCALE := 2
+
+
+## Color legible de un flotante: sube por su rampa hasta ≥ 4,5:1 sobre el contorno horneado de la fuente (`ink` 1);
+## a ×2 el trazo es fino y `blood` 3 (3,9:1) o `magic` 3 (4,2:1) no llegaban. Los fijos de `Palette.UI` no cambian.
+static func float_color(c: Color) -> Color:
+	if Palette.find(c) == null:
+		return c
+	var ink := Palette.color(&"ink", 1)
+	var out := c
+	for d in 3:
+		if contrast(out, ink) >= 4.5:
+			break
+		out = step_color(c, d + 1)
+	return out
+
+
+## Contraste WCAG entre dos colores (1–21).
+static func contrast(a: Color, b: Color) -> float:
+	var lum := func(c: Color) -> float:
+		var ch := func(v: float) -> float: return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
+		return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+	var la: float = lum.call(a)
+	var lb: float = lum.call(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+## Color del "pop" de un flotante: un paso más claro de su rampa; los fijos de `Palette.UI` (sin rampa) no cambian.
+static func float_pop_color(c: Color) -> Color:
+	return step_color(c, 1) if Palette.find(c) != null else c
 
 
 ## Pasos con que se apagan los textos flotantes (desde su color de rampa).

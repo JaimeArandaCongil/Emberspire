@@ -4,6 +4,7 @@ extends Node
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
 ## F2-VIDA5 añade rotulo y rotulo_jefe: solapes de los rótulos de turno («Turno enemigo», «Tu turno») con flotantes,
 ## intenciones y reliquias en 300 f desde el fin de turno (ROT_STRESS=1 mete flotantes extra cada 4 f; 1280×720 cada 3 f).
+## F2-PULIDO-A añade recoloca (N7: se quema la primera carta y la mano se recoloca; x de cada carta por fotograma, 1280×720).
 ## F2-VIDA4 añade cola (flotantes apilados sobre la cabeza del gólem: daño, y en su turno bloqueo + 2 «+Hollín»; 1280×720).
 ## F2-VIDA3 añade descarte (las cartas vuelan al descarte al acabar el turno; 1280×720, cada fotograma).
 ## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
@@ -68,6 +69,8 @@ func _ready() -> void:
 			await _cola()
 		"rotulo", "rotulo_jefe":
 			await _rotulo(mode)
+		"recoloca":
+			await _recoloca()
 		_:
 			await _golpe()
 	print("VIDA fin")
@@ -89,6 +92,8 @@ func _grab(tag: String, n: int, every := 1) -> void:
 		_events.clear()
 		if tag.begins_with("full_cola"):
 			_check_floats(tag, i)
+		if tag.begins_with("full_recoloca"):
+			_check_hand(tag, i)
 		if OS.get_environment("VIDA_DBG") == "1" and not cs.enemy_views.is_empty():
 			var ev: FighterView = cs.enemy_views[0]
 			if ev._lit_mat != null and ev._anim != null:
@@ -294,3 +299,25 @@ func _rotulo(mode: String) -> void:
 		print("ROT %s%s «%s» visible_f=%d (f%d–f%d = %d ms) rect=%s f_con_flotante=%d f_con_intencion=%d f_con_reliquias=%d" % [
 			mode, " estrés" if stress else "", k, st["f"], st["desde"], st["hasta"], int((st["hasta"] - st["desde"] + 1) * 1000 / 60.0),
 			st["rect"], st["flot"], st["int"], st["rel"]])
+
+
+## F2-PULIDO-A (N7): se quema la primera carta y la mano se recoloca. Por fotograma, x e y de cada carta de la mano y
+## cuántas quedan fuera de la rejilla ×2 (px impares o fraccionarios).
+func _recoloca() -> void:
+	var c: Card = cs.engine.hand[0]
+	cs._try_burn(cs.card_views[c.uid])
+	await _grab("full_recoloca", 24)
+
+
+func _check_hand(tag: String, i: int) -> void:
+	var xs: PackedStringArray = []
+	var off := 0
+	for c: Card in cs.engine.hand:
+		var cv: CardView = cs.card_views.get(c.uid)
+		if cv == null:
+			continue
+		var p: Vector2 = cv.get_global_rect().position
+		xs.append("%.2f,%.2f" % [p.x, p.y])
+		if fposmod(p.x, 2.0) != 0.0 or fposmod(p.y, 2.0) != 0.0:
+			off += 1
+	print("MANO %s %03d fuera_de_rejilla=%d pos=%s" % [tag, i, off, " ".join(xs)])
