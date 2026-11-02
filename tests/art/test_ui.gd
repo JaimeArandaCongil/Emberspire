@@ -445,6 +445,12 @@ func _dim_steps() -> void:
 	var rl := cs.substr(cs.find("func _relayout("), 2600)
 	_check(rl.contains("_tween_hand_pos(") and not rl.contains("tween_property(cv, \"position\""), "mano: la recolocación no redondea a px pares (N7)")
 	# N6: el aviso de Maestría va en la barra de ayuda, no en una segunda barra sobre los estandartes.
-	_check(not cs.contains("_toast(\"Cada carta que quemas"), "tutorial: aviso de Maestría en segunda barra (N6)")
+	_check(not cs.contains("_toast(\"Cada carta que quemas\", Palette"), "tutorial: aviso de Maestría en segunda barra (N6)")
+	for nc: Color in [UI.EMBER, UI.DIM, UI.RED, UI.BLUE, UI.FIRE, Palette.color(&"gold", 5), Palette.color(&"blood", 4), Palette.color(&"magic", 5)]:
+		var ln: float = lum.call(UI.float_color(nc))
+		var rn := (maxf(ln, lb) + 0.05) / (minf(ln, lb) + 0.05)
+		_check(rn >= 4.5, "aviso %s sobre la placa: %.2f:1 (mín. 4,5)" % [nc.to_html(false), rn])
+	var tb := cs.substr(cs.find("func _toast("), 700)
+	_check(not tb.contains("TOAST_Y") and not tb.contains("overlay_layer"), "combate: avisos en segunda barra sobre los estandartes (N6)")
 	var lt: float = lum.call(Palette.color(&"magic", 5))
 	_check((maxf(lt, lb) + 0.05) / (minf(lt, lb) + 0.05) >= 4.5, "aviso de Maestría: contraste < 4,5 sobre la placa")

@@ -48,3 +48,26 @@ errores salvo `ERR_CANT_OPEN` (audio).
 - GPU real y WebGL (incluido el coste del modo viewport).
 - La placa de aviso creada después del turno 3 (no sale en el smoke).
 - `forge_screen` también usa `float_text`: ahora sus flotantes van a ×2 con pop de color. No lo he capturado.
+
+## Ampliación N6 · todos los avisos de combate en la barra de ayuda
+- `combat_screen._toast` ya no crea una placa en `TOAST_Y` (y 124, y apiladas a +48 px). Ahora pone el aviso en la barra de
+  ayuda (px y 92–116, Mini ×2), que es una sola placa: muestra el consejo y, encima de él, los avisos (`_bar_show`). Los avisos
+  van **en cola**: duran `NOTICE_SECS` 1,9 s, pero si hay otro esperando el actual se queda en `NOTICE_MIN` 0,8 s; no se
+  repiten si son iguales y esperan como mucho 3. El de Maestría (`_tutorial_tip`) es el mismo aviso, con 3 s. Al acabar el
+  combate (`engine.over`) la barra se retira. El color pasa por `UI.float_color`: `blood` 3 sube a 4 para llegar a 4,5:1 sobre la
+  placa. `test_ui` lo comprueba con todos los colores de aviso.
+- La barra no toca los rótulos de turno (y 50–82) ni la banda de intención del jefe (hasta y 88). Las intenciones normales van
+  sobre las cabezas, mucho más abajo.
+- Avisos que se movieron (todos los `_toast` de combate): «Clic derecho en la Leña para QUEMARLA…» (tutorial, piso 1), «Puerta
+  avivada…», «Combustible: sólo puede QUEMARSE…», «Esta carta no se puede jugar», «No tienes energía suficiente», «Elige un
+  objetivo», «La Ceniza Húmeda no prende…», «El horno necesita respirar…», «Sólo las cartas jugables de coste 1 o más…», «No
+  tienes Energía para quemarla en caliente», «¡En caliente! ×2 Ascuas y Maestría», «<carta> · Maestría N», «¡Te roba … Ascuas…»
+  y el de Maestría del tutorial.
+- No se movieron los de la pantalla de recompensas («Obtienes …», «Primero elige una reliquia»): allí la barra ya se ha
+  retirado y no hay estandartes a la vista. Pasan a `_reward_toast`, que es la placa de antes.
+- Evidencia: `VIDA_MODE=avisos` (nuevo) muestra cada aviso por separado y, al final, tres a la vez («No tienes energía», «¡En
+  caliente!» y «Golpe · Maestría 2», que se ven en orden). `avisos_antes_izq_despues_der.png`: 17 filas, px 160–1120 × 80–250,
+  antes a la izquierda y después a la derecha.
+- Cierre: QA de juego 1745/0, `test_ui` en verde y SMOKE OK. `test_tec` falla por la frescura de `soot_golem`, que hornea otro
+  agente.
+- Efecto a tener en cuenta: mientras se ve un aviso, el consejo del tutorial no está; vuelve en cuanto el aviso termina.

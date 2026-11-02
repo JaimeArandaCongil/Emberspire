@@ -499,71 +499,106 @@ func _build_top() -> void:
 		_build_hint("Clic: jugar  ·  Clic dcho: QUEMAR  ·  Mayús + clic dcho: QUEMAR EN CALIENTE (×2)  ·  Espacio: fin de turno")
 
 
-## Consejo del tutorial sobre placa opaca, justo bajo la banda de intención de jefe; en Mini ×2. Desaparece al empezar
-## el turno `HINT_TURNS + 1` (C16).
+## Barra de ayuda (F2-PULIDO-A, N6): una sola placa opaca en `HINT_Y` (px y 92–116, Mini ×2), justo bajo la banda de
+## intención de jefe y sobre los estandartes, que no cruza. Muestra el consejo del tutorial (C16: desaparece al empezar el
+## turno `HINT_TURNS + 1`) y, encima de él, los avisos de combate, uno a uno y en cola. Antes los avisos salían en una
+## segunda barra en y 124–152 (y más abajo si se apilaban) que tapaba los estandartes.
+const NOTICE_SECS := 1.9      # lo que duraba el aviso anterior
+const NOTICE_MIN := 0.8       # si hay otro esperando, el actual se ve al menos esto
+const NOTICE_QUEUE := 3       # avisos en espera como mucho (se descartan los más viejos)
+var _hint_text := ""
+var _notice_queue: Array = []     # [texto, color, segundos]
+var _notice_now := ""
+var _notice_t0 := 0.0
+var _notice_serial := 0
+var _notice_color := UI.TEXT
+
 func _build_hint(text: String) -> void:
-	_hint_plate = _hint_bar(text, UI.TEXT)
+	_hint_text = text
+	_bar_show()
 
 
-## Placa del consejo (Mini ×2, centrada en x, en `HINT_Y`). La usan el consejo fijo y los avisos del tutorial.
-func _hint_bar(text: String, color: Color) -> Panel:
-	var plate := Panel.new()
-	plate.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 4), 1, 0, Vector4.ZERO))
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(plate)
-	var hint := UI.mlabel(text, color)
-	hint.name = "Text"
-	hint.position = Vector2(12, 4)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_child(hint)
-	_fit_hint(plate, text)
-	return plate
+func _clear_hint() -> void:
+	_hint_text = ""
+	_bar_show()
 
 
-func _fit_hint(plate: Panel, text: String) -> void:
+## Pinta la barra: el aviso en curso o, si no hay, el consejo; sin nada, la quita.
+func _bar_show() -> void:
+	var text := _notice_now if _notice_now != "" else _hint_text
+	if text == "" or (engine != null and engine.over):   # al acabar, la barra se retira con la interfaz de combate
+		if _hint_plate != null:
+			_hint_plate.queue_free()
+			_hint_plate = null
+		return
+	var color: Color = _notice_color if _notice_now != "" else UI.TEXT
+	if _hint_plate == null:
+		var plate := Panel.new()
+		plate.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 4), 1, 0, Vector4.ZERO))
+		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(plate)
+		var l := UI.mlabel(text, color)
+		l.name = "Text"
+		l.position = Vector2(12, 4)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plate.add_child(l)
+		_hint_plate = plate
+	var lbl: Label = _hint_plate.get_node("Text")
+	lbl.text = text
+	lbl.add_theme_color_override("font_color", color)
 	var w := PixelFont.mini_width(text) * 2.0 + 24.0
-	plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
-	plate.size = Vector2(w, 24)
+	_hint_plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
+	_hint_plate.size = Vector2(w, 24)
 
 
-## N6 (F2-PULIDO-A): aviso del tutorial en la barra de ayuda (px y 92–116), no en una segunda barra bajo ella que cruzaba
-## los estandartes. Mientras dura, la barra muestra el aviso y luego vuelve al consejo; si el consejo ya se quitó, el
-## aviso sale en una placa igual en el mismo sitio.
+## Aviso de combate en la barra de ayuda. Si ya se ve uno, espera su turno (el actual se acorta a `NOTICE_MIN`); un aviso
+## igual al que se ve o a uno en espera no se repite.
+func _toast(text: String, color: Color = UI.TEXT, secs: float = NOTICE_SECS) -> void:
+	if text == _notice_now:
+		return
+	for q: Array in _notice_queue:
+		if q[0] == text:
+			return
+	_notice_queue.append([text, color, secs])
+	while _notice_queue.size() > NOTICE_QUEUE:
+		_notice_queue.pop_front()
+	if _notice_now == "":
+		_notice_next()
+	else:
+		var wait := NOTICE_MIN - (_t - _notice_t0)
+		_notice_after(maxf(0.0, wait))
+
+
+func _notice_next() -> void:
+	_notice_serial += 1
+	if _notice_queue.is_empty():
+		_notice_now = ""
+		_bar_show()
+		return
+	var n: Array = _notice_queue.pop_front()
+	_notice_now = n[0]
+	_notice_color = UI.float_color(n[1])   # legible (≥ 4,5:1) en Mini ×2 sobre la placa
+	_notice_t0 = _t
+	_bar_show()
+	_notice_after(NOTICE_MIN if not _notice_queue.is_empty() else float(n[2]))
+
+
+func _notice_after(secs: float) -> void:
+	var serial := _notice_serial
+	get_tree().create_timer(secs).timeout.connect(func() -> void:
+		if is_inside_tree() and serial == _notice_serial:
+			_notice_next())
+
+
+## Aviso del tutorial (Maestría): igual que los de combate, pero 3 s.
 const TIP_SECS := 3.0
-var _tip_serial := 0
 
 func _tutorial_tip(text: String, color: Color) -> void:
-	_tip_serial += 1
-	var serial := _tip_serial
-	var plate := _hint_plate
-	var lbl: Label = plate.get_node_or_null("Text") if plate != null else null
-	var restore := ""
-	if lbl != null:
-		restore = lbl.text if not plate.has_meta(&"hint") else String(plate.get_meta(&"hint"))
-		plate.set_meta(&"hint", restore)
-		lbl.text = text
-		lbl.add_theme_color_override("font_color", color)
-		_fit_hint(plate, text)
-	else:
-		plate = _hint_bar(text, color)
-		_hint_plate = plate   # así se retira con la interfaz de combate al acabar
-	get_tree().create_timer(TIP_SECS).timeout.connect(func() -> void:
-		if not is_instance_valid(plate) or plate.is_queued_for_deletion() or serial != _tip_serial:
-			return
-		if restore == "":
-			plate.queue_free()
-			if _hint_plate == plate:
-				_hint_plate = null
-			return
-		var l2: Label = plate.get_node("Text")
-		l2.text = restore
-		l2.add_theme_color_override("font_color", UI.TEXT)
-		plate.remove_meta(&"hint")
-		_fit_hint(plate, restore))
+	_toast(text, color, TIP_SECS)
 
 
-## Aviso de combate. Como `main.toast`, pero bajo el rótulo del piso y el consejo: ni los tapa ni se apila sobre ellos.
-func _toast(text: String, color: Color = UI.TEXT) -> void:
+## Aviso sobre la pantalla de recompensas (la barra de ayuda ya se ha retirado): placa propia en `TOAST_Y`.
+func _reward_toast(text: String, color: Color = UI.TEXT) -> void:
 	var p := UI.panel(Palette.color(&"plate", 1), color.darkened(0.3))
 	p.add_child(UI.plabel(text, 2, color) if text.length() <= 60 else UI.label(text, 18, color))
 	main.overlay_layer.add_child(p)
@@ -1547,9 +1582,8 @@ func _on_event(k: String, d: Dictionary) -> void:
 			if engine.turn > 1:
 				_turn_tag("Tu turno", UI.EMBER)
 				Sfx.play("turn")
-			if _hint_plate != null and engine.turn > HINT_TURNS:
-				_hint_plate.queue_free()
-				_hint_plate = null
+			if _hint_text != "" and engine.turn > HINT_TURNS:
+				_clear_hint()
 		"enemy_died":
 			var v := _view_for(d["target"])
 			if v != null:
@@ -1762,7 +1796,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 			b.pressed.connect(func() -> void:
 				run.add_relic(rid)
 				Sfx.play("rebirth")
-				_toast("Obtienes %s" % rd["name"], UI.EMBER)
+				_reward_toast("Obtienes %s" % rd["name"], UI.EMBER)
 				for other in rrow.get_children():
 					(other as Button).disabled = true
 				# La elegida conserva el aspecto de «hover» (antes `modulate` 1,3: fuera de paleta); las demás, inhabilitadas.
@@ -1802,7 +1836,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 			view.create_tween().tween_property(view, "position:y", 2.0 if h else 10.0, 0.08))
 		cv.clicked.connect(func(_view: CardView, _b: int) -> void:
 			if lock["on"]:
-				_toast("Primero elige una reliquia", UI.EMBER)
+				_reward_toast("Primero elige una reliquia", UI.EMBER)
 				return
 			run.deck.append(c)
 			Sfx.play("buy")
@@ -1820,7 +1854,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 		cards_box.add_child(prow)
 	var skip := UI.button("Quemar las ofrendas (+%s Ascuas)" % Num.fmt(skip_value), func() -> void:
 		if lock["on"]:
-			_toast("Primero elige una reliquia", UI.EMBER)
+			_reward_toast("Primero elige una reliquia", UI.EMBER)
 			return
 		Game.gain_tower_embers(skip_value, "skip")
 		main.fly_embers(Vector2(640, 600), 6)

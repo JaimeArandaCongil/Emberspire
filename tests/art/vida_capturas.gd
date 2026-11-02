@@ -4,7 +4,7 @@ extends Node
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
 ## F2-VIDA5 añade rotulo y rotulo_jefe: solapes de los rótulos de turno («Turno enemigo», «Tu turno») con flotantes,
 ## intenciones y reliquias en 300 f desde el fin de turno (ROT_STRESS=1 mete flotantes extra cada 4 f; 1280×720 cada 3 f).
-## F2-PULIDO-A añade recoloca (N7: se quema la primera carta y la mano se recoloca; x de cada carta por fotograma, 1280×720).
+## F2-PULIDO-A añade avisos (N6: cada aviso de combate, uno a uno y luego tres a la vez; 1280×720) y recoloca (N7: se quema la primera carta y la mano se recoloca; x de cada carta por fotograma, 1280×720).
 ## F2-VIDA4 añade cola (flotantes apilados sobre la cabeza del gólem: daño, y en su turno bloqueo + 2 «+Hollín»; 1280×720).
 ## F2-VIDA3 añade descarte (las cartas vuelan al descarte al acabar el turno; 1280×720, cada fotograma).
 ## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
@@ -71,6 +71,8 @@ func _ready() -> void:
 			await _rotulo(mode)
 		"recoloca":
 			await _recoloca()
+		"avisos":
+			await _avisos()
 		_:
 			await _golpe()
 	print("VIDA fin")
@@ -321,3 +323,46 @@ func _check_hand(tag: String, i: int) -> void:
 		if fposmod(p.x, 2.0) != 0.0 or fposmod(p.y, 2.0) != 0.0:
 			off += 1
 	print("MANO %s %03d fuera_de_rejilla=%d pos=%s" % [tag, i, off, " ".join(xs)])
+
+
+## F2-PULIDO-A (N6): los avisos de combate (`_toast`) con el texto y color de cada llamada de `combat_screen`, uno a uno
+## (captura a los 12 f) y al final tres a la vez (cola).
+const AVISOS := [
+	["Clic derecho en la Leña para QUEMARLA: +1 Energía y Ascuas para tu Forja", "ember"],
+	["Puerta avivada: +1 Quema cada turno", "ember"],
+	["Combustible: sólo puede QUEMARSE (clic derecho)", "ember"],
+	["Esta carta no se puede jugar", "dim"],
+	["No tienes energía suficiente", "red"],
+	["Elige un objetivo", "ember"],
+	["La Ceniza Húmeda no prende: no se puede quemar", "blue"],
+	["El horno necesita respirar: no te quedan Quemas este turno", "dim"],
+	["Sólo las cartas jugables de coste 1 o más se queman en caliente", "dim"],
+	["No tienes Energía para quemarla en caliente", "red"],
+	["¡En caliente! ×2 Ascuas y Maestría", "fire"],
+	["Golpe · Maestría 2", "gold"],
+	["¡Te roba 1.2K Ascuas de la Forja! Mátala para recuperarlas ×2", "blood"],
+]
+
+func _aviso_color(k: String) -> Color:
+	match k:
+		"dim": return UI.DIM
+		"red": return UI.RED
+		"blue": return UI.BLUE
+		"fire": return UI.FIRE
+		"gold": return Palette.color(&"gold", 5)
+		"blood": return Palette.color(&"blood", 4)
+	return UI.EMBER
+
+
+func _avisos() -> void:
+	await _frames(150)   # que se vayan los avisos de entrada
+	for i in AVISOS.size():
+		cs._toast(AVISOS[i][0], _aviso_color(AVISOS[i][1]))
+		await _frames(12)
+		await _grab("full_aviso%02d" % i, 1)
+		await _frames(150)
+	for i in [4, 10, 11]:
+		cs._toast(AVISOS[i][0], _aviso_color(AVISOS[i][1]))
+	for k in 4:
+		await _grab("full_avisos_cola%d" % k, 1)
+		await _frames(50)
