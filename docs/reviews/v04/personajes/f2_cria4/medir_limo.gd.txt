@@ -1,0 +1,154 @@
+extends SceneTree
+## Separación en gris a 1/4 (test_da.thumbnail_separation, recorte alineado a 4 px: mismo resultado, más rápido).
+## Cada criatura, cada fotograma de reposo, en cada hueco de enemigo, sobre cada variante de sala (vista previa = luz dinámica 0).
+## `candle_mite*` = cuerpo sin cera ni llama (como el diario de F2-CRIA2b).
+const TD = preload("res://tests/art/test_da.gd")
+const CRITS := ["cinder_bat", "candle_mite", "candle_mite*", "ash_slime", "ember_magpie", "flame_moth", "soot_golem", "hollow_knight", "ash_glutton"]
+const SLOTS := [350, 396, 460, 466, 540, 572]
+
+func room_image(kind: String, floor_num: int, cyc: int) -> Image:
+	var r := BgAct1.build(kind, floor_num, cyc, false)
+	var out := Image.create(640, 360, false, Image.FORMAT_RGBA8)
+	out.fill(Color(0, 0, 0, 1))
+	for L: Dictionary in r["layers"]:
+		out.blend_rect(L["preview"], Rect2i(int(L["margin"]), 0, 640, 360), Vector2i.ZERO)
+	return out
+
+func load_sprite(id: String) -> Dictionary:
+	var body_only := id.ends_with("*")
+	var bid := id.trim_suffix("*")
+	var dir := OS.get_environment("BAKED_DIR") if OS.get_environment("BAKED_DIR") != "" else ProjectSettings.globalize_path("res://assets/baked/creatures")
+	var meta: Variant = JSON.parse_string(FileAccess.get_file_as_string(dir + "/%s.json" % bid))
+	var img := Image.load_from_file(dir + "/%s_prev.png" % bid)
+	img.convert(Image.FORMAT_RGBA8)
+	var idx := Image.load_from_file(dir + "/%s_idx.png" % bid)
+	idx.convert(Image.FORMAT_RGBA8)
+	var w := int(meta["size"][0]); var h := int(meta["size"][1])
+	var idle: Dictionary = meta["anims"]["idle"]
+	var row := int(idle["row"])
+	var frames: Array = []
+	var masks: Array = []
+	var ex := [Palette.index(&"linen"), Palette.index(&"fire")]
+	for f in int(idle["frames"]):
+		var rc := Rect2i(f * w, row * h, w, h)
+		var fr := img.get_region(rc)
+		frames.append(fr)
+		var m := fr.duplicate() as Image
+		if body_only:
+			var ii := idx.get_region(rc)
+			for y in h:
+				for x in w:
+					if ii.get_pixel(x, y).a8 != 0 and ii.get_pixel(x, y).r8 in ex:
+						m.set_pixel(x, y, Color(0, 0, 0, 0))
+		masks.append(m)
+	var r0 := (frames[0] as Image).get_used_rect()
+	return {"frames": frames, "masks": masks, "cx": r0.position.x + r0.size.x / 2, "g": int(((idle.get("sockets", [{}]) as Array)[0] as Dictionary).get("ground", [0, r0.end.y])[1])}
+
+func sep(bg: Image, spr: Image, mask: Image, at: Vector2i) -> float:
+	var ur := spr.get_used_rect()
+	var r := Rect2i(at + ur.position, ur.size).grow(14)
+	var x0 := maxi(0, r.position.x / 4 * 4)
+	var y0 := maxi(0, r.position.y / 4 * 4)
+	var x1 := mini(640, (r.end.x + 3) / 4 * 4)
+	var y1 := mini(360, (r.end.y + 3) / 4 * 4)
+	var crop := Rect2i(x0, y0, x1 - x0, y1 - y0)
+	var scene := bg.get_region(crop)
+	scene.blend_rect(spr, Rect2i(Vector2i.ZERO, spr.get_size()), at - crop.position)
+	var mk := Image.create_empty(crop.size.x, crop.size.y, false, Image.FORMAT_RGBA8)
+	mk.blit_rect(mask, Rect2i(Vector2i.ZERO, mask.get_size()), at - crop.position)
+	return TD.thumbnail_separation(scene, mk)
+
+func parts(bg: Image, spr: Image, mask: Image, at: Vector2i) -> Vector2:
+	var ur := spr.get_used_rect()
+	var r := Rect2i(at + ur.position, ur.size).grow(14)
+	var x0 := maxi(0, r.position.x / 4 * 4)
+	var y0 := maxi(0, r.position.y / 4 * 4)
+	var x1 := mini(640, (r.end.x + 3) / 4 * 4)
+	var y1 := mini(360, (r.end.y + 3) / 4 * 4)
+	var crop := Rect2i(x0, y0, x1 - x0, y1 - y0)
+	var scene := bg.get_region(crop)
+	scene.blend_rect(spr, Rect2i(Vector2i.ZERO, spr.get_size()), at - crop.position)
+	var mk := Image.create_empty(crop.size.x, crop.size.y, false, Image.FORMAT_RGBA8)
+	mk.blit_rect(mask, Rect2i(Vector2i.ZERO, mask.get_size()), at - crop.position)
+	var t: Dictionary = TD.gray_thumb(scene, 4)
+	var m: Dictionary = TD.gray_thumb(TD._alpha_as_gray(mk), 4)
+	var tw: int = t["w"]; var th: int = t["h"]
+	var lum: PackedFloat32Array = t["lum"]; var cov: PackedFloat32Array = m["lum"]
+	var fig := 0.0; var nf := 0; var env := 0.0; var ne := 0
+	for y in th:
+		for x in tw:
+			var i := y * tw + x
+			if cov[i] > 0.5:
+				fig += lum[i]; nf += 1; continue
+			var near := false
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					var xx := x + dx; var yy := y + dy
+					if xx >= 0 and yy >= 0 and xx < tw and yy < th and cov[yy * tw + xx] > 0.5:
+						near = true
+			if near:
+				env += lum[i]; ne += 1
+	return Vector2(fig / maxi(1, nf), env / maxi(1, ne))
+
+func _initialize() -> void:
+	if OS.get_environment("PARTS") != "":
+		var s0: Dictionary = load_sprite(OS.get_environment("CRIT") if OS.get_environment("CRIT") != "" else "ash_slime")
+		for kind: String in ["normal"]:
+			var floors: Array = BakedRooms.VARIANT_FLOORS[kind]
+			for v in floors.size():
+				var bg := room_image(kind, int(floors[v]), 0)
+				var line := "v%d fig/anillo f0:" % v
+				for cx: int in SLOTS:
+					var p := parts(bg, s0["frames"][0], s0["masks"][0], Vector2i(cx - int(s0["cx"]), 264 - int(s0["g"])))
+					line += "  %d:%.3f/%.3f" % [cx, p.x, p.y]
+				print(line)
+		quit(0)
+		return
+	var s: Dictionary = load_sprite(OS.get_environment("CRIT") if OS.get_environment("CRIT") != "" else "ash_slime")
+	var nf := (s["frames"] as Array).size()
+	var by_slot := {}
+	var by_frame := []
+	by_frame.resize(nf); by_frame.fill(1.0)
+	var flue_min := 1.0
+	for kind: String in BakedRooms.VARIANT_FLOORS:
+		var floors: Array = BakedRooms.VARIANT_FLOORS[kind]
+		for v in floors.size():
+			for cyc in 2:
+				var bg := room_image(kind, int(floors[v]), cyc)
+				var line := BakedRooms.room_id(kind, v, cyc)
+				for cx: int in SLOTS:
+					var mn := 1.0
+					for fi in nf:
+						var d := sep(bg, s["frames"][fi], s["masks"][fi], Vector2i(cx - int(s["cx"]), 264 - int(s["g"])))
+						mn = minf(mn, d)
+						if kind == "normal" and cx != 350:
+							by_frame[fi] = minf(by_frame[fi], d)
+						else:
+							flue_min = minf(flue_min, d)
+					if kind == "normal":
+						by_slot[cx] = minf(by_slot.get(cx, 1.0), mn)
+					line += "  %d:%.3f" % [cx, mn]
+				print(line)
+	var t := "SLOT(min 8 normales)"
+	for cx in SLOTS:
+		t += "  %d:%.3f" % [cx, by_slot[cx]]
+	print(t)
+	t = "FOTOGRAMA(min 8 normales x huecos 396-572)"
+	for fi in nf:
+		t += "  f%d:%.3f" % [fi, by_frame[fi]]
+	print(t)
+	print("MIN normales %.3f · tiro %.3f" % [(by_frame as Array).min(), flue_min])
+	var mt := "LUM_MEDIA(mediana, filas 35-75 %)"
+	for fi in nf:
+		var fr: Image = s["frames"][fi]
+		var ur := fr.get_used_rect()
+		var ls: Array = []
+		for y in range(ur.position.y + int(ur.size.y * 0.35), ur.position.y + int(ur.size.y * 0.75)):
+			for x in range(ur.position.x, ur.end.x):
+				var c := fr.get_pixel(x, y)
+				if c.a > 0.5:
+					ls.append(c.get_luminance())
+		ls.sort()
+		mt += "  f%d:%.3f" % [fi, ls[ls.size() / 2]]
+	print(mt)
+	quit(0)

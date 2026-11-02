@@ -244,12 +244,14 @@ static func _anims(b: RigBuilder) -> void:
 		_puffs(k, f)
 		idle[f] = _alive(k)
 	b.anim(&"idle", 6, 170, idle, {"interp": &"hold"})
-	# Telegrafía (cast): el peso atrás, la cabeza arriba rugiendo y el puño alzado POR DELANTE de la cara (silueta despejada).
-	var tell := {&"spine": 0.1, &"head": -0.12, &"arm_n": 1.15, &"fore_n": 0.9, &"arm_f": -0.2, &"leg_n": -0.05, &"@root": Vector2i(2, -1),
+	# Telegrafía (cast): se encabrita (columna atrás: la cabeza sube por encima del hombro) rugiendo; el brazo cercano sale
+	# horizontal por DELANTE y por DEBAJO de la cara y el antebrazo sube vertical: el puño queda delante, a la altura de la
+	# frente y separado de la cara (silueta despejada).
+	var tell := {&"spine": 0.24, &"head": -0.1, &"arm_n": 0.52, &"fore_n": 1.6, &"arm_f": -0.2, &"leg_n": -0.05, &"@root": Vector2i(2, -1),
 		&"emit:door_fire": 2, &"emit:face": 1, &"view:head": &"roar", &"view:drip": &"d0", &"hide:knuckles": true}
 	var tell2 := tell.duplicate()
 	tell2[&"@root"] = Vector2i(3, -2)
-	tell2[&"spine"] = 0.14
+	tell2[&"spine"] = 0.28
 	tell2[&"emit:door_fire"] = 3
 	_puffs(tell, 0)
 	_puffs(tell2, 1)

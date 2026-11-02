@@ -17,7 +17,7 @@
 		},
 		"ash_slime": {
 			"src": "res://scripts/art/defs/creatures/ash_slime.gd",
-			"hash": "aa456a08d3c476c6e6ecb357298a4e729eb3b7d8926f40c437a2a68e146a235d",
+			"hash": "9cc82b46dab2f6cfdbdde1a8d2939fcc9e0f1089f9535c22b3faeb717ff84a1d",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/ash_slime_idx.png",
@@ -25,8 +25,8 @@
 				"res://assets/baked/creatures/ash_slime.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/ash_slime_idx.png": "e67d6239e541b9ee8ba4a172d69e5aeb",
-				"res://assets/baked/creatures/ash_slime_prev.png": "b466065d5d89e0f1339664028cddd4a6"
+				"res://assets/baked/creatures/ash_slime_idx.png": "5c66954f1527725c5e45e60badb22b52",
+				"res://assets/baked/creatures/ash_slime_prev.png": "77291ff4358480e38027f908ce80cc3e"
 			}
 		},
 		"boss_example": {
@@ -181,7 +181,7 @@
 		},
 		"soot_golem": {
 			"src": "res://scripts/art/defs/creatures/soot_golem.gd",
-			"hash": "05c12b5df0b2a26836ec18976aee9d2ad381c05c2677cd0f4ebf0670606b8564",
+			"hash": "6413910d48306d1952c66123b24a7ac7457b3909afbfc301c68b4013bf40af6e",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/soot_golem_idx.png",
@@ -191,10 +191,10 @@
 				"res://assets/baked/creatures/soot_golem.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/soot_golem_idx.png": "9a3ac640a1b31db3a8da8844e84fb506",
-				"res://assets/baked/creatures/soot_golem_prev.png": "1e09d4679ac29ecbe9f31839b2ab80d2",
-				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "8b13ca7d1127c0caf73839df4c50c184",
-				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "f53800af20ee1aa9e6e1575a1bc30a8a"
+				"res://assets/baked/creatures/soot_golem_idx.png": "39cea10fbcb05353d90b4bd6f22e6605",
+				"res://assets/baked/creatures/soot_golem_prev.png": "704dc976fa2b23578bd04427562412e6",
+				"res://assets/baked/creatures/soot_golem@sooty_idx.png": "53b040820e92101a3522f422f70cce13",
+				"res://assets/baked/creatures/soot_golem@sooty_prev.png": "9d2865c1a2a70670d4cbda5700fd01a0"
 			}
 		}
 	}

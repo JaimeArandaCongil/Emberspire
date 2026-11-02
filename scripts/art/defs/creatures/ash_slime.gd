@@ -1,8 +1,9 @@
 extends RefCounted
-## LIMO DE CENIZA (`ash_slime`, acto 1) — PER · v0.4 (F2-CRIA2a: redibujo C5).
+## LIMO DE CENIZA (`ash_slime`, acto 1) — PER · v0.4 (F2-CRIA2a: redibujo C5 · F2-CRIA4: base lobulada, goterón, brillo y labio cálido).
 ## Concepto: una gota de alquitrán blando con una COSTRA de ceniza en la coronilla; por las grietas de la costra asoma la brasa.
-## Silueta: domo que cede (barriga ancha abajo, punta de gota arriba y atrás), base con 3 lóbulos y un goterón en la muesca
-## trasera, sin rectas largas. Costra sólo en el tercio superior, con lenguas que gotean. Ojos de brasa SIEMPRE visibles.
+## Silueta: domo que cede (barriga ancha abajo, punta de gota arriba y atrás), base con 3 lóbulos en bulbo (muescas de 5–6 px)
+## y un goterón-sello en la muesca trasera, sin rectas largas. Alquitrán en pasos 3–5 (luminancia ≥ 0,20) con labio cálido
+## de 1 px en la base (`rock_soot`) que lo separa del suelo y brillo húmedo de 2 px (`linen`). Costra sólo en el tercio superior, con lenguas que gotean. Ojos de brasa SIEMPRE visibles.
 ## ≈ 44×29 px; lienzo 100×68; suelo y = 58. El cuerpo es una LOSA generada por parámetros (`_body`): cada deformación es una
 ## vista propia redibujada a su tamaño, nunca un escalado.
 ## Rasgo vivo (6 f): la base se aplasta 1–2 px y la cima llega un fotograma tarde y retrasada; el brillo húmedo recorre el
@@ -19,6 +20,7 @@ const LEGEND := {
 	"1": [&"tar", 1], "2": [&"tar", 2], "3": [&"tar", 3], "4": [&"tar", 4], "5": [&"tar", 5],
 	"E": [&"ash", 4], "D": [&"ash", 5], "C": [&"ash", 6], "B": [&"ash", 7], "A": [&"ash", 8], "H": [&"ash", 9],
 	"r": [&"fire", 3], "R": [&"fire", 4], "F": [&"fire", 5],
+	"L": [&"lip", 6], "l": [&"lip", 5], "W": [&"wet", 5], "w": [&"wet", 4],
 }
 ## Ojos: la palanca `face` sube/baja el sello con la altura del cuerpo (pivote a 34 px por detrás del sello).
 const FACE_PIVOT := Vector2(22, -10)
@@ -26,6 +28,14 @@ const FACE_AT := Vector2(-34, 0)
 ## Grietas de brasa relativas a la punta de la costra (orden: tronco caliente primero).
 const CRACKS := [[0, 0], [0, 1], [-1, 2], [-2, 3], [-2, 4], [1, 1], [2, 1], [3, 2], [4, 3], [-3, 1], [-4, 1], [-5, 2], [-6, 2], [5, 4], [-7, 3]]
 const CRACK_COOL := [4, 8, 12, 13, 14]
+## Goterón (vistas del sello `drip`): 0 bulto · 1 lágrima colgando · 2 lágrima larga que toca el suelo · 3 cae y se aplasta.
+const DRIP_X := 7
+const DRIPS := [
+	[".nn.", ".nm.", "....", "....", "....", "...."],
+	[".n..", ".nn.", "nWnn", "nnmm", ".mm.", "...."],
+	[".n..", ".n..", ".nn.", "nWnn", "nnmm", ".LL."],
+	[".n..", "....", "....", "....", ".nm.", "LnmL"],
+]
 const WOB := [0, 0, 1, 0, 0, 2, 3, 1, 0, 0, 0, 1, 0, 2, 1, 0, 0, 1]
 
 
@@ -44,7 +54,6 @@ static func _body(p: Dictionary) -> Array:
 	var tm: float = p.get("tm", 0.7)
 	var heat: int = p.get("heat", 2)
 	var gloss: int = p.get("gloss", 0)
-	var drip: int = p.get("drip", 1)
 	var crust: bool = p.get("crust", true)
 	var lobes: bool = p.get("lobes", true)
 	var g: Array = []
@@ -67,12 +76,12 @@ static func _body(p: Dictionary) -> Array:
 		var w := (hw + spread * t * t) * gq
 		var cx := apex * pow(1.0 - t, 1.6) + 0.5
 		rows[y] = Vector2(cx - w, cx + w)
-	# Muescas de la base (3 lóbulos) y goterón en la trasera.
+	# Muescas de la base (3 lóbulos en bulbo) y goterón en lágrima colgando de la muesca trasera.
 	var base: Vector2 = rows[YF]
 	var span := base.y - base.x
 	var notches: Array = []
 	if lobes:
-		notches = [Vector3(base.x + span * 0.36, 3.2, 2.6), Vector3(base.x + span * 0.68, 3.6, 3.0)]
+		notches = [Vector3(base.x + span * 0.33, 3.4, 5.0), Vector3(base.x + span * 0.70, 6.2, 6.0)]
 	var fill := {}
 	for y: int in rows.keys():
 		var lr: Vector2 = rows[y]
@@ -84,15 +93,16 @@ static func _body(p: Dictionary) -> Array:
 				continue
 			fill[Vector2i(x, y)] = true
 	_soften(fill)
-	if lobes and drip >= 0:
-		var dx := int(notches[1].x)
-		var tn := YF - 3
-		var drops: Array = [[Vector2i(dx, tn + 1)], [Vector2i(dx, tn + 1), Vector2i(dx, tn + 2)],
-			[Vector2i(dx, tn + 1), Vector2i(dx, tn + 2), Vector2i(dx, tn + 3), Vector2i(dx - 1, tn + 3)],
-			[Vector2i(dx, tn + 1), Vector2i(dx, tn + 3)]][drip]
-		for d: Vector2i in drops:
-			fill[d] = true
-	# Sombreado a pasos forzados: luz cálida de la Forja arriba-izquierda-delante.
+	# Cada lóbulo acaba en bulbo: se recortan las esquinas exteriores de la fila de apoyo.
+	if lobes:
+		var cut: Array[Vector2i] = []
+		for c: Vector2i in fill.keys():
+			if c.y == YF and (not fill.has(Vector2i(c.x - 1, YF)) or not fill.has(Vector2i(c.x + 1, YF))):
+				cut.append(c)
+		for c in cut:
+			fill.erase(c)
+	# Sombreado a pasos forzados: luz cálida de la Forja arriba-izquierda-delante. El alquitrán va un paso por encima del
+	# suelo (paso 3–5) y la base lleva un labio cálido (reflejo de la Forja en lo mojado) que la separa del suelo.
 	var lgt := Vector3(-0.62, -0.55, 0.56)
 	for c: Vector2i in fill.keys():
 		var x := c.x
@@ -112,15 +122,16 @@ static func _body(p: Dictionary) -> Array:
 			if y >= cl - 1.0:
 				ch = "E" if v < 0.5 else "D"
 		else:
-			ch = "4" if v > 0.7 else ("3" if v > 0.3 else "2")
+			ch = "5" if v > 0.93 else ("4" if v > -0.05 else "3")
 			if y >= ybase:
-				ch = "2" if v > 0.4 else "1"
-			if y >= YF:
-				ch = "1"
+				ch = "4" if v > 0.3 else "3"
 			if crust and y >= cl and y < cl + 1.0:
-				ch = "1"   # sombra que arroja la costra
-			if sx > 0.82 and t > 0.2 and t < 0.8 and ch == "2":
-				ch = "3"   # canto frío de la Torre
+				ch = "2"   # sombra que arroja la costra
+			if sx > 0.82 and t > 0.2 and t < 0.8 and ch == "3":
+				ch = "4"   # canto frío de la Torre
+			# Labio cálido: la cara inferior de cada lóbulo y de cada muesca.
+			if y >= ybase - 2 and not fill.has(Vector2i(x, y + 1)):
+				ch = "L" if sx < 0.55 else "l"
 		_set_px(g, x, y, ch)
 	# Grietas de brasa en la costra.
 	if crust and heat >= 0:
@@ -138,13 +149,25 @@ static func _body(p: Dictionary) -> Array:
 			if heat >= 3 and ch == "r":
 				ch = "R"
 			_set_px(g, x, y, ch)
-	# Brillo húmedo (2 px) bajo la costra, en el flanco iluminado.
+	# Brillo húmedo: canto mojado de 1 px por dentro del flanco delantero y una chispa de 2 px casi blanca bajo la costra,
+	# en el centro del domo (detrás de los ojos); la chispa recorre la coronilla con `gloss`.
+	if crust:
+		for y in range(ytop, ybase - 1):
+			var tt := (y - ytop) / float(maxi(1, hd))
+			if tt < 0.4 or tt > 0.78:
+				continue
+			for x in range(X0, X0 + CW):
+				if "345".contains(_px(g, x, y)):
+					if "345".contains(_px(g, x + 1, y)):
+						_set_px(g, x + 1, y, "5")
+					break
 	if gloss >= 0:
-		var gx := roundi((rows[ybase] as Vector2).x) + 5 + gloss
+		var gx := roundi(((rows[ybase] as Vector2).x + (rows[ybase] as Vector2).y) * 0.5) + 3 + gloss
 		for y in range(ytop, ybase):
-			if "234".contains(_px(g, gx, y)) and "1E".contains(_px(g, gx, y - 1)):
-				_set_px(g, gx, y + 1, "5")
-				_set_px(g, gx - 1, y + 2, "5")
+			if "345".contains(_px(g, gx, y)) and "2".contains(_px(g, gx, y - 1)):
+				_set_px(g, gx, y + 1, "W")
+				_set_px(g, gx + 1, y + 1, "W")
+				_set_px(g, gx - 1, y + 2, "w")
 				break
 	var out: Array = []
 	for r: Array in g:
@@ -237,6 +260,8 @@ static func build() -> RigDef:
 	var b := RigBuilder.new(&"ash_slime", Vector2i(100, 68), Vector2i(62, 55), -1)
 	b.material(&"ash", &"ash")
 	b.material(&"tar", &"coal")
+	b.material(&"lip", &"rock_soot")   # labio cálido de la base (sel-out cálido)
+	b.material(&"wet", &"linen", {"rim": false})   # brillo húmedo
 	b.material(&"smoke", &"smoke", {"rim": false})
 	b.material(&"fire", &"fire")
 	b.bone(&"root", &"", Vector2.ZERO)
@@ -279,6 +304,11 @@ static func build() -> RigDef:
 			"keekk..kekk.",
 			".kkk....kk..",
 		]}})
+	# Goterón: lágrima de alquitrán claro con chispa húmeda, colgando del techo de la muesca trasera (x = DRIP_X). Es un sello
+	# para que el contorno del motor no se la coma; cada estado (`drip` de la forma) es una vista.
+	var dl := {"k": [&"coal", 1], "n": [&"coal", 5], "m": [&"coal", 4], "W": [&"linen", 5], "L": [&"rock_soot", 6]}
+	b.stamp(&"drip", &"root", Vector2(DRIP_X, YF - 5), DRIPS[0], dl, {"anchor": Vector2i(1, 0), "views": {
+		&"d0": DRIPS[0], &"d1": DRIPS[1], &"d2": DRIPS[2], &"d3": DRIPS[3]}})
 	# Boca: sólo al atacar (en reposo no tiene: evita la lectura de "muñequito").
 	b.stamp(&"maw", &"face", FACE_AT + Vector2(3, 5), [
 		"kkkkkkkk",
@@ -308,7 +338,12 @@ static func _pose(form: StringName, root: Vector2i, extra := {}) -> Dictionary:
 		&"face": asin(clampf(-dy / FACE_AT.length(), -1.0, 1.0)),
 		&"crater_arm": asin(clampf(ty / 33.0, -1.0, 1.0)),
 		&"hide:splash_l": true, &"hide:splash_r": true, &"hide:maw": true,
-		&"hide:puff_0": true, &"hide:puff_1": true, &"hide:puff_2": true}
+		&"hide:puff_0": true, &"hide:puff_1": true, &"hide:puff_2": true, &"hide:drip": true}
+	# El goterón sólo cuelga en las formas de reposo (y en el rebote del golpe).
+	var dr: int = (FORMS[form] as Dictionary).get("drip", -1)
+	if dr >= 0 and String(form).begins_with("i"):
+		k[&"hide:drip"] = false
+		k[&"view:drip"] = StringName("d%d" % dr)
 	for key in extra.keys():
 		k[key] = extra[key]
 	return k
