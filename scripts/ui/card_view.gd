@@ -23,7 +23,7 @@ const NAME_X0 := 26.0                    # zona del nombre en px de pantalla: el
 const NAME_X1 := 118.0                   # y el del vecino en la mano empieza en x 122 (paso 132)
 ## Paso de la mano en px de arte (`combat_screen.HAND_MAX_STEP` / 2): el orbe de la carta vecina tapa la placa desde
 ## aquí. El nombre se coloca para no rozar ni el orbe propio ni ése, igual en mano, recompensa y tienda.
-const ORB_STEP := 66
+const ORB_STEP := 81
 const NAME_GAP := 1                      # px de arte de placa libres entre el nombre y cualquier orbe
 const NAME_ROW := 3                      # fila de arte del contorno superior de la celda del glifo con `_name.y` = 8 (mayúsculas en 6–12)
 const NAME_Y := 8.0

@@ -22,7 +22,7 @@ const HAND_Y := 592.0
 const HOVER_Y := 496.0
 const SELECT_Y := 480.0
 const HAND_X := Vector2(150.0, 1120.0)
-const HAND_MAX_STEP := 132.0
+const HAND_MAX_STEP := 162.0
 const HAND_NUDGE := 26.0
 
 const VIGNETTE_SHADER := """
