@@ -1,0 +1,7 @@
+HORNEADO (idle f0-f5, píxeles de ala por color de rampa)
+  cuero: tono 26°, saturación HLS 0.46, px 5146
+  ceniza: tono 24°, saturación HLS 0.18, px 4798
+  polilla: tono 4°, saturación HLS 0.56, px 3669
+  Δtono polilla-cuero 21° (Δsat +0.11); polilla-ceniza 20° (Δsat +0.38)
+CAPTURA 18b (misma escena, encaje exacto de color)
+  murciélago: tono 24°, sat 0.18, px 3220 · polilla: tono 4°, sat 0.56, px 2372 · Δtono 19°, Δsat +0.38

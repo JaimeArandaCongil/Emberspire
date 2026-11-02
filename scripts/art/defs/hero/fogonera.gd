@@ -6,7 +6,7 @@ extends RefCounted
 ## Las poses se escriben como ARTICULACIONES en el lienzo (hombro, codo, muñeca, cadera, tobillo, cabeza, martillo…)
 ## y `_keys()` las convierte en ángulos de hueso + objetivos de IK. Así una pose se lee y se corrige como un dibujo.
 ##
-## Animaciones: idle (8) · idle_shoulder (6) · windup (1) · smear (2, estela en el 1) · strike (1) · recover (2) ·
+## Animaciones: idle (8) · idle_shoulder (6) · shoulder_in (2) · shoulder_out (2) · windup (1) · smear (2, estela en el 1) · strike (1) · recover (2) ·
 ## attack (5: carga, estela, impacto, recuperación ×2) · cast (2) · toss (2: toss_back, toss) · hurt (2) · death (8).
 
 const StampLib = preload("res://scripts/art/defs/stamps/stamp_lib.gd")
@@ -31,6 +31,22 @@ const J := {
 		"sh_f": Vector2(38, 40), "el_f": Vector2(36, 50), "wr_f": Vector2(40, 55),
 		"kn_b": Vector2(39, 72), "an_b": Vector2(38, 83), "kn_f": Vector2(51, 72), "an_f": Vector2(52, 83),
 		"hammer": Vector2(31, 37),
+	},
+	# Puente del 2.º reposo (F2-CRIA3, C15): el martillo sube por DELANTE (no por detrás como en `windup`), queda
+	# vertical junto a la cara y se recuesta al hombro. `shoulder_out` es el mismo arco al revés.
+	"sh_lift": {
+		"head": Vector2(47, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(56, 49), "wr_n": Vector2(60, 48),
+		"sh_f": Vector2(38, 40), "el_f": Vector2(35.5, 50), "wr_f": Vector2(39, 56),
+		"kn_b": Vector2(38.5, 72), "an_b": Vector2(37, 83), "kn_f": Vector2(52, 72), "an_f": Vector2(54, 83),
+		"hammer": Vector2(76, 40),
+	},
+	"sh_up": {
+		"head": Vector2(46, 27), "chest": Vector2(45, 45), "waist": Vector2(45, 55),
+		"sh_n": Vector2(51.5, 40), "el_n": Vector2(58, 48), "wr_n": Vector2(59, 42),
+		"sh_f": Vector2(38, 40), "el_f": Vector2(36, 50), "wr_f": Vector2(40, 55),
+		"kn_b": Vector2(39, 72), "an_b": Vector2(38, 83), "kn_f": Vector2(51, 72), "an_f": Vector2(52, 83),
+		"hammer": Vector2(60, 22),
 	},
 	"windup": {
 		"head": Vector2(45, 29), "chest": Vector2(43, 47), "waist": Vector2(43, 57),
@@ -162,7 +178,8 @@ const J := {
 
 ## Sellos de cara y mano por pose (vistas).
 const VIEWS := {
-	"idle": ["n", "grip", "fist"], "shoulder": ["n", "knuckles", "fist"], "windup": ["e", "grip", "open"],
+	"idle": ["n", "grip", "fist"], "shoulder": ["n", "knuckles", "fist"],
+	"sh_lift": ["n", "grip", "fist"], "sh_up": ["n", "knuckles", "fist"], "windup": ["e", "grip", "open"],
 	"smear": ["e", "grip", "fist"], "strike": ["e", "knuckles", "fist"], "recover": ["n", "grip", "fist"],
 	"cast": ["n", "grip", "open"], "toss_back": ["w", "grip", "open"], "toss": ["w", "grip", "open"],
 	"hurt": ["h", "grip", "open"], "hurt2": ["h", "grip", "open"], "die1": ["h", "grip", "open"],
@@ -529,6 +546,14 @@ static func _anims(b: RigBuilder) -> void:
 		k[&"emit:lantern"] = [0, 1, 1, 0, -1, 0][f]
 		sh[f] = k
 	b.anim(&"idle_shoulder", 6, 160, sh, {"interp": &"linear", "overlap": {&"bun": 2.0, &"scarf": 2.0}})
+	# Puentes (los reproduce `fighter_view._bridge`; sin bucle: al acabar entra `idle_shoulder` o `idle`).
+	# Entrada: carga el peso (−1 px) y alza el martillo por delante → vertical junto a la cara. Salida: el arco inverso.
+	var lift := _keys("sh_lift", {&"@root": Vector2i(0, 1), &"bun": 0.15, &"scarf": 0.2, &"emit:lantern": 0})
+	var up := _keys("sh_up", {&"bun": -0.1, &"scarf": 0.1, &"emit:lantern": 1})
+	b.anim(&"shoulder_in", 2, [90, 100], {0: lift, 1: up}, {"loop": false, "interp": &"hold"})
+	var up_o := _keys("sh_up", {&"bun": 0.1, &"scarf": -0.1, &"emit:lantern": 0})
+	var lift_o := _keys("sh_lift", {&"@root": Vector2i(0, 1), &"bun": -0.15, &"scarf": -0.2, &"emit:lantern": 0})
+	b.anim(&"shoulder_out", 2, [100, 90], {0: up_o, 1: lift_o}, {"loop": false, "interp": &"hold"})
 	# Ataque completo y sus piezas sueltas (el juego encadena windup → smear → strike → recover).
 	var wk := _keys("windup", {&"z:arm_n": -2.0, &"hide:hand_n": true, &"bun": -0.3, &"scarf": -0.3, &"emit:lantern": 1})
 	var mk := _keys("smear", {&"bun": 0.2, &"scarf": 0.3, &"emit:lantern": 1})

@@ -71,7 +71,7 @@
 		},
 		"cinder_bat": {
 			"src": "res://scripts/art/defs/creatures/cinder_bat.gd",
-			"hash": "5b343fd8354f7d70f205a4e2a9825370f4e1496a2760ad10f549ab39c9ae4b59",
+			"hash": "9eff5e32ee0ffe7645d64cddacf741534d311b4467190e9b5b12611662d81533",
 			"group": "creatures",
 			"files": [
 				"res://assets/baked/creatures/cinder_bat_idx.png",
@@ -79,8 +79,8 @@
 				"res://assets/baked/creatures/cinder_bat.json"
 			],
 			"md5": {
-				"res://assets/baked/creatures/cinder_bat_idx.png": "0afd987e5bcfca85501d608451301762",
-				"res://assets/baked/creatures/cinder_bat_prev.png": "ba01d01dbd6426851afda9b502d5cc41"
+				"res://assets/baked/creatures/cinder_bat_idx.png": "d430bf7f0324d1e28c74df8f6194c08f",
+				"res://assets/baked/creatures/cinder_bat_prev.png": "d0d73802999683b13207bcf45252185f"
 			}
 		},
 		"ember_magpie": {
@@ -113,7 +113,7 @@
 		},
 		"fogonera": {
 			"src": "res://scripts/art/defs/hero/fogonera.gd",
-			"hash": "2f3042db64d8004d9e029a6cdbdd737f8e235ba337d92b888f956a045c71c4e7",
+			"hash": "355ed528b87f8975cc3fced9bf30722b76b7a0975cfc75856177ee0086e02934",
 			"group": "hero",
 			"files": [
 				"res://assets/baked/hero/fogonera_idx.png",
@@ -121,8 +121,8 @@
 				"res://assets/baked/hero/fogonera.json"
 			],
 			"md5": {
-				"res://assets/baked/hero/fogonera_idx.png": "51477bc4150c52ce765344a69d6eee68",
-				"res://assets/baked/hero/fogonera_prev.png": "117b1d194536236ffd92aa1746900926"
+				"res://assets/baked/hero/fogonera_idx.png": "098de9fb2d83f859b39fa2fc59e74daa",
+				"res://assets/baked/hero/fogonera_prev.png": "b00253a14cb3c2db2fe28ff1b2c57c72"
 			}
 		},
 		"golem_example": {

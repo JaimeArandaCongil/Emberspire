@@ -66,6 +66,29 @@ const OUT := [
 ]
 
 
+## Canto de 1 px (F2-CRIA3): cada píxel de membrana (`#`, `%`) que toca aire (4 vecinos, sin contar los bordes de la losa,
+## que son las uniones con el cuerpo y entre tramos) pasa a `r`. El ala queda como mancha oscura con el borde quemado y
+## encendido: separa la figura del muro y del arco a la vez (C13).
+static func _rim(rows: Array) -> Array:
+	var out: Array = []
+	var h := rows.size()
+	for y in h:
+		var r: String = rows[y]
+		var o := ""
+		for x in r.length():
+			var c := r[x]
+			if c == "#" or c == "%":
+				for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var xx := x + d.x
+					var yy := y + d.y
+					if yy >= 0 and yy < h and xx >= 0 and xx < (rows[yy] as String).length() and (rows[yy] as String)[xx] == ".":
+						c = "r"
+						break
+			o += c
+		out.append(o)
+	return out
+
+
 static func _mirror(rows: Array) -> Array:
 	var out: Array = []
 	for r: String in rows:
@@ -77,6 +100,7 @@ static func build() -> RigDef:
 	var b := RigBuilder.new(&"cinder_bat", Vector2i(124, 128), Vector2i(68, 70), -1)
 	b.material(&"fur", &"soot", {"texture": &"soot_grain"})
 	b.material(&"skin", &"rock_soot")
+	b.material(&"membrane", &"ash")
 	b.material(&"magma", &"hot")
 	b.material(&"fire", &"fire")
 	b.bone(&"root", &"", Vector2.ZERO)
@@ -89,9 +113,9 @@ static func build() -> RigDef:
 	b.bone(&"wing_n2", &"wing_n", Vector2(16, -12))
 	b.bone(&"spark", &"root", Vector2.ZERO, {"z": 20.0})
 	# Ala lejana: el espejo de la cercana, un paso más oscura (detrás de la cabeza).
-	var far := {"#": [&"skin", 1], "%": [&"skin", 1], "f": [&"skin", 3], "v": [&"magma", 1], "e": [&"magma", 2], "B": [&"skin", 3]}
-	b.slab(&"wing_f_in", &"wing_f", _mirror(IN), Vector2(-16, -12), far, 0.0, 1.0, 1.0)
-	b.slab(&"wing_f_out", &"wing_f2", _mirror(OUT), Vector2(-21, -10), far, 0.0, 1.0, 1.0)
+	var far := {"#": [&"membrane", 7], "%": [&"membrane", 7], "f": [&"skin", 2], "v": [&"magma", 2], "e": [&"magma", 3], "B": [&"skin", 6], "r": [&"skin", 6]}
+	b.slab(&"wing_f_in", &"wing_f", _rim(_mirror(IN)), Vector2(-16, -12), far, 0.0, 1.0, 1.0)
+	b.slab(&"wing_f_out", &"wing_f2", _rim(_mirror(OUT)), Vector2(-21, -10), far, 0.0, 1.0, 1.0)
 	# Cuerpo: tronco peludo pequeño, núcleo de brasa, patas colgando.
 	b.stamp(&"feet", &"foot", Vector2.ZERO, ["k.k", "k.k", "h.h"], {"k": [&"skin", 3], "h": [&"skin", 5]}, {"anchor": Vector2i(1, 0)})
 	b.ell(&"belly", &"body", &"fur", Vector3(0, 0, 0), Vector3(6.5, 9, 6), {"flat": 0.2})
@@ -131,9 +155,9 @@ static func build() -> RigDef:
 		".W.W...",
 	]}, "z_top": false})
 	# Ala cercana: dos tramos de membrana oscura llena, borde de ataque con canto cálido, dedos, venas y un agujero quemado.
-	var near := {"#": [&"skin", 1], "%": [&"skin", 1], "f": [&"skin", 5], "v": [&"magma", 2], "e": [&"magma", 3], "B": [&"skin", 6]}
-	b.slab(&"wing_n_in", &"wing_n", IN, Vector2(-2, -12), near, 0.0, 1.0, 1.0)
-	b.slab(&"wing_n_out", &"wing_n2", OUT, Vector2(-1, -10), near, 0.0, 1.0, 1.0)
+	var near := {"#": [&"membrane", 8], "%": [&"membrane", 7], "f": [&"skin", 3], "v": [&"magma", 3], "e": [&"magma", 4], "B": [&"skin", 7], "r": [&"skin", 7]}
+	b.slab(&"wing_n_in", &"wing_n", _rim(IN), Vector2(-2, -12), near, 0.0, 1.0, 1.0)
+	b.slab(&"wing_n_out", &"wing_n2", _rim(OUT), Vector2(-1, -10), near, 0.0, 1.0, 1.0)
 	# Chispas por los agujeros y pavesas de la muerte (rejilla 40×36 centrada en el cuerpo).
 	b.stamp(&"sparks", &"spark", Vector2.ZERO, ["."], {"o": [&"fire", 4], "y": [&"fire", 6]}, {"anchor": Vector2i(20, 18), "views": {
 		&"none": ["."],

@@ -1,0 +1,95 @@
+extends SceneTree
+## Separación en gris a 1/4 (test_da.thumbnail_separation, recorte alineado a 4 px: mismo resultado, más rápido).
+## Cada criatura, cada fotograma de reposo, en cada hueco de enemigo, sobre cada variante de sala (vista previa = luz dinámica 0).
+## `candle_mite*` = cuerpo sin cera ni llama (como el diario de F2-CRIA2b).
+const TD = preload("res://tests/art/test_da.gd")
+const CRITS := ["cinder_bat", "candle_mite", "candle_mite*", "ash_slime", "ember_magpie", "flame_moth", "soot_golem", "hollow_knight", "ash_glutton"]
+const SLOTS := [350, 396, 460, 466, 540, 572]
+
+func room_image(kind: String, floor_num: int, cyc: int) -> Image:
+	var r := BgAct1.build(kind, floor_num, cyc, false)
+	var out := Image.create(640, 360, false, Image.FORMAT_RGBA8)
+	out.fill(Color(0, 0, 0, 1))
+	for L: Dictionary in r["layers"]:
+		out.blend_rect(L["preview"], Rect2i(int(L["margin"]), 0, 640, 360), Vector2i.ZERO)
+	return out
+
+func load_sprite(id: String) -> Dictionary:
+	var body_only := id.ends_with("*")
+	var bid := id.trim_suffix("*")
+	var meta: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://assets/baked/creatures/%s.json" % bid))
+	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/baked/creatures/%s_prev.png" % bid))
+	img.convert(Image.FORMAT_RGBA8)
+	var idx := Image.load_from_file(ProjectSettings.globalize_path("res://assets/baked/creatures/%s_idx.png" % bid))
+	idx.convert(Image.FORMAT_RGBA8)
+	var w := int(meta["size"][0]); var h := int(meta["size"][1])
+	var idle: Dictionary = meta["anims"]["idle"]
+	var row := int(idle["row"])
+	var frames: Array = []
+	var masks: Array = []
+	var ex := [Palette.index(&"linen"), Palette.index(&"fire")]
+	for f in int(idle["frames"]):
+		var rc := Rect2i(f * w, row * h, w, h)
+		var fr := img.get_region(rc)
+		frames.append(fr)
+		var m := fr.duplicate() as Image
+		if body_only:
+			var ii := idx.get_region(rc)
+			for y in h:
+				for x in w:
+					if ii.get_pixel(x, y).a8 != 0 and ii.get_pixel(x, y).r8 in ex:
+						m.set_pixel(x, y, Color(0, 0, 0, 0))
+		masks.append(m)
+	var r0 := (frames[0] as Image).get_used_rect()
+	return {"frames": frames, "masks": masks, "cx": r0.position.x + r0.size.x / 2, "g": int(((idle.get("sockets", [{}]) as Array)[0] as Dictionary).get("ground", [0, r0.end.y])[1])}
+
+func sep(bg: Image, spr: Image, mask: Image, at: Vector2i) -> float:
+	var ur := spr.get_used_rect()
+	var r := Rect2i(at + ur.position, ur.size).grow(14)
+	var x0 := maxi(0, r.position.x / 4 * 4)
+	var y0 := maxi(0, r.position.y / 4 * 4)
+	var x1 := mini(640, (r.end.x + 3) / 4 * 4)
+	var y1 := mini(360, (r.end.y + 3) / 4 * 4)
+	var crop := Rect2i(x0, y0, x1 - x0, y1 - y0)
+	var scene := bg.get_region(crop)
+	scene.blend_rect(spr, Rect2i(Vector2i.ZERO, spr.get_size()), at - crop.position)
+	var mk := Image.create_empty(crop.size.x, crop.size.y, false, Image.FORMAT_RGBA8)
+	mk.blit_rect(mask, Rect2i(Vector2i.ZERO, mask.get_size()), at - crop.position)
+	return TD.thumbnail_separation(scene, mk)
+
+func _initialize() -> void:
+	var s: Dictionary = load_sprite("cinder_bat")
+	var nf := (s["frames"] as Array).size()
+	var by_slot := {}
+	var by_frame := []
+	by_frame.resize(nf); by_frame.fill(1.0)
+	var flue_min := 1.0
+	for kind: String in BakedRooms.VARIANT_FLOORS:
+		var floors: Array = BakedRooms.VARIANT_FLOORS[kind]
+		for v in floors.size():
+			for cyc in 2:
+				var bg := room_image(kind, int(floors[v]), cyc)
+				var line := BakedRooms.room_id(kind, v, cyc)
+				for cx: int in SLOTS:
+					var mn := 1.0
+					for fi in nf:
+						var d := sep(bg, s["frames"][fi], s["masks"][fi], Vector2i(cx - int(s["cx"]), 264 - int(s["g"])))
+						mn = minf(mn, d)
+						if kind == "normal":
+							by_frame[fi] = minf(by_frame[fi], d)
+						else:
+							flue_min = minf(flue_min, d)
+					if kind == "normal":
+						by_slot[cx] = minf(by_slot.get(cx, 1.0), mn)
+					line += "  %d:%.3f" % [cx, mn]
+				print(line)
+	var t := "SLOT(min 8 normales)"
+	for cx in SLOTS:
+		t += "  %d:%.3f" % [cx, by_slot[cx]]
+	print(t)
+	t = "FOTOGRAMA(min 8 normales x huecos)"
+	for fi in nf:
+		t += "  f%d:%.3f" % [fi, by_frame[fi]]
+	print(t)
+	print("MIN normales %.3f · tiro %.3f" % [(by_frame as Array).min(), flue_min])
+	quit(0)
