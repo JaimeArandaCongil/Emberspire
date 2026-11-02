@@ -1193,14 +1193,44 @@ func _shaft_gallery(c: BgCanvas, x: int, y: int, u: float, w: float, top: float,
 		c.fixed(x, y, BRICK, rr if posmod(int(w), 4) != 0 else maxi(0, rr - 1))
 
 
+## Escena del tiro (F2-PULIDO-C): tras el cuerpo del jefe (14: art 333–572 × 132–205), su lomo y su grúa (x ≥ 440 desde
+## y 82) y los élites (x 420–512) el muro lejano no gana detalle; las saeteras y la luz de sus lámparas sólo se marcan fuera.
+const SHAFT_CALM: Array[Rect2i] = [Rect2i(326, 128, 256, 80), Rect2i(440, 74, 142, 54)]
+## Sobre la cabeza del jefe (x 326–439, y 74–127) el muro también se aquieta, pero la saetera de x 375 sí se marca.
+const SHAFT_QUIET := Rect2i(326, 74, 114, 54)
+## Hasta dónde baja la luz fría de la cima del tiro: 8 px (2 celdas de la miniatura a 1/4) sobre la grúa del jefe (y 82).
+const SHAFT_COLD_Y1 := 74.0
+
+
+func _shaft_in_calm(x: int, y: int, wall := false) -> bool:
+	var p := Vector2i(x, y)
+	return SHAFT_CALM[0].has_point(p) or SHAFT_CALM[1].has_point(p) or (wall and SHAFT_QUIET.has_point(p))
+
+
+## Centro en pantalla de una saetera lejana (arco de 20×29 en coordenadas de cilindro, altura `hgt`).
+func _shaft_slit_center(ang: float, hgt: float, cx: float, R: float, eye: float) -> Vector2i:
+	var f := 0.62 + 0.38 * cos(ang * 1.5)
+	return Vector2i(int(cx + sin(ang) * R), int(eye + (hgt - 14.0 - eye) / f))
+
+
 func _build_shaft(c: BgCanvas) -> void:
 	var R := 220.0
 	var cx := 440.0
 	var eye := 150.0
-	far_lights = [{"t": "pt", "p": Vector2(440, 330), "r": [74.0, 108.0, 146.0, 196.0, 260.0], "ys": 1.2}]
-	# Galerías del otro lado del tiro: [ángulo, altura en el cilindro, encendida].
+	far_lights = [{"t": "pt", "p": Vector2(440, 330), "r": [74.0, 108.0, 146.0, 196.0, 260.0], "ys": 1.2},
+		# Luz fría de la Torre: baja por el tiro desde la cima y moja la parte alta del muro en dos bandas que siguen
+		# la curva de las hiladas (elipse ancha); se queda sobre la grúa del jefe y el anillo de su miniatura (y ≤ 74).
+		{"t": "pt", "p": Vector2(440, -20), "r": [130.0, 184.0], "ys": 2.0, "cold": true, "y1": SHAFT_COLD_Y1}]
+	# Galerías del otro lado del tiro (saeteras): [ángulo, altura en el cilindro, encendida].
 	var arches := [[-0.62, 120.0, 0], [-0.30, 120.0, 1], [0.34, 120.0, 0], [0.66, 120.0, 1],
-		[-0.46, 56.0, 0], [-0.14, 56.0, 1], [0.50, 56.0, 0], [-0.46, 190.0, 1], [0.18, 190.0, 0], [0.50, 190.0, 1]]
+		[-0.46, 56.0, 0], [-0.14, 56.0, 1], [0.50, 56.0, 0], [-0.46, 190.0, 1], [0.18, 190.0, 0], [0.50, 190.0, 1],
+		# F2-PULIDO-C: una encendida en el flanco izquierdo, entre la jamba del arco y la escena (x ≈ 298, y ≈ 148–178).
+		[-0.70, 176.0, 1]]
+	# Saeteras que se marcan (fuera de la escena): marco claro, alféizar y sombra bajo él; las encendidas, luz en el muro.
+	var vivid: Array[bool] = []
+	for ar: Array in arches:
+		var sc := _shaft_slit_center(float(ar[0]), float(ar[1]), cx, R, eye)
+		vivid.append(not _shaft_in_calm(sc.x, sc.y))
 	for y in range(0, FY + 4):
 		for x in range(270, 612):
 			var dx := clampf((x - cx) / R, -0.98, 0.98)
@@ -1243,11 +1273,15 @@ func _build_shaft(c: BgCanvas) -> void:
 				continue
 			# Arcadas de otras galerías (siguen la curvatura: son coordenadas de cilindro).
 			var painted := false
-			for ar: Array in arches:
+			var sill_shadow := false
+			for ai in arches.size():
+				var ar: Array = arches[ai]
 				var u := (th - float(ar[0])) * R
 				var w := yr - float(ar[1])
 				var hw := 10.0
 				var top := -28.0
+				if vivid[ai] and absf(u) < hw + 3.0 and w > 1.0 and w <= 4.0:
+					sill_shadow = true
 				if absf(u) > hw + 2.0 or w < top - 2.0 or w > 1.0:
 					continue
 				var inside: bool = (w > top + hw and absf(u) < hw) or Vector2(u, w - (top + hw)).length() < hw
@@ -1258,7 +1292,14 @@ func _build_shaft(c: BgCanvas) -> void:
 					break
 				elif trim:
 					var key := absf(u) < 2.0 and w < top + 1.0
-					c.put(x, y, STONE, 3 if key else (2 if u < 0.0 else 1), Vector2i(x, y) if key else Vector2i(int(cx + sin(float(ar[0])) * R), y / 6 * 6))
+					var tv := 3 if key else (2 if u < 0.0 else 1)
+					var sill := w > -1.0
+					if vivid[ai]:
+						# Marco que mira a la luz del foso (abajo y a la izquierda) un paso más claro; alféizar de piedra.
+						tv = 5 if key else (4 if u < 0.0 else 2)
+						if sill:
+							tv = 4 if u < hw else 3
+					c.put(x, y, STONE, tv, Vector2i(x, y) if key else Vector2i(int(cx + sin(float(ar[0])) * R), y / 6 * 6))
 					painted = true
 					break
 			if painted:
@@ -1273,9 +1314,11 @@ func _build_shaft(c: BgCanvas) -> void:
 			var anc := Vector2i(int(cx + sin(ath) * R), int(eye + (ayr - eye) / (0.62 + 0.38 * cos(ath * 1.5))))
 			# Zonas de reparación: paños enteros de ladrillo más claro u oscuro (rompen la planitud a gran escala).
 			var zone := h3(int((th + 2.0) * 7.0), posmod(iy, 264) / 24, 34)
+			# Tras el jefe y los élites (SHAFT_CALM) no hay paños ni ladrillos sueltos más claros: el muro queda más quieto.
+			var calm := _shaft_in_calm(x, y, true)
 			if zone < 0.18:
 				v -= 1
-			elif zone > 0.82:
+			elif zone > 0.82 and not calm:
 				v += 1
 			# Sombra de la cornisa encima y hollín que escurre de ella en regueros.
 			if below_band >= 0 and below_band < 3:
@@ -1287,13 +1330,23 @@ func _build_shaft(c: BgCanvas) -> void:
 				var dr := float(x) - (cx + sin(rth2) * R)
 				if dr > 7.0 and dr < 14.0:
 					v -= 1
+			if sill_shadow:
+				v -= 1
+			# Luz de las lámparas de las saeteras encendidas sobre el muro, por pieza (ancla), en dos saltos.
+			for ai2 in arches.size():
+				var ar2: Array = arches[ai2]
+				if not vivid[ai2] or int(ar2[2]) == 0:
+					continue
+				var dl := Vector2((ath - float(ar2[0])) * R, ayr - float(ar2[1]) + 15.0).length()
+				if dl < 22.0:
+					v += 2 if dl < 13.0 else 1
 			if ry == 0 or fr < 0.12 / maxf(0.4, cos(th)):
 				c.joint(x, y, BRICK, v - 1)
 			else:
 				var hb2 := h3(ci, row, 33)
 				if hb2 < 0.16:
 					v -= 1
-				elif hb2 > 0.9:
+				elif hb2 > 0.9 and not calm:
 					v += 1
 				c.put(x, y, BRICK, v, anc)
 	# Dos pasarelas cruzando el tiro.

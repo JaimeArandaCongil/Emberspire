@@ -650,6 +650,49 @@ func check_room_quality() -> Array:
 				fire_far += 1
 	if fire_far > 120:
 		out.append("[MV tiro] las galerías lejanas se leen como marcas rojas (%d px de fuego)" % fire_far)
+	out.append_array(_check_shaft_slits(far_room))
+	return out
+
+
+## F2-PULIDO-C: saeteras legibles fuera de la escena (marco de piedra claro) y nada nuevo tras el jefe: la luz fría de la
+## cima no baja de SHAFT_COLD_Y1 y tras el cuerpo del jefe el ladrillo no sube de paso 4.
+func _check_shaft_slits(far_room: Dictionary) -> Array:
+	var out: Array = []
+	var idx: Image = _layer(far_room, "far")["index"]
+	var m := BgAct1.M_FAR
+	var stone := Palette.index(&"stone")
+	var brick := Palette.index(&"brick")
+	var b := BgAct1.new()
+	for y in range(int(BgAct1.SHAFT_COLD_Y1) + 1, 230):
+		for x in range(270, 612):
+			var c := idx.get_pixel(x + m, y)
+			if not IndexFormat.is_empty(c) and (IndexFormat.flags_of(c) & IndexFormat.F_COLD) != 0:
+				out.append("[MV tiro] la luz fría de la cima baja hasta (%d,%d), sobre el jefe" % [x, y])
+				return out
+	# Ladrillo claro (paso ≥ 4) tras el cuerpo del jefe: sólo el del foso, sin luz de lámpara ni paños claros
+	# (F2-PULIDO-C: 1.396 px y paso máximo 4; antes, 2.438 y 6).
+	var hot := 0
+	var r0: Rect2i = BgAct1.SHAFT_CALM[0]
+	for y in range(r0.position.y, r0.end.y):
+		for x in range(r0.position.x, r0.end.x):
+			var c2 := idx.get_pixel(x + m, y)
+			if not IndexFormat.is_empty(c2) and IndexFormat.material_of(c2) == brick and IndexFormat.step_of(c2) >= 4:
+				hot += 1
+				if IndexFormat.step_of(c2) > 4:
+					out.append("[MV tiro] ladrillo a paso %d tras el cuerpo del jefe en (%d,%d)" % [IndexFormat.step_of(c2), x, y])
+					return out
+	if hot > 1500:
+		out.append("[MV tiro] %d px de ladrillo a paso 4 tras el cuerpo del jefe (≤ 1.500)" % hot)
+	for sl: Vector2 in [Vector2(-0.30, 120.0), Vector2(-0.70, 176.0)]:
+		var sc := b._shaft_slit_center(sl.x, sl.y, 440.0, 220.0, 150.0)
+		var lit := 0
+		for y in range(sc.y - 22, sc.y + 22):
+			for x in range(sc.x - 14, sc.x + 14):
+				var c3 := idx.get_pixel(x + m, y)
+				if not IndexFormat.is_empty(c3) and IndexFormat.material_of(c3) == stone and IndexFormat.step_of(c3) >= 4:
+					lit += 1
+		if lit < 20:
+			out.append("[MV tiro] la saetera de (%d,%d) no tiene marco claro (%d px de piedra ≥ 4)" % [sc.x, sc.y, lit])
 	return out
 
 

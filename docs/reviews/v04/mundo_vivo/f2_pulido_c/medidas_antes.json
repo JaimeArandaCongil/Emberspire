@@ -1,0 +1,191 @@
+{
+ "salas": {
+  "flue_v0_c0": {
+   "jefe (14: bbox sobre la baranda)": 13.62,
+   "cuerpo jefe (sin grúa)": 14.36,
+   "élite @466": 14.59,
+   "flanco izq.": 14.26,
+   "flanco der.": 25.55,
+   "cúpula": 12.12
+  },
+  "flue_v0_c1": {
+   "jefe (14: bbox sobre la baranda)": 13.62,
+   "cuerpo jefe (sin grúa)": 14.36,
+   "élite @466": 14.59,
+   "flanco izq.": 13.87,
+   "flanco der.": 24.52,
+   "cúpula": 12.1
+  },
+  "flue_v1_c0": {
+   "jefe (14: bbox sobre la baranda)": 13.62,
+   "cuerpo jefe (sin grúa)": 14.36,
+   "élite @466": 14.59,
+   "flanco izq.": 14.23,
+   "flanco der.": 25.29,
+   "cúpula": 12.13
+  },
+  "flue_v1_c1": {
+   "jefe (14: bbox sobre la baranda)": 13.62,
+   "cuerpo jefe (sin grúa)": 14.36,
+   "élite @466": 14.59,
+   "flanco izq.": 13.67,
+   "flanco der.": 25.78,
+   "cúpula": 12.25
+  },
+  "normal_v0_c0": {
+   "jefe (14: bbox sobre la baranda)": 15.48,
+   "cuerpo jefe (sin grúa)": 16.56,
+   "élite @466": 12.47,
+   "flanco izq.": 18.56,
+   "flanco der.": 35.21,
+   "cúpula": 13.34
+  },
+  "normal_v0_c1": {
+   "jefe (14: bbox sobre la baranda)": 16.37,
+   "cuerpo jefe (sin grúa)": 17.24,
+   "élite @466": 12.98,
+   "flanco izq.": 18.93,
+   "flanco der.": 35.29,
+   "cúpula": 12.92
+  },
+  "normal_v1_c0": {
+   "jefe (14: bbox sobre la baranda)": 15.9,
+   "cuerpo jefe (sin grúa)": 17.1,
+   "élite @466": 14.36,
+   "flanco izq.": 18.8,
+   "flanco der.": 35.23,
+   "cúpula": 13.08
+  },
+  "normal_v1_c1": {
+   "jefe (14: bbox sobre la baranda)": 15.2,
+   "cuerpo jefe (sin grúa)": 16.32,
+   "élite @466": 14.64,
+   "flanco izq.": 18.65,
+   "flanco der.": 35.14,
+   "cúpula": 13.07
+  },
+  "normal_v2_c0": {
+   "jefe (14: bbox sobre la baranda)": 16.54,
+   "cuerpo jefe (sin grúa)": 17.86,
+   "élite @466": 14.48,
+   "flanco izq.": 18.82,
+   "flanco der.": 35.27,
+   "cúpula": 13.43
+  },
+  "normal_v2_c1": {
+   "jefe (14: bbox sobre la baranda)": 14.69,
+   "cuerpo jefe (sin grúa)": 15.67,
+   "élite @466": 14.97,
+   "flanco izq.": 18.64,
+   "flanco der.": 35.27,
+   "cúpula": 13.29
+  },
+  "normal_v3_c0": {
+   "jefe (14: bbox sobre la baranda)": 15.89,
+   "cuerpo jefe (sin grúa)": 16.61,
+   "élite @466": 14.63,
+   "flanco izq.": 18.68,
+   "flanco der.": 35.4,
+   "cúpula": 13.59
+  },
+  "normal_v3_c1": {
+   "jefe (14: bbox sobre la baranda)": 15.88,
+   "cuerpo jefe (sin grúa)": 17.05,
+   "élite @466": 15.06,
+   "flanco izq.": 18.56,
+   "flanco der.": 35.55,
+   "cúpula": 12.62
+  }
+ },
+ "contraste_salas": {
+  "hollow_knight@466": 0.137,
+  "candle_mite@312": 0.207,
+  "candle_mite@466": 0.215,
+  "candle_mite@591": 0.232
+ },
+ "capturas": {
+  "14_boss_summon": {
+   "sep_jefe": 0.0991,
+   "sep_acaro_izq": 0.1287,
+   "sep_acaro_der": 0.1357,
+   "desv_fondo_tras_jefe (art 333-572 x 82-205, sin el jefe)": 19.26,
+   "px_fondo_visibles": 10748,
+   "desv_jefe_px666-1146x164-412": 37.78,
+   "desv_cuerpo_px666-1146x264-412": 36.5,
+   "desv_px_cuerpo": 36.44
+  },
+  "14a_summon_reveal": {
+   "sep_jefe": 0.101,
+   "sep_acaro_izq": 0.0922,
+   "sep_acaro_der": 0.113,
+   "desv_fondo_tras_jefe (art 333-572 x 82-205, sin el jefe)": 19.62,
+   "px_fondo_visibles": 10406,
+   "desv_jefe_px666-1146x164-412": 37.82,
+   "desv_cuerpo_px666-1146x264-412": 35.87,
+   "desv_px_cuerpo": 35.83
+  },
+  "07_C19": 10.13
+ },
+ "pegado_sobre_salas": {
+  "14_boss_summon": {
+   "v0_c0": {
+    "sep_jefe": 0.1211,
+    "sep_acaro_izq": 0.1645,
+    "sep_acaro_der": 0.1628,
+    "desv_sala_tras_jefe (bbox, sin figura)": 11.95,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.59
+   },
+   "v0_c1": {
+    "sep_jefe": 0.1211,
+    "sep_acaro_izq": 0.1643,
+    "sep_acaro_der": 0.1623,
+    "desv_sala_tras_jefe (bbox, sin figura)": 11.95,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.59
+   },
+   "v1_c0": {
+    "sep_jefe": 0.1211,
+    "sep_acaro_izq": 0.1645,
+    "sep_acaro_der": 0.1649,
+    "desv_sala_tras_jefe (bbox, sin figura)": 11.95,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.59
+   },
+   "v1_c1": {
+    "sep_jefe": 0.1211,
+    "sep_acaro_izq": 0.1673,
+    "sep_acaro_der": 0.1661,
+    "desv_sala_tras_jefe (bbox, sin figura)": 11.95,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.59
+   }
+  },
+  "14a_summon_reveal": {
+   "v0_c0": {
+    "sep_jefe": 0.1229,
+    "sep_acaro_izq": 0.1185,
+    "sep_acaro_der": 0.1368,
+    "desv_sala_tras_jefe (bbox, sin figura)": 12.01,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.64
+   },
+   "v0_c1": {
+    "sep_jefe": 0.1229,
+    "sep_acaro_izq": 0.1186,
+    "sep_acaro_der": 0.1363,
+    "desv_sala_tras_jefe (bbox, sin figura)": 12.01,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.64
+   },
+   "v1_c0": {
+    "sep_jefe": 0.1229,
+    "sep_acaro_izq": 0.1186,
+    "sep_acaro_der": 0.1376,
+    "desv_sala_tras_jefe (bbox, sin figura)": 12.01,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.64
+   },
+   "v1_c1": {
+    "sep_jefe": 0.1229,
+    "sep_acaro_izq": 0.1208,
+    "sep_acaro_der": 0.1386,
+    "desv_sala_tras_jefe (bbox, sin figura)": 12.01,
+    "desv_sala_tras_cuerpo (y 132-205, sin figura)": 10.64
+   }
+  }
+ }
+}
