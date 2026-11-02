@@ -34,6 +34,8 @@ func run() -> Array:
 	f.append_array(check_status_fx())
 	f.append_array(check_summon_fx())
 	f.append_array(check_room_quality())
+	for r: Dictionary in [normal, flue]:
+		f.append_array(check_stage(r))
 	f.append_array(check_glow_and_wave())
 	return f
 
@@ -649,6 +651,49 @@ func check_room_quality() -> Array:
 	if fire_far > 120:
 		out.append("[MV tiro] las galerías lejanas se leen como marcas rojas (%d px de fuego)" % fire_far)
 	return out
+
+
+## C19: tras los enemigos las juntas bajan 1 paso de contraste respecto al resto del muro, y la rejilla del suelo no
+## cae bajo ninguna placa de PV (enemigos x ≥ 311, heroína x ≤ 201, y 265–277).
+func check_stage(r: Dictionary) -> Array:
+	var out: Array = []
+	var k: String = r["kind"]
+	var idx: Image = _layer(r, "mid")["index"]
+	var stage := _joint_depth(idx, BgAct1.STAGE_X + 40, 636)
+	var rest := _joint_depth(idx, 120, 240)
+	if stage > rest - 0.5 or stage > 1.6:
+		out.append("[MV escena %s] juntas tras los enemigos a %.2f pasos del ladrillo (resto del muro %.2f)" % [k, stage, rest])
+	var iron := Palette.index(&"iron")
+	for y in range(265, 278):
+		for x: int in range(0, 640):
+			if x > 201 and x < 311:
+				continue
+			var c2 := idx.get_pixel(x, y)
+			if not IndexFormat.is_empty(c2) and IndexFormat.material_of(c2) == iron:
+				out.append("[MV escena %s] la rejilla del suelo asoma bajo una placa de PV en (%d,%d)" % [k, x, y])
+				return out
+	var gx: int = (r["anchors"]["grate"] as Vector2i).x
+	if gx < 201 or gx > 311:
+		out.append("[MV escena %s] el ancla de la rejilla (x %d) cae bajo una placa" % [k, gx])
+	return out
+
+
+## Media de (paso del ladrillo de debajo − paso de la junta de tendel) en el muro de ladrillo, x0..x1, y 40..zócalo.
+func _joint_depth(idx: Image, x0: int, x1: int) -> float:
+	var brick := Palette.index(&"brick")
+	var n := 0
+	var sum := 0
+	for y in range(40, BgAct1.DADO_Y - 1):
+		for x in range(x0, x1):
+			var c := idx.get_pixel(x, y)
+			if IndexFormat.is_empty(c) or IndexFormat.material_of(c) != brick or (IndexFormat.flags_of(c) & IndexFormat.F_JOINT) == 0:
+				continue
+			var below := idx.get_pixel(x, y + 1)
+			if IndexFormat.is_empty(below) or IndexFormat.material_of(below) != brick or (IndexFormat.flags_of(below) & IndexFormat.F_JOINT) != 0:
+				continue
+			n += 1
+			sum += IndexFormat.step_of(below) - IndexFormat.step_of(c)
+	return float(sum) / maxf(1.0, n)
 
 
 func check_glow_and_wave() -> Array:

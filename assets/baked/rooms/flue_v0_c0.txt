@@ -8,7 +8,7 @@
 "flue": Rect2i(290, 40, 300, 168),
 "forge_zone": Rect2i(8, 120, 104, 144),
 "gauge": Vector2i(160, 57),
-"grate": Vector2i(320, 276),
+"grate": Vector2i(256, 276),
 "pipe": [Vector2i(105, 200), Vector2i(105, 68), Vector2i(236, 68)],
 "window": Rect2i(0, 0, 0, 0)
 },

@@ -26,6 +26,13 @@ const SKY := BgRamps.SKY
 const FIRE := BgRamps.FIRE
 const CLOTH := BgRamps.CLOTH
 
+## Rejilla del suelo (C19): fuera de las placas de PV (enemigos x ≥ 311, heroína x ≤ 201). El calor de la Forja sube por ella.
+const GRATE_X := 256
+## Escena de los enemigos (C19): desde aquí el muro y el suelo bajan de valor y de contraste de juntas.
+const STAGE_X := 300
+## Zócalo en sombra tras los enemigos: los ladrillos por debajo de esta fila (y) bajan 1 paso.
+const DADO_Y := 218
+const PIER_SHADE_Y := 240
 ## Radios de las 6 bandas de luz de un brasero de pared (art px).
 const BRAZIER_R := [8.0, 16.0, 26.0, 40.0, 60.0, 88.0]
 
@@ -60,7 +67,7 @@ func _build(p_kind: String, p_floor: int, p_cycle: int, patches: bool = true) ->
 	else:
 		braziers = [Vector2i(226, 156), Vector2i(520, 150)]
 	anchors = {"braziers": braziers, "drips": [], "crucibles": [], "flue": Rect2i(), "window": Rect2i(),
-		"grate": Vector2i(320, 276), "gauge": Vector2i(-1, -1), "forge_zone": Rect2i(8, 120, 104, 144),
+		"grate": Vector2i(GRATE_X, 276), "gauge": Vector2i(-1, -1), "forge_zone": Rect2i(8, 120, 104, 144),
 		# Adónde suben las brasas de los muertos: el vacío del tiro o el fondo del corredor.
 		"ember_sink": Vector2i(440, 44) if kind == "flue" else Vector2i(320, 214),
 		# Recorrido del calor al quemar: de la Forja a la toma del fuelle, brida a brida.
@@ -101,12 +108,14 @@ func _static_lights() -> Array:
 	var L: Array = []
 	for b: Vector2i in braziers:
 		L.append(_brazier_light(b, 0))
-		L.append({"t": "pt", "p": Vector2(b.x, FY + 6), "r": [20.0, 44.0, 72.0], "ys": 2.6, "y0": FY})
+		# Tras los enemigos el canto del suelo no recoge el charco del brasero: es el borde sobre el que se leen los pies.
+		var pool: Array = [20.0, 44.0, 72.0] if b.x < STAGE_X else [16.0, 32.0, 52.0]
+		L.append({"t": "pt", "p": Vector2(b.x, FY + 6), "r": pool, "ys": 2.6, "y0": FY + (2 if b.x >= STAGE_X else 0)})
 	# La Forja grande: su luz nominal (calor 0,5) va horneada; LightRig sólo suma la diferencia con el calor actual.
 	L.append({"t": "pt", "p": Vector2(60, 226), "r": [56.0, 84.0, 118.0, 158.0, 206.0], "ys": 1.0, "y1": FY - 1})
 	L.append({"t": "pt", "p": Vector2(60, FY + 4), "r": [56.0, 100.0, 150.0, 210.0], "ys": 2.8, "y0": FY})
 	# Rejilla del suelo: el calor de la Forja sube.
-	L.append({"t": "pt", "p": Vector2(320, 278), "r": [16.0, 34.0, 60.0], "ys": 2.4, "y0": FY})
+	L.append({"t": "pt", "p": Vector2(GRATE_X, 278), "r": [16.0, 34.0, 60.0], "ys": 2.4, "y0": FY})
 	if kind == "flue":
 		# El tiro ilumina desde abajo el intradós, el parapeto y las mochetas.
 		L.append({"t": "pt", "p": Vector2(440, 330), "r": [80.0, 116.0, 150.0], "ys": 1.0, "y1": FY - 1, "x0": 250, "x1": 630})
@@ -203,6 +212,7 @@ func _build_mid(c: BgCanvas, local_floor: int) -> void:
 
 
 func _bricks(c: BgCanvas, decay: float) -> void:
+	_pick_ashlars()
 	for y in range(0, FY):
 		var row := y / 7
 		var ry := y % 7
@@ -215,8 +225,13 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 			if _vein(x, y):
 				c.put(x, y, FIRE, int(_veins[Vector2i(x, y)]))
 				continue
+			if _ashlar(c, x, y, s):
+				continue
+			var anc := Vector2i(ci * 16 - off + 8, row * 7 + 3)
+			var stage := _in_stage(anc, row)
+			var dado := stage and row * 7 >= DADO_Y
 			if ry == 0 or rx == 0:
-				c.joint(x, y, BRICK, 1 + mini(0, s + 1))
+				c.joint(x, y, BRICK, _joint_v(x, y, anc, 2 + s - (1 if dado else 0), s, stage))
 				continue
 			var hb := h3(ci, row, 11)
 			var v := 2
@@ -225,6 +240,14 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 			elif hb > 0.88:
 				v += 1
 			v += s
+			# Grupos de ladrillo de otra hornada (C19): paños de ~3×3 piezas un paso más viejos o más nuevos.
+			var hg := h3((xx + int(h3(row / 3, 0, 103) * 32.0)) / 48, row / 3, 104)
+			if hg < 0.12:
+				v -= 1
+			elif hg > 0.92 and not stage:
+				v += 1
+			if dado:
+				v -= 1
 			if cycle > 0 and (_vein(x, y - 1) or _vein(x, y + 1) or _vein(x - 1, y) or _vein(x + 1, y)):
 				v += 1
 			var hc := h3(ci, row, 13)
@@ -232,9 +255,8 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 				var cx := 1 if hc < 0.11 else 15
 				var cy := 1 if h3(ci, row, 14) < 0.5 else 6
 				if absi(rx - cx) + absi(ry - cy) <= 1 + int(hc * 12.0) % 3:
-					c.joint(x, y, BRICK, 1 + mini(0, s + 1))
+					c.joint(x, y, BRICK, _joint_v(x, y, anc, 2 + s - (1 if dado else 0), s, stage))
 					continue
-			var anc := Vector2i(ci * 16 - off + 8, row * 7 + 3)
 			if ry == 6:
 				c.put(x, y, BRICK, v - 1, anc)
 				continue
@@ -258,6 +280,69 @@ func _bricks(c: BgCanvas, decay: float) -> void:
 				c.shift(xx2, y4, -1)
 
 
+## La pieza (por su ancla) cae en la escena de los enemigos: x ≥ STAGE_X con el borde dentado por hiladas.
+func _in_stage(anc: Vector2i, row: int) -> bool:
+	return anc.x >= STAGE_X + int(h3(row, 0, 93) * 3.0) * 16
+
+
+## Junta. Fuera de la escena, −1/−2 pasos según la luz (como siempre). En la escena (C19), a −1 del ladrillo: se compensa
+## el paso de luz que la junta pierde al hornear, para que el muro tras los enemigos no se lea como una rejilla.
+func _joint_v(x: int, y: int, anc: Vector2i, brick_v: int, s: int, stage: bool) -> int:
+	var j := 1 + mini(0, s + 1)
+	if not stage:
+		return j
+	var la := BgCanvas.steps_at(Vector2(anc), lights, false)
+	var lp := BgCanvas.steps_at(Vector2(x, y), lights, false)
+	return clampi(brick_v - 1 + la - maxi(0, lp - 1), 0, j + 1)
+
+
+## Sillería (C19): zócalo de sillares de 3 hiladas (10 px) bajo el ladrillo, de DADO_Y al zócalo de piedra. Rompe el
+## ritmo del ladrillo donde están los pies de los actores y, tras los enemigos, queda en sombra (−1) con juntas a −1.
+## Los extremos van dentados: los sillares se encajaron en el ladrillo.
+const ASHLAR_H := 10
+var _ashlars: Array[Rect2i] = []
+
+
+func _pick_ashlars() -> void:
+	_ashlars.clear()
+	if kind == "flue":
+		_ashlars.append(Rect2i(112, DADO_Y, 152, FY - 16 - DADO_Y))
+		_ashlars.append(Rect2i(600, DADO_Y, 40, FY - 16 - DADO_Y))
+	else:
+		_ashlars.append(Rect2i(112, DADO_Y, 136, FY - 16 - DADO_Y))
+		_ashlars.append(Rect2i(392, DADO_Y, 248, FY - 16 - DADO_Y))
+
+
+func _ashlar(c: BgCanvas, x: int, y: int, s: int) -> bool:
+	for r: Rect2i in _ashlars:
+		if not r.has_point(Vector2i(x, y)):
+			continue
+		var k := (y - r.position.y) / ASHLAR_H
+		var ry := (y - r.position.y) % ASHLAR_H
+		var xl := r.position.x + (int(h3(k, r.position.x, 97) * 2.0) * 8 if r.position.x > 112 else 0)
+		var xr := r.end.x - (int(h3(k, r.end.x, 98) * 2.0) * 8 if r.end.x < W else 0)
+		if x < xl or x >= xr:
+			return false
+		var wk := 24 + int(h3(k, r.position.x, 96) * 3.0) * 4
+		var u := x - xl + int(h3(k, 7, 99) * float(wk))
+		var bi := u / wk
+		var rx := u % wk
+		var anc := Vector2i(clampi(x - rx + wk / 2, xl, xr - 1), r.position.y + k * ASHLAR_H + ASHLAR_H / 2)
+		var row := y / 7
+		var stage := _in_stage(anc, row)
+		var vb := 2 + s - (1 if stage else 0)
+		if ry == 0 or rx == 0 or x == xl or (x == xr - 1 and xr < W):
+			c.joint(x, y, STONE, _joint_v(x, y, anc, vb, s, stage))
+			return true
+		var hb := h3(bi, k + r.position.x, 100)
+		var v := vb + (-1 if hb < 0.2 else (1 if hb > 0.85 else 0))
+		if ry == ASHLAR_H - 1:
+			v -= 1
+		c.put(x, y, STONE, v, anc, BgCanvas.F_BEVEL if (ry == 1 or rx == 1) and s >= -1 else 0)
+		return true
+	return false
+
+
 ## Vetas de brasa del ciclo II+: GRIETAS que suben atravesando ladrillos en diagonal, siguen a ratos un tendel y se
 ## ramifican. Rescoldos oscuros en reposo (el pulso de quemar los enciende); se apagan al subir.
 var _veins := {}
@@ -267,7 +352,8 @@ func _build_veins() -> void:
 	_veins.clear()
 	if cycle <= 0:
 		return
-	var foci: Array = [Vector2i(170, 244), Vector2i(470, 244), Vector2i(556, 160)]
+	# Fuera de los huecos de los enemigos (C19): una sube junto a la ventana y otra arranca por encima de sus cabezas.
+	var foci: Array = [Vector2i(170, 244), Vector2i(614, 244), Vector2i(436, 146)]
 	if cycle >= 2:
 		foci.append_array([Vector2i(206, 200), Vector2i(420, 126)])
 	for fi in foci.size():
@@ -374,6 +460,9 @@ func _pier(c: BgCanvas, x0: int) -> void:
 				v -= 1
 			var bx := x0 + (8 if split and rx < 16 else (24 if split else 16))
 			v += soot(x, y) / 2
+			# Pie del pilar tras los enemigos, en sombra (por debajo de las alas del murciélago en x 350).
+			if x0 >= STAGE_X and y >= PIER_SHADE_Y:
+				v -= 1
 			c.put(x, y, STONE, v, Vector2i(bx, 28 + course * 20 + 10), BgCanvas.F_BEVEL if ry == 1 and rx > 2 and rx < 27 else 0)
 	var rows := [[6, 6], [5, 6], [4, 6], [3, 6], [6, 3], [5, 3], [3, 3], [2, 2], [1, 2], [1, 1], [0, 1]]
 	for i in rows.size():
@@ -388,6 +477,8 @@ func _pier(c: BgCanvas, x0: int) -> void:
 		for x in range(x0 - 4, x0 + 36):
 			var v3: int = brows[i]
 			if x <= x0 - 3:
+				v3 -= 1
+			if x0 >= STAGE_X:
 				v3 -= 1
 			c.put(x, FY - 16 + i, STONE, v3)
 
@@ -537,14 +628,20 @@ func _plinth(c: BgCanvas, x0: int, x1: int) -> void:
 			elif t >= 14:
 				v = 1
 			if posmod(x, 44) == 0 and t > 1:
-				c.joint(x, y, STONE, 1)
+				c.joint(x, y, STONE, 1 if x < STAGE_X else 0)
 				continue
+			# Tras los enemigos el zócalo queda en la sombra del zócalo de ladrillo (C19): canto y cuerpo −1.
+			if x / 44 * 44 + 22 >= STAGE_X:
+				v -= 2 if t <= 1 else 1
 			c.put(x, y, STONE, v, Vector2i(x / 44 * 44 + 22, FY - 8))
 	var n := 3 + int(h3(x0, 2, 55) * 3.0)
 	for i in n:
 		var mx := x0 + 14 + int(h3(i, x0, 55) * float(x1 - x0 - 28))
 		if mx < 116 and x0 == 0:
 			mx = 116 + int(h3(i, 7, 55) * 100.0)
+		# Montones de ceniza fuera de los huecos de los enemigos (x 320–602): no compiten con los pies.
+		if mx >= 320 and mx <= 602:
+			mx = 612 + int(h3(i, 8, 55) * 12.0)
 		var mw := 8 + int(h3(i, x0 + 1, 56) * 10.0)
 		for dx in range(-mw, mw + 1):
 			var hh := int((1.0 - pow(float(dx) / mw, 2.0)) * (3.0 + mw * 0.4))
@@ -552,7 +649,7 @@ func _plinth(c: BgCanvas, x0: int, x1: int) -> void:
 				var v2 := 4 if dy == hh else (3 if dx < -mw / 3 else 2)
 				if dy < hh and h3(mx + dx, dy, 57) < 0.1:
 					v2 = 1
-				c.put(mx + dx, FY - 1 - dy, ASH, v2 + 1)
+				c.put(mx + dx, FY - 1 - dy, ASH, v2 + (-1 if mx >= STAGE_X else 1))
 
 
 ## Toma del fuelle: viene del muro de la derecha y baja a la Forja grande (lado derecho de la zona 8–112).
@@ -922,14 +1019,15 @@ func _floor(c: BgCanvas, local_floor: int) -> void:
 			var dc := (ri + 0.5) / 1.4
 			var yc := int(vy + (H - vy) / dc)
 			var xc := int(320.0 + ((ci + 0.5) * 44.0 - 22.0) * 2.0 / dc)
+			var stage := xc >= STAGE_X
 			if y == FY or y == FY + 1:
-				c.put(x, y, STONE, 5 if y == FY else 4)
+				c.put(x, y, STONE, (5 if y == FY else 4) - (2 if x >= STAGE_X + 16 else 0))
 				continue
 			if y == FY + 2 or y == FY + 3:
 				c.joint(x, y, STONE, 1)
 				continue
 			if hline or vline:
-				c.joint(x, y, STONE, 0 if y > 320 else 1)
+				c.joint(x, y, STONE, 0 if y > 320 or (stage and y < 300) else 1)
 				continue
 			var v := 2 if h3(ci, ri, 21) < 0.6 else 1
 			if int(prv) != ri:
@@ -937,6 +1035,9 @@ func _floor(c: BgCanvas, local_floor: int) -> void:
 			if y > 300:
 				v -= 1
 			if y > 330:
+				v -= 1
+			# Bajo los enemigos el suelo queda 1 paso más oscuro (C19): las criaturas se leen sobre él y sobre las placas.
+			if stage and y < 300:
 				v -= 1
 			var blot := h3(x / 10, y / 4, 25) < 0.16
 			if blot and h3(x, y, 23) < 0.12 and y < 320:
@@ -948,26 +1049,27 @@ func _floor(c: BgCanvas, local_floor: int) -> void:
 			c.put(x, y, STONE, v, Vector2i(xc, clampi(yc, FY, H - 1)))
 	# Rejilla: el calor de la Forja sube por ella (el ambiente la aviva con la producción).
 	for y in range(FY + 6, FY + 20):
-		var hw := 18 + (y - FY - 6) * 2
-		for x in range(320 - hw, 320 + hw + 1):
-			var edge := absi(x - 320) >= hw - 1 or y <= FY + 7 or y >= FY + 18
+		var hw := 16 + (y - FY - 6) * 3 / 2
+		for x in range(GRATE_X - hw, GRATE_X + hw + 1):
+			var edge := absi(x - GRATE_X) >= hw - 1 or y <= FY + 7 or y >= FY + 18
 			if edge:
 				c.put(x, y, IRON, 4 if y == FY + 6 else (2 if y == FY + 7 else 1))
-			elif posmod(x - 320, 5) < 2 or y == FY + 12 or y == FY + 13:
-				c.put(x, y, IRON, 2 if posmod(x - 320, 5) == 0 else 1)
+			elif posmod(x - GRATE_X, 5) < 2 or y == FY + 12 or y == FY + 13:
+				c.put(x, y, IRON, 2 if posmod(x - GRATE_X, 5) == 0 else 1)
 			else:
-				var core := absi(x - 320) < hw / 2 and y > FY + 9 and y < FY + 16
-				c.put(x, y, FIRE, 3 + (1 if core else 0) - (1 if absi(x - 320) > hw - 6 else 0))
+				var core := absi(x - GRATE_X) < hw / 2 and y > FY + 9 and y < FY + 16
+				c.put(x, y, FIRE, 3 + (1 if core else 0) - (1 if absi(x - GRATE_X) > hw - 6 else 0))
 	# Cascotes: el deterioro crece con el piso del acto.
 	for i in local_floor:
 		var rx := 130 + int(h3(i, 5, 99) * 480.0)
-		if absi(rx - 320) < 50:
+		if absi(rx - GRATE_X) < 50:
 			continue
 		var ry := FY + 6 + int(h3(i, 6, 99) * 18.0)
+		var dk := 1 if rx >= STAGE_X else 0
 		for dx in 7:
-			c.put(rx + dx, ry, BRICK, 6 if dx < 3 else 5)
-			c.put(rx + dx, ry + 1, BRICK, 4)
-			c.put(rx + dx, ry + 2, BRICK, 3)
+			c.put(rx + dx, ry, BRICK, (6 if dx < 3 else 5) - dk)
+			c.put(rx + dx, ry + 1, BRICK, 4 - dk)
+			c.put(rx + dx, ry + 2, BRICK, 3 - dk)
 		for dx2 in range(1, 7):
 			c.put(rx + dx2 + 1, ry + 3, STONE, 0)
 
