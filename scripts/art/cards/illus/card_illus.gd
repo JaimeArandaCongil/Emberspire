@@ -7,7 +7,8 @@ extends RefCounted
 ## (estela, chispas, humo, vapor) + ENCUADRE (máscara de ventana por tipo, la aplica `CardFrame`).
 ## Regla C5: ninguna carta repite la combinación fondo + encuadre + sujeto + posición.
 ##
-## Tandas implementadas: `set_base.gd` (mazo inicial + 8 del Grimorio Base). Las demás cartas usan `fallback()`
+## Tandas implementadas: `set_base.gd` (mazo inicial + 8 del Grimorio Base), `set_pyre.gd` (3 de prueba) y
+## `set_icon.gd` (4 que eran icono sobre degradado, C10). Toda pieza pasa por `IllusPx.tidy` (≤ 30 colores). Las demás cartas usan `fallback()`
 ## (composición provisional: fondo por tipo + icono v0.3) hasta que llegue su tanda.
 
 const _Px := preload("res://scripts/art/cards/illus/illus_px.gd")
@@ -15,6 +16,8 @@ const _Bg := preload("res://scripts/art/cards/illus/backdrops.gd")
 const _Pal := preload("res://scripts/art/cards/card_pal.gd")
 const _SetBase := preload("res://scripts/art/cards/illus/set_base.gd")
 const _SetPyre := preload("res://scripts/art/cards/illus/set_pyre.gd")
+const _SetIcon := preload("res://scripts/art/cards/illus/set_icon.gd")
+const _Frame := preload("res://scripts/art/cards/frame.gd")
 const W := 68
 const H := 46
 
@@ -23,13 +26,14 @@ static var _tex_cache := {}
 
 
 static func has(id: String) -> bool:
-	return _SetBase.IDS.has(id) or _SetPyre.IDS.has(id)
+	return _SetBase.IDS.has(id) or _SetPyre.IDS.has(id) or _SetIcon.IDS.has(id)
 
 
 static func ids() -> Array[String]:
 	var out: Array[String] = []
 	out.append_array(_SetBase.IDS)
 	out.append_array(_SetPyre.IDS)
+	out.append_array(_SetIcon.IDS)
 	return out
 
 
@@ -43,8 +47,12 @@ static func image(id: String, type: String = "attack", icon: String = "") -> Ima
 		img = _SetBase.build(id)
 	elif _SetPyre.IDS.has(id):
 		img = _SetPyre.build(id)
+	elif _SetIcon.IDS.has(id):
+		img = _SetIcon.build(id)
 	if img == null:
 		img = fallback(type, icon)
+	# Limpieza de la cola de color medida en la ventana visible del tipo (regla de ≤ 30 colores, C8).
+	_Px.tidy(img, func(x: int, y: int) -> bool: return _Frame.window_mask(type, x, y))
 	_img_cache[key] = img
 	return img
 

@@ -208,6 +208,15 @@ func _illustrations() -> void:
 				colors[Palette.key8(p)] = true
 		_check(holes == 0, "%s: %d píxeles transparentes" % [id, holes])
 		_check(colors.size() >= 12, "%s: sólo %d colores (¿plana?)" % [id, colors.size()])
+		# Regla de color (DECISIONES): ≤ 30 colores visibles en la ventana; ninguno con < 10 px salvo 3 chispas u ojos.
+		var type: String = CardDB.get_def(id)["type"]
+		var vis := IllusPx.color_counts(img, func(x: int, y: int) -> bool: return _Frame.window_mask(type, x, y))
+		var tiny := 0
+		for k: int in vis:
+			if int(vis[k]) < 10:
+				tiny += 1
+		_check(vis.size() <= 30, "%s: %d colores en la ventana (máx. 30)" % [id, vis.size()])
+		_check(tiny <= 3, "%s: %d colores con menos de 10 px (máx. 3)" % [id, tiny])
 		thumbs[id] = _thumb(img)
 	# Prueba de miniatura 34×23: dos composiciones no pueden confundirse.
 	for i in ids.size():
@@ -249,6 +258,13 @@ func _text_fit() -> void:
 	for id2: String in CardDB.CARDS:
 		var t: String = CardDB.get_def(id2)["name"] + "+"
 		_check(PixelFont.pavesa_width(t) <= int(CardView.SIZE.x - CardView.NAME_X0 - 8.0), "nombre demasiado largo: %s" % t)
+		# C17: el nombre va en la rejilla ×2 y, en Fragua, no roza el orbe propio ni el del vecino de la mano.
+		var lay := CardView.title_layout(t)
+		_check(int(lay["x"]) % 2 == 0, "nombre fuera de la rejilla ×2: %s (x %d)" % [t, int(lay["x"])])
+	_check(CardView.title_layout("Tajo Ígneo")["big"], "Tajo Ígneo debe caber en Fragua ×2 sin rozar orbes")
+	var hand_step: float = (load("res://scripts/ui/screens/combat_screen.gd") as Script).get_script_constant_map().get("HAND_MAX_STEP", 0.0)
+	_check(int(hand_step) == CardView.ORB_STEP * CardView.S, "CardView.ORB_STEP no sigue al paso de la mano (%d)" % int(hand_step))
+	_check(not CardView.title_layout("Muralla de Engranajes")["big"], "los nombres largos pasan a Pavesa ×1")
 
 
 # ------------------------------------------------------------------------------------------- CardView

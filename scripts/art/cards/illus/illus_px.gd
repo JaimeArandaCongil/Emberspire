@@ -227,3 +227,93 @@ static func crescent(img: Image, center: Vector2, ra: float, off: Vector2, rb: f
 			var c: Color = col_fn.call(clampf((ra - r) / maxf(1.0, ra - rb + off.length()), 0.0, 1.0), front, x, y)
 			if c.a > 0.0:
 				img.set_pixel(x, y, c)
+
+
+# ------------------------------------------------------------------------------------------- limpieza de color
+
+## Distancia perceptual ponderada entre dos colores de paleta (la misma métrica que `CardPal.snap`).
+static func cdist(a: Color, b: Color) -> float:
+	var dr := (a.r - b.r) * 0.30
+	var dg := (a.g - b.g) * 0.59
+	var db := (a.b - b.b) * 0.11
+	return dr * dr + dg * dg + db * db + 0.08 * pow(a.get_luminance() - b.get_luminance(), 2.0)
+
+
+## Chispa u ojo: paso alto de un emisivo de fuego (lo único que puede quedarse con menos de `min_px`).
+static func is_accent(c: Color) -> bool:
+	var f: Variant = Palette.find(c)
+	if f == null:
+		return false
+	var a: Array = f
+	return StringName(a[0]) in [&"fire", &"ember_ui", &"hot"] and int(a[1]) >= 4
+
+
+## Recuento de colores visibles: {key8: px}. `vis(x, y) -> bool` limita a la ventana (Callable vacío = todo).
+static func color_counts(img: Image, vis: Callable = Callable()) -> Dictionary:
+	var cnt := {}
+	for y in img.get_height():
+		for x in img.get_width():
+			if vis.is_valid() and not vis.call(x, y):
+				continue
+			var p := img.get_pixel(x, y)
+			if p.a == 0.0:
+				continue
+			var k := Palette.key8(p)
+			cnt[k] = int(cnt.get(k, 0)) + 1
+	return cnt
+
+
+## Limpieza de la cola de color (DECISIONES: ≤ `max_colors`; ninguno con menos de `min_px` píxeles visibles salvo
+## hasta `accents` chispas u ojos). Cada píxel de un color retirado pasa al color conservado más parecido de entre
+## sus 8 vecinos (conserva material y valor); si no hay ninguno, al conservado más parecido de toda la pieza.
+## No crea colores: sólo funde los que no llegan a pintar. Devuelve la misma imagen modificada.
+static func tidy(img: Image, vis: Callable = Callable(), max_colors: int = 30, min_px: int = 10, accents: int = 3) -> Image:
+	var cnt := color_counts(img, vis)
+	var keys: Array = cnt.keys()
+	keys.sort_custom(func(a: int, b: int) -> bool: return int(cnt[a]) > int(cnt[b]))
+	var keep := {}
+	var acc: Array = []
+	for k: int in keys:
+		if int(cnt[k]) >= min_px:
+			keep[k] = true
+		elif is_accent(Color8((k >> 16) & 255, (k >> 8) & 255, k & 255)):
+			acc.append(k)
+	# Las chispas más brillantes se quedan (hasta `accents`).
+	acc.sort_custom(func(a: int, b: int) -> bool: return (a & 0xffff00) > (b & 0xffff00))
+	for i in mini(accents, acc.size()):
+		keep[acc[i]] = true
+	# Tope de colores: fuera los menos usados.
+	while keep.size() > max_colors:
+		var worst := -1
+		for k2: int in keep:
+			if worst < 0 or int(cnt[k2]) < int(cnt[worst]):
+				worst = k2
+		keep.erase(worst)
+	var kept_cols: Array[Color] = []
+	for k3: int in keep:
+		kept_cols.append(Color8((k3 >> 16) & 255, (k3 >> 8) & 255, k3 & 255))
+	var src := img.duplicate() as Image
+	for y in img.get_height():
+		for x in img.get_width():
+			var p := src.get_pixel(x, y)
+			if p.a == 0.0 or keep.has(Palette.key8(p)):
+				continue
+			var best := Color(0, 0, 0, 0)
+			var bd := INF
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var q := get_c(src, x + dx, y + dy)
+					if q.a == 0.0 or not keep.has(Palette.key8(q)):
+						continue
+					var d := cdist(p, q)
+					if d < bd:
+						bd = d
+						best = q
+			if best.a == 0.0:
+				for q2: Color in kept_cols:
+					var d2 := cdist(p, q2)
+					if d2 < bd:
+						bd = d2
+						best = q2
+			img.set_pixel(x, y, Color(best, 1.0))
+	return img

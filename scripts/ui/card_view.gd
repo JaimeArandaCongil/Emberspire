@@ -19,8 +19,14 @@ const SIZE := Vector2(160, 224)
 const PEEK := 128.0                      # px visibles en reposo (placa + ilustración)
 const S := 2
 const HINT_H := 38.0                     # alto de la placa "QUEMAR" que aparece sobre la carta
-const NAME_X0 := 28.0                    # el orbe de coste llega hasta aquí
-const NAME_MAX := 122                    # ancho máximo del nombre en Fragua ×2 (px de pantalla)
+const NAME_X0 := 26.0                    # zona del nombre en px de pantalla: el orbe propio llega a x 23
+const NAME_X1 := 118.0                   # y el del vecino en la mano empieza en x 122 (paso 132)
+## Paso de la mano en px de arte (`combat_screen.HAND_MAX_STEP` / 2): el orbe de la carta vecina tapa la placa desde
+## aquí. El nombre se coloca para no rozar ni el orbe propio ni ése, igual en mano, recompensa y tienda.
+const ORB_STEP := 66
+const NAME_GAP := 1                      # px de arte de placa libres entre el nombre y cualquier orbe
+const NAME_ROW := 3                      # fila de arte del contorno superior de la celda del glifo con `_name.y` = 8 (mayúsculas en 6–12)
+const NAME_Y := 8.0
 const BODY := Rect2(18, 144, 124, 64)    # caja del texto sobre el pergamino (px de pantalla, relativos a la carta)
 
 static var _tex_cache := {}
@@ -112,6 +118,7 @@ func _ready() -> void:
 	_orb = _texrect(Vector2(-6 * S, -6 * S))
 	add_child(_orb)
 	_cost = UI.plabel("", 2)
+	_cost.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))   # Fragua ya lleva contorno
 	_cost.position = Vector2(0, 0)
 	_cost.size = Vector2(19 * S, 19 * S)
 	_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -179,6 +186,60 @@ func _tooltip() -> String:
 	return t
 
 
+## Disposición del nombre de carta: {"big": Fragua ×2 (si no, Pavesa ×1), "x": px de pantalla del origen del texto,
+## siempre par (rejilla ×2)}. Fragua se comprueba píxel a píxel (glifo + contorno + `NAME_GAP` en cruz) contra el rombo del
+## orbe propio y el del vecino de la mano; se elige la posición válida más cercana al centro de la carta.
+static func title_layout(title: String) -> Dictionary:
+	var ink := {}
+	var pen := 0
+	for i in title.length():
+		var ch := title[i]
+		if ch == " ":
+			pen += 3
+			continue
+		var g := PixelFont.glyph(ch)
+		var rows: Array = g["rows"]
+		for r in rows.size():
+			var row: String = rows[r]
+			for gx in row.length():
+				if row[gx] == "#":
+					# Glifo + contorno horneado (3×3).
+					for dy in range(-1, 2):
+						for dx in range(-1, 2):
+							ink[Vector2i(pen + gx + dx, NAME_ROW + 1 + r + dy)] = true
+		pen += int(g["w"]) + 1
+	# Hueco de placa: `NAME_GAP` px libres en horizontal y vertical (un roce en diagonal de esquina no cuenta).
+	for _k in NAME_GAP:
+		var grown := ink.duplicate()
+		for p0: Vector2i in ink:
+			for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				grown[p0 + d] = true
+		ink = grown
+	var tw := PixelFont.text_width(title)
+	var center := int(round((_Frame.CW - tw) / 2.0))
+	var best := -1
+	for s in range(7, _Frame.CW - 6 - tw):
+		var ok := true
+		for p: Vector2i in ink:
+			if _in_orb(p.x + s, p.y) or _in_orb(p.x + s - ORB_STEP, p.y):
+				ok = false
+				break
+		if ok and (best < 0 or absi(s - center) < absi(best - center)):
+			best = s
+	if best >= 0:
+		return {"big": true, "x": best * S, "text": title}
+	var pw := PixelFont.pavesa_width(title)
+	var px := clampf(round((SIZE.x - pw) * 0.5), NAME_X0, maxf(NAME_X0, NAME_X1 - pw))
+	return {"big": false, "x": int(px / 2.0) * 2, "text": title}
+
+
+## Rombo del orbe de coste en px de arte de la carta (centro (3, 3), como `CardFrame.cost_gem` en (-6, -6)).
+static func _in_orb(x: int, y: int) -> bool:
+	var ax := absi(x - 3)
+	var ay := absi(y - 3)
+	return ax + ay <= 12 and ax <= 8 and ay <= 8
+
+
 ## Estado visual del marco (lo que cambia la textura).
 func frame_state() -> Dictionary:
 	return {"type": card.type(), "rarity": card.rarity(), "up": card.is_up(), "mastery": card.mastery(),
@@ -199,31 +260,43 @@ func refresh() -> void:
 			var frames: Array[Image] = _Frame.shimmer_frames(img)
 			for i in frames.size():
 				_shimmer.append(_tex("f:%s:sh%d" % [key, i], frames[i]))
-	var title := card.title()
+	# Si el nombre cabe en Fragua pero el «+» no, la mejora la dicen la placa de oro y la tinta de ascua: así una
+	# carta no cambia de letra al mejorarse.
+	var lay := title_layout(card.title())
+	if not lay["big"] and card.is_up() and title_layout(String(card.def()["name"]))["big"]:
+		lay = title_layout(String(card.def()["name"]))
+	var title: String = lay["text"]
 	_name.text = title
-	# El nombre se centra en la carta salvo que choque con el orbe (hasta x = 28): entonces se apoya a su derecha.
-	var big := PixelFont.text_width(title) * 2 <= NAME_MAX
-	var tw := PixelFont.text_width(title) * 2 if big else PixelFont.pavesa_width(title)
-	if big:
+	# Mismo nombre, misma letra y sitio en todo el juego (C17): Fragua ×2 en la rejilla ×2 si cabe sin rozar ningún
+	# orbe; si no, Pavesa ×1 (los largos). Fragua lleva el contorno horneado: sin sombra (la de 1 px de pantalla
+	# quedaba a medio píxel de arte y fuera de paleta).
+	if lay["big"]:
+		var tw := PixelFont.text_width(title) * 2
 		UI.pixelize(_name, 2)
-		_name.remove_theme_color_override("font_shadow_color")
-		_name.position = Vector2(maxf(NAME_X0, (SIZE.x - tw) * 0.5 - 2.0), 7)
-		_name.size = Vector2(tw + 6, 26)
+		_name.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+		_name.position = Vector2(float(lay["x"]), NAME_Y)
+		_name.size = Vector2(tw + 4, 26)
 	else:
+		var pw := PixelFont.pavesa_width(title)
 		_name.add_theme_font_override("font", PixelFont.pavesa())
 		_name.add_theme_font_size_override("font_size", PixelFont.P_LINE)
 		_name.add_theme_constant_override("outline_size", 0)
 		_name.add_theme_color_override("font_shadow_color", Palette.UI[&"k"])
 		_name.add_theme_constant_override("shadow_offset_x", 1)
 		_name.add_theme_constant_override("shadow_offset_y", 1)
-		_name.position = Vector2(maxf(NAME_X0, (SIZE.x - tw) * 0.5 - 1.0), 12)
-		_name.size = Vector2(tw + 4, 18)
+		_name.position = Vector2(float(lay["x"]), 12)
+		_name.size = Vector2(pw + 4, 18)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_name.add_theme_color_override("font_color", Palette.color(&"ember_ui", 5) if card.is_up() else UI.TEXT)
 	_desc.text = ink(CardDB.describe(card, engine))
 	var playable := card.is_playable()
 	_orb.visible = playable or card.type() == "status"
 	_cost.text = "X" if card.is_x_cost() else str(card.cost())
+	# Cifra centrada a mano en el rombo (centro en x 19 del orbe), en columna par: el centrado de Label la dejaba a
+	# medio píxel de arte cuando el ancho del glifo es par.
+	var cw := PixelFont.text_width(_cost.text) * S
+	_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_cost.position.x = floorf((19.0 - cw * 0.5) / S) * S
 	var affordable := true
 	if engine != null and playable:
 		affordable = engine.can_play(card)
