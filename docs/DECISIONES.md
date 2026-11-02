@@ -26,3 +26,5 @@ Registro breve; el razonamiento está en `docs/reviews/v04/DEBATE.md`. Direcció
 | Horneado entre plataformas | Determinismo estricto en una misma máquina; la imagen dorada tolera ≤ 8 px de deriva Windows/Linux (libm). Los `.import` de `assets/baked/` se versionan |
 | Entorno en la nube | Godot Linux vía `tools/setup_cloud.sh`; capturas con `xvfb-run`. Commit y push al cerrar cada paquete (el contenedor es efímero) |
 | Títulos de carta | Fragua ×2 si cabe sin rozar orbes; si no, **Mini ×2** (nunca Pavesa ×1). Misma regla en mano, recompensa y tienda (F2-REV2, N4) |
+| Nombres cortos de carta | Si un título no cabe ni en Mini ×2, la carta muestra un nombre corto (`CardDB.short`, ≤ 58 px de arte). El nombre completo sigue en datos, tooltips, tienda y compendio |
+| Rótulo «Turno enemigo» | Se conserva por claridad, pero breve y en la banda superior, sin tapar flotantes ni intenciones (F2-REV2 lo daba por sobrante) |
