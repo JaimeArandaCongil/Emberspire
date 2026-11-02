@@ -370,3 +370,18 @@ func _dim_steps() -> void:
 	# F2-VIDA3 (C2): el jefe destella sólo en la pieza golpeada.
 	var sh := FileAccess.get_file_as_string("res://shaders/palette_lit.gdshader")
 	_check(sh.contains("uniform vec3 flash_piece"), "palette_lit: falta `flash_piece` (destello por pieza del jefe)")
+	# F2-VIDA4 (#2): fuera de la pieza, sólo `flash_rest_steps` durante el blanco; el jefe sube ≤ 2 f a 60 fps.
+	_check(sh.contains("uniform int flash_rest_steps"), "palette_lit: falta `flash_rest_steps` (no lavar el cuerpo del jefe)")
+	var boss_s := 0.0
+	for st: Array in FighterView.FLASH_BOSS_STEPS:
+		boss_s += float(st[1])
+	_check(boss_s <= 2.0 / 60.0 + 0.001, "destello del jefe: subida de pasos de %.3f s (máx. 2 f a 60 fps)" % boss_s)
+	# F2-VIDA4 (#3): Quemadura fuerte con lenguas de 5–6 px.
+	var sfx: StatusFX = StatusFX.new()
+	for v: int in [StatusFX.SCORCH_HOT, 9]:
+		sfx._statuses = {"scorch": v}
+		_check(sfx.flame_height() >= 5 and sfx.flame_height() <= 6, "Quemadura %d: lenguas de %d px (5–6)" % [v, sfx.flame_height()])
+	sfx.free()
+	# F2-VIDA4 (#4, N1 y N5): flotantes del combate en la cola sobre la cabeza; dorso fantasma en paleta.
+	_check(not cs.contains("UI.float_text(_fx_layer, _local(v.center())"), "combate: flotante sobre el cuerpo (usa `_float_over`)")
+	_check(not cs.contains("Art.card_back_small()"), "combate: dorso fantasma legado fuera de paleta (N5)")

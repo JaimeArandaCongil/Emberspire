@@ -426,26 +426,33 @@ static func expand(c: Control) -> Control:
 	return c
 
 
-## Texto flotante (daño, ascuas...).
 ## Texto flotante (daño, ascuas...) con la fuente pixel: aparece con "pop" de escala entera
 ## (×s−1 → ×s+1 → ×s en 120 ms), sube y se apaga. Alto máximo ≈ 40 px.
-static func float_text(parent: Node, pos: Vector2, text: String, color: Color, size: int = 30, rise: float = 70.0) -> void:
+## F2-VIDA4 (cola sobre la cabeza): con `bottom` = true, `pos` es el centro del borde INFERIOR (el texto queda encima
+## de ese punto). La meta `lift` (px, la tween `FloatQueue`) sube el texto además de `rise` y la meta `ceil` (y local) es
+## el techo que no cruza; la subida es lineal para que un texto nuevo no alcance al anterior. Devuelve la etiqueta.
+static func float_text(parent: Node, pos: Vector2, text: String, color: Color, size: int = 30, rise: float = 70.0,
+		bottom := false) -> Label:
 	var s := clampi(pixel_scale(size), 2, 3)
 	var l := plabel(text, s + 1, color)
 	l.z_index = 100
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	l.reset_size()
-	var p0 := (pos - l.size * 0.5 + Vector2(randf_range(-12, 12), 0)).round()
-	l.position = p0
+	var jitter := 0.0 if bottom else randf_range(-12, 12)
+	var cy := func() -> float: return pos.y - (l.size.y if bottom else l.size.y * 0.5)
+	l.position = (Vector2(pos.x - l.size.x * 0.5 + jitter, cy.call())).round()
 	var tw := l.create_tween()
 	tw.tween_interval(0.06)
 	tw.tween_callback(func() -> void:
 		l.add_theme_font_size_override("font_size", PixelFont.px_size(s))
 		l.reset_size()
-		l.position = (pos - l.size * 0.5).round())
-	var y0 := pos.y
-	tw.tween_method(func(v: float) -> void: l.position.y = roundf((y0 - l.size.y * 0.5 - rise * v) / 2.0) * 2.0, 0.0, 1.0, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		l.position = Vector2(pos.x - l.size.x * 0.5, cy.call()).round())
+	tw.tween_method(func(v: float) -> void:
+		var y: float = cy.call() - rise * v - float(l.get_meta(&"lift", 0.0))
+		y = maxf(y, float(l.get_meta(&"ceil", -INF)))
+		l.position.y = roundf(y / 2.0) * 2.0, 0.0, 1.0, 0.8).set_ease(Tween.EASE_OUT) \
+		.set_trans(Tween.TRANS_LINEAR if bottom else Tween.TRANS_CUBIC)   # en cola, todos a la misma velocidad: no se alcanzan
 	# Se apaga por pasos de su rampa (§12: nunca alfa): −1, −2, −3 cada 90 ms desde los 450 ms y desaparece.
 	var fade := l.create_tween()
 	fade.tween_interval(0.45)
@@ -454,6 +461,7 @@ static func float_text(parent: Node, pos: Vector2, text: String, color: Color, s
 		fade.tween_callback(func() -> void: l.add_theme_color_override("font_color", c))
 		fade.tween_interval(0.09)
 	tw.tween_callback(l.queue_free)
+	return l
 
 
 ## Pasos con que se apagan los textos flotantes (desde su color de rampa).

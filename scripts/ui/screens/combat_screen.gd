@@ -1016,17 +1016,16 @@ func _fx_damage(v: FighterView, amt: int, blocked: int) -> void:
 
 
 func _fx_enemy_death(v: FighterView, embers: float) -> void:
-	var pos := _local(v.center())
 	if _death_fx != null:
 		_death_fx.call(&"play", v.current_frame(), v.canvas_world(), _room.call(&"ember_sink"))
 		var txt := "+%s" % Num.fmt(embers)
 		var cb := func(_p: Vector2) -> void:
 			if is_inside_tree():
-				UI.float_text(_fx_layer, pos + Vector2(0, -50), txt, UI.EMBER, 24)
+				_float_over(v, txt, UI.EMBER, 24)
 		_death_fx.connect(&"first_out", cb, CONNECT_ONE_SHOT)
 		return
 	_burst(v.center(), "ember", 24, 140.0, 2.0)
-	UI.float_text(_fx_layer, pos + Vector2(0, -50), "+%s" % Num.fmt(embers), UI.EMBER, 24)
+	_float_over(v, "+%s" % Num.fmt(embers), UI.EMBER, 24)
 
 
 func _fx_summon(nv: FighterView) -> void:
@@ -1157,6 +1156,67 @@ func _local(p: Vector2) -> Vector2:
 	return p - global_position
 
 
+## F2-VIDA4 (#4, N1): cola vertical de textos flotantes por luchador, por ENCIMA de la cabeza y de la intención
+## (`FighterView.float_anchor`). Salen de uno en uno cada `FLOAT_STAGGER` (los que llegan juntos esperan turno) y el
+## nuevo entra abajo; si pisa a los que siguen en pantalla, éstos saltan arriba lo justo (`FLOAT_LINE_GAP` de aire).
+## Los que no caben bajo el techo (banda del jefe, HUD) se retiran: son los más viejos.
+const FLOAT_RISE := 40.0
+const FLOAT_LINE_GAP := 4.0
+const FLOAT_STAGGER := 0.15
+var _float_queues := {}    # instance_id del FighterView → Array[Label] en pantalla (del más nuevo al más viejo)
+var _float_pending := {}   # instance_id → Array de [FighterView, texto, color, tamaño] que esperan turno
+
+
+func _float_over(v: FighterView, text: String, color: Color, size := 22) -> void:
+	if v == null or not is_instance_valid(v) or _fx_layer == null:
+		return
+	var key := v.get_instance_id()
+	if _float_pending.has(key):
+		(_float_pending[key] as Array).append([v, text, color, size])
+		return
+	_float_pending[key] = []
+	_float_spawn(v, text, color, size)
+	_float_next(key)
+
+
+func _float_next(key: int) -> void:
+	get_tree().create_timer(FLOAT_STAGGER, false).timeout.connect(func() -> void:
+		var p: Array = _float_pending.get(key, [])
+		if p.is_empty() or not is_inside_tree():
+			_float_pending.erase(key)
+			return
+		var e: Array = p.pop_front()
+		if is_instance_valid(e[0]):
+			_float_spawn(e[0], e[1], e[2], e[3])
+		_float_next(key))
+
+
+func _float_spawn(v: FighterView, text: String, color: Color, size: int) -> void:
+	var anchor := _local(v.float_anchor())
+	var ceil_y := _local(Vector2(0, v.float_ceiling())).y
+	var l := UI.float_text(_fx_layer, anchor, text, color, size, minf(FLOAT_RISE, maxf(0.0, anchor.y - ceil_y - 40.0)), true)
+	l.set_meta(&"ceil", ceil_y)
+	var key := v.get_instance_id()
+	var q: Array = (_float_queues.get(key, []) as Array).filter(func(o: Variant) -> bool:
+		return is_instance_valid(o) and not (o as Label).is_queued_for_deletion())
+	var cursor := l.position.y - FLOAT_LINE_GAP
+	for o: Label in q:
+		var bottom := o.position.y + o.size.y
+		if bottom > cursor:
+			var push := roundf((bottom - cursor) / 2.0) * 2.0
+			if o.position.y - push < ceil_y:
+				o.queue_free()
+				continue
+			o.set_meta(&"lift", float(o.get_meta(&"lift", 0.0)) + push)   # salto de línea inmediato: nunca se pisan
+			o.position.y -= push
+			cursor = o.position.y - push - FLOAT_LINE_GAP
+		else:
+			cursor = o.position.y - FLOAT_LINE_GAP
+	q = q.filter(func(o: Variant) -> bool: return is_instance_valid(o) and not (o as Label).is_queued_for_deletion())
+	q.push_front(l)
+	_float_queues[key] = q
+
+
 func _on_event(k: String, d: Dictionary) -> void:
 	match k:
 		"draw":
@@ -1260,7 +1320,6 @@ func _on_event(k: String, d: Dictionary) -> void:
 				return
 			var amt: int = d["amount"]
 			var blocked: int = d["blocked"]
-			var pos := _local(v.center())
 			if amt > 0:
 				# Curva de impacto estándar: destello 1 fotograma → color, empuje direccional,
 				# hitstop por escalones (50/80/120 ms), sacudida direccional y chispas.
@@ -1268,14 +1327,14 @@ func _on_event(k: String, d: Dictionary) -> void:
 				v.shake(6.0 + minf(amt, 30.0) * 0.4)
 				var big := amt >= 20
 				var num_col: Color = UI.RED if v.fighter.is_player else (Palette.color(&"gold", 5) if big else UI.TEXT)
-				UI.float_text(_fx_layer, pos + Vector2(0, -20), str(amt) + ("!" if big else ""), num_col, 22 if amt < 10 else 33)
+				_float_over(v, str(amt) + ("!" if big else ""), num_col, 22 if amt < 10 else 33)
 				var dir := Vector2.LEFT if v.fighter.is_player else Vector2.RIGHT
 				_fx_damage(v, amt, blocked)
 				Sfx.play("heavy" if amt >= 15 else "hit")
 				main.shake(3.0 + minf(amt, 40.0) * 0.25, dir)
 				_hitstop(0.05 if amt < 10 else (0.08 if amt <= 30 else 0.12))
 			elif blocked > 0:
-				UI.float_text(_fx_layer, pos, "Bloqueado", UI.BLUE, 22)
+				_float_over(v, "Bloqueado", UI.BLUE, 22)
 				_fx_damage(v, 0, blocked)
 				Sfx.play("block")
 			v.refresh()
@@ -1284,7 +1343,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var v := _view_for(d["target"])
 			if v != null:
 				v.refresh()
-				UI.float_text(_fx_layer, _local(v.center()) + Vector2(0, 30), "+%d" % d["amount"], UI.BLUE, 22)
+				_float_over(v, "+%d" % d["amount"], UI.BLUE, 22)
 				Sfx.play("block", 0.05, -4.0)
 		"status":
 			var v := _view_for(d["target"])
@@ -1296,7 +1355,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 					var good := id in ["str", "thorns", "regen"]
 					if v.fighter.is_player and id in ["thorns", "regen"]:
 						good = true
-					UI.float_text(_fx_layer, _local(v.center()) + Vector2(0, -40), "%s +%d" % [FighterView.STATUS_NAMES.get(id, id), amt],
+					_float_over(v, "%s +%d" % [FighterView.STATUS_NAMES.get(id, id), amt],
 						UI.GREEN if good else (UI.FIRE if id == "scorch" else UI.PURPLE), 20)
 					Sfx.play("buff" if good else "debuff", 0.05, -4.0)
 				if id == "choke" and amt > 0:
@@ -1307,7 +1366,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var v := _view_for(d["target"])
 			if v != null:
 				v.refresh()
-				UI.float_text(_fx_layer, _local(v.center()), "+%d" % d["amount"], UI.GREEN, 26)
+				_float_over(v, "+%d" % d["amount"], UI.GREEN, 26)
 				Sfx.play("heal")
 				_sync_light()
 		"power":
@@ -1325,9 +1384,9 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var src := _view_for(d["source"])
 			if src != null:
 				var from := _local(src.center())
-				# A la altura del cuerpo, no de la intención (C16: «+Hollín» pisaba la cifra de intención).
-				UI.float_text(_fx_layer, from + Vector2(0, 10), "+%s" % (d["card"] as Card).title(), UI.TEXT, 18, 40.0)
-				var ghost := UI.tex_rect(Art.card_back_small(), UI.UI_PX)
+				# F2-VIDA4 (N1): en la cola sobre la cabeza y la intención, nunca sobre la cara (antes, a la altura del cuerpo).
+				_float_over(src, "+%s" % (d["card"] as Card).title(), UI.TEXT, 18)
+				var ghost := UI.tex_rect(_ghost_back(), UI.UI_PX)
 				ghost.position = from
 				ghost.z_index = 90
 				_fx_layer.add_child(ghost)
@@ -1374,7 +1433,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var amt2: float = d["amount"]
 			if sv != null and amt2 > 0.0:
 				_coins(_top_hud.ember_anchor(), sv.center(), 6)
-				UI.float_text(_fx_layer, _local(sv.center()) + Vector2(0, -70), "−%s Ascuas" % Num.fmt(amt2), UI.RED, 22)
+				_float_over(sv, "−%s Ascuas" % Num.fmt(amt2), UI.RED, 22)
 				Sfx.play("coin", 0.3, -2.0)
 				_toast("¡Te roba %s Ascuas de la Forja! Mátala para recuperarlas ×2" % Num.fmt(amt2), Palette.color(&"blood", 4))
 				sv.refresh()
@@ -1382,16 +1441,16 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var rv := _view_for(d["source"])
 			if rv != null:
 				_fly_embers(rv.center(), 12)
-				UI.float_text(_fx_layer, _local(rv.center()) + Vector2(0, -90), "¡Recuperadas ×2! +%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
+				_float_over(rv, "¡Recuperadas ×2! +%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
 				Sfx.play("coin")
 		"embers_gain":
 			_fly_embers(player_view.center(), 8)
-			UI.float_text(_fx_layer, _local(player_view.center()) + Vector2(0, -90), "+%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
+			_float_over(player_view, "+%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
 			Sfx.play("coin")
 		"thorns":
 			var tv := _view_for(d["target"])
 			if tv != null:
-				UI.float_text(_fx_layer, _local(tv.center()) + Vector2(0, -20), "Espinas", UI.DIM, 16)
+				_float_over(tv, "Espinas", UI.DIM, 16)
 		"revive":
 			player_view.refresh()
 			_banner("¡FÉNIX!", UI.EMBER)
@@ -1422,9 +1481,16 @@ func _coins(from: Vector2, to: Vector2, count: int) -> void:
 		tw.tween_callback(e.queue_free)
 
 
+## F2-VIDA4 (N5): dorso fantasma de las cartas en vuelo (Hollín al descarte, barajar) en paleta: el mismo dorso de la pila
+## (`HudArt`). El dorso pequeño legado de `Art` llevaba `8a4a2a`/`5a2a1a`, los 244 px ajenos de la 10b. El giro
+## en vuelo se queda: con muestreo nearest (filtro del proyecto) un giro sólo elige píxeles de la textura, no mezcla.
+func _ghost_back() -> Texture2D:
+	return HudArt.tex("pile:ghost", HudArt.pile_image("discard", 1))
+
+
 func _shuffle_fx() -> void:
 	for i in 6:
-		var g := UI.tex_rect(Art.card_back_small(), UI.UI_PX)
+		var g := UI.tex_rect(_ghost_back(), UI.UI_PX)
 		g.position = _discard_pos() - Vector2(15, 20)
 		g.z_index = 90
 		_fx_layer.add_child(g)

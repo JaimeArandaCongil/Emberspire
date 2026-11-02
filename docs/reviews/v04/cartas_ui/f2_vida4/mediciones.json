@@ -1,0 +1,29 @@
+{
+  "entorno": "nube Linux, Godot 4.7.2, xvfb + llvmpipe, vida_capturas a --fixed-fps 60; atlas great_bellows de F2-JEFE2 (b51a8ba) en antes y después",
+  "jefe_destello": {
+    "zona_art": "x 330-580, y 85-264; patas y 225-262 x 350-570; caja y 120-200 x 400-560",
+    "antes": {"blanco_px_f10": 227, "lum_patas_f9_f10_f11_f14_f16": [63.7, 83.7, 83.9, 76.2, 75.5], "lum_caja_f9_f10_f11_f14_f16": [66.0, 123.2, 123.1, 107.7, 107.6], "fotogramas_con_subida": "f10-f19 (9 a 60 fps)"},
+    "despues": {"blanco_px_f10": 380, "lum_patas_f9_f10_f11_f14_f16": [63.7, 68.7, 63.1, 63.1, 62.4], "lum_caja_f9_f10_f11_f14_f16": [67.1, 89.0, 71.1, 71.0, 71.1], "fotogramas_con_subida": "f10 blanco en la tobera y resto +1; f11-f12 sólo la tobera +2"},
+    "radio_flash_piece": {"antes": 26, "despues": 34, "anclas_tobera_px": [1.4, 10, 20, 30.3], "siguiente_ancla_px": 36.4, "cabeza_px": ">= 52"}
+  },
+  "quemadura_golem": {
+    "metodo": "reposo congelado en f0; resta contra Q0 del mismo fotograma; 1/4 = media por cajas a 320x180",
+    "antes": {"Q1": {"fuego_x1": 158, "claro_x1": 46, "un_cuarto_distintos": 75, "un_cuarto_fuego_claro": 13},
+              "Q3": {"fuego_x1": 163, "claro_x1": 52, "un_cuarto_distintos": 78, "un_cuarto_fuego_claro": 16},
+              "Q9": {"fuego_x1": 200, "claro_x1": 85, "un_cuarto_distintos": 151, "un_cuarto_fuego_claro": 22}},
+    "despues": {"Q1": {"fuego_x1": 158, "claro_x1": 46, "un_cuarto_distintos": 75, "un_cuarto_fuego_claro": 13},
+                "Q3": {"fuego_x1": 179, "claro_x1": 116, "un_cuarto_distintos": 129, "un_cuarto_fuego_claro": 34},
+                "Q9": {"fuego_x1": 210, "claro_x1": 145, "un_cuarto_distintos": 191, "un_cuarto_fuego_claro": 40}},
+    "alto_lengua_px": {"Q1": 3, "Q2": 4, "Q3-5": 5, "Q6+": 6}
+  },
+  "flotantes_cola": {
+    "caso": "golpe al gólem + turno con bloqueo 8 y 2 Hollín (120 fotogramas a 1280x720)",
+    "antes": {"fotogramas_con_solape": 50, "pares_solapados": 150, "sobre_intencion": 0, "sobre_cuerpo": 205},
+    "despues": {"fotogramas_con_solape": 0, "pares_solapados": 0, "sobre_intencion": 0, "sobre_cuerpo": 0}
+  },
+  "colores_ajenos": {
+    "smoke_10b": {"antes_px": 249, "antes": ["8a4a2a", "5a2a1a"], "despues_px": 0, "paleta_pct_despues": 100.0},
+    "cola_turno_f48": {"antes_px": 239, "despues_px": 0},
+    "descarte_fin_de_turno": "ya 0 antes y después (salvo ffe173, 6 px, de la carta: card_view)"
+  }
+}

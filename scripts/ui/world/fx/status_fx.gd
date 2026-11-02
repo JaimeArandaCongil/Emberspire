@@ -4,6 +4,8 @@ extends Node2D
 ## (prioridad: quemadura > débil > fuerza); bloqueo y vulnerable son estáticos, con un evento al ganarlos o perderlos.
 ##   quemadura  3–5 lenguas de 3–6 px sobre el contorno superior (crecen con el valor) + grietas encendidas en el cuerpo;
 ##              4 f a 120 ms. El luchador sube además sus emisivos 1 paso (`emit_boost`, FighterView). F2-VIDA · C6
+##              Desde `SCORCH_HOT` (F2-VIDA4, #3): lenguas de 5–6 px con cuerpo de 3 px hasta media altura y +1 paso en
+##              lenguas, borde y grietas (y 2 pasos de `emit_boost`): legible a 1/4.
 ##   bloqueo    contorno de 1 px en el borde que mira al rival; escudo que gira 4 f al ganar; 5 esquirlas al perder
 ##   fuerza     venas de brasa, 2 f; 2 anillos que suben al ganar (6 f)
 ##   débil      gotas violeta que caen del sprite, 6 f
@@ -11,6 +13,8 @@ extends Node2D
 ## API: docs/reviews/v04/mundo_vivo/api_vfx.md
 
 const FLAME_S := 0.12
+## Quemadura «fuerte»: desde aquí las lenguas miden 5–6 px y todo el fuego del estado sube 1 paso.
+const SCORCH_HOT := 3
 const WEAK_S := 0.11
 const VEIN_S := 0.28
 const SHIELD_S := 0.06
@@ -106,10 +110,19 @@ func flame_count() -> int:
 	return 0 if v <= 0 else clampi(2 + ceili(float(v) / 3.0), 3, 5)
 
 
-## Alto de lengua en px de arte: 3 → 6 con el valor.
+## Alto de lengua en px de arte: 3 (1), 4 (2), 5 (3–5), 6 (6+).
 func flame_height() -> int:
 	var v: int = int(_statuses.get("scorch", 0))
-	return clampi(2 + ceili(float(v) / 2.0), 3, 6)
+	if v >= 6:
+		return 6
+	if v >= SCORCH_HOT:
+		return 5
+	return clampi(2 + v, 3, 4)
+
+
+## Pasos extra de todo el fuego del estado (lenguas, borde, grietas): 1 desde `SCORCH_HOT`.
+func _hot() -> int:
+	return 1 if int(_statuses.get("scorch", 0)) >= SCORCH_HOT else 0
 
 
 ## Qué animación en bucle está activa: &"scorch", &"weak", &"str" o &"".
@@ -224,13 +237,18 @@ func _draw_scorch_rim() -> void:
 		return
 	for x in range(w / 10, w - w / 10):
 		var at := _top_at((float(x) + 0.5) / float(w))
-		var c := Palette.color(&"fire", 4 if (x + _k) % 4 == 0 else 3)
+		var c := Palette.color(&"fire", (4 if (x + _k) % 4 == 0 else 3) + _hot())
 		draw_rect(Rect2(at.x, at.y, 1, 1), c)
 
 
 ## Lengua de fuego con la base 1 px dentro del contorno: 3 px de ancho abajo, 2 en medio, 1 en la punta, que se mece.
+## Fuerte (`_hot`): gota de 4 → 3 → 2 → 1 px con flancos 1 paso más claros (4/5): a 1/4 ocupa 2 píxeles de ancho de fuego
+## claro en vez de fundirse con el cuerpo.
 func _draw_tongue(base: Vector2i, h: int, ph: int) -> void:
 	var sway: int = [0, 1, 0, -1][ph]
+	if _hot() > 0:
+		_draw_hot_tongue(base, h, sway)
+		return
 	for r in h:
 		var y := base.y + 1 - r
 		var t := float(r) / float(maxi(1, h - 1))
@@ -247,13 +265,32 @@ func _draw_tongue(base: Vector2i, h: int, ph: int) -> void:
 			draw_rect(Rect2(base.x + off, y, 1, 1), Palette.color(&"fire", 4 if r == h - 1 else 5))
 
 
+## Fila a fila (de abajo arriba): [ancho, pasos de fuego de izquierda a derecha]. El núcleo claro va a la izquierda del
+## centro; la punta se mece con `sway` desde la mitad.
+const HOT_ROWS := [[4, [4, 6, 7, 5]], [4, [4, 6, 6, 5]], [3, [4, 6, 5]], [2, [5, 6]], [1, [5]], [1, [4]]]
+
+
+func _draw_hot_tongue(base: Vector2i, h: int, sway: int) -> void:
+	# h 5 → filas 0, 1, 2, 3, 5 (sin la segunda punta); h 6 → todas.
+	var rows: Array = HOT_ROWS.slice(0, 5) if h <= 5 else HOT_ROWS
+	if h <= 5:
+		rows[4] = HOT_ROWS[5]
+	for r in rows.size():
+		var w: int = rows[r][0]
+		var steps: Array = rows[r][1]
+		var off := sway if r >= 3 else 0
+		var x0 := base.x - 1 + off
+		for i in w:
+			draw_rect(Rect2(x0 + i, base.y + 1 - r, 1, 1), Palette.color(&"fire", int(steps[i])))
+
+
 ## Grietas encendidas dentro de la silueta (2, o 3 desde Quemadura 7): zigzag de 1 px que late entre fuego 4 y 5.
 func _draw_scorch_cracks() -> void:
 	var w := int(body.size.x)
 	var h := int(body.size.y)
 	var count := 3 if int(_statuses.get("scorch", 0)) >= 7 else 2
 	var seeds: Array[Vector2i] = [Vector2i(w * 30 / 100, h * 40 / 100), Vector2i(w * 64 / 100, h * 55 / 100), Vector2i(w * 46 / 100, h * 70 / 100)]
-	var c := Palette.color(&"fire", 5 if _k % 4 < 2 else 4)
+	var c := Palette.color(&"fire", (5 if _k % 4 < 2 else 4) + _hot())
 	for si in count:
 		var x := seeds[si].x
 		var y := seeds[si].y

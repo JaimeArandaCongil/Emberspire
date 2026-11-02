@@ -27,6 +27,8 @@ const STATUS_Y := 556.0
 const VIEW_BOTTOM := 582.0      # por debajo sólo hay mano
 const INTENT_GAP := 36.0        # 18 px de arte sobre la cabeza
 const INTENT_MIN_Y := 88.0      # base de la banda de intención de jefe (y de arte 44)
+const FLOAT_GAP := 6.0          # aire entre la cola de flotantes y la cabeza/intención (px de pantalla)
+const FLOAT_MIN_Y := 40.0       # los flotantes no suben a la barra superior (HUD y 0–15 de arte = 32 px)
 ## Jefe: intención fija y quieta en la banda y 22–44 de arte (DECISIONES); su base en pantalla, centrada en la banda (22 px).
 const BOSS_INTENT_BOTTOM := 78.0
 const GESTURE_KEY_FRAME := 2    # `summon` / `choke` del jefe: el soplo sale en el f2
@@ -37,10 +39,15 @@ const HERO_ID := &"fogonera"
 const FLASH_WHITE_S := 0.033
 const FLASH_STEPS := [[3, 0.05], [2, 0.05], [1, 0.05]]
 ## Jefes (C2): el blanco sólo en la pieza golpeada (`flash_piece` de `palette_lit`: x, y de mundo y radio; radio < 0 = todo
-## el cuerpo). Se ponen blancos los píxeles cuyo ANCLA cae dentro del radio y el resto sube 3 pasos. El jefe es un único
-## rig sin máscara de piezas: el socket `hit` está en la boca de la tobera y 26 px recogen boca, anillo y tubo de cobre
-## (anclas a 1, 10 y 24 px; la siguiente pieza está a 38). Sin `flash_piece` en el shader, destello entero (respaldo).
-const FLASH_PIECE_R := 26.0
+## el cuerpo). Se ponen blancos los píxeles cuyo ANCLA cae dentro del radio y el resto sube `FLASH_BOSS_REST` paso sólo
+## durante el blanco. Atlas de F2-JEFE2 (socket `hit` en la boca de la tobera): anclas de la tobera a 1, 10, 20 y 30 px
+## (≤ 30,3 en `hurt`); la siguiente, un remache suelto a ≥ 36; la cabeza a ≥ 52 y las patas muy por debajo. 34 px recogen la
+## tobera entera (boca, anillo y tres tramos de tubo). Sin `flash_piece` en el shader, destello entero (respaldo).
+const FLASH_PIECE_R := 34.0
+## F2-VIDA4 (#2): en el jefe la subida posterior al blanco es sólo de la pieza y dura ≤ 2 f a 60 fps; el resto del cuerpo
+## sube `FLASH_BOSS_REST` paso únicamente durante el fotograma blanco (no lava las patas ni la caja del fuelle).
+const FLASH_BOSS_STEPS := [[2, 0.033]]
+const FLASH_BOSS_REST := 1
 ## Segundo reposo de la heroína (biblia §8, C15): martillo al hombro cada 6–10 s, con puente de entrada y salida.
 const SHOULDER_EVERY := Vector2(6.0, 10.0)
 const SHOULDER_HOLD := 2.0
@@ -374,6 +381,22 @@ func center() -> Vector2:
 	return wv.world_to_ui(actor.position + _body.get_center() + _off.round())
 
 
+## F2-VIDA4 (#4, N1): base de la cola de textos flotantes en coordenadas globales: centrada en el cuerpo y por ENCIMA de la
+## cabeza, de la intención (con su vaivén) y del aviso de Ascuas robadas; nunca sobre la cara.
+func float_anchor() -> Vector2:
+	var y := wv.world_to_ui(Vector2(0, actor.position.y + _body.position.y + minf(_off.round().y, 0.0))).y - FLOAT_GAP
+	if not fighter.is_player and not fighter.is_boss and _intent != null and _intent.visible:
+		y = minf(y, global_position.y + _intent_y - _intent.size.y - 2.0 - FLOAT_GAP)
+	if _stolen_label != null and _stolen_label.text != "":
+		y = minf(y, _stolen_label.global_position.y - FLOAT_GAP)
+	return Vector2(center().x, y)
+
+
+## Límite superior de la cola (global): bajo la banda de intención del jefe y bajo el HUD.
+func float_ceiling() -> float:
+	return BOSS_INTENT_BOTTOM + FLOAT_GAP if fighter.is_boss else FLOAT_MIN_Y
+
+
 # --- Dibujo y bucle --------------------------------------------------------------------------------
 
 func _draw() -> void:
@@ -405,6 +428,10 @@ func _process(delta: float) -> void:
 	_sync_status_fx()
 	if _anim != null:
 		_anim.position = p
+		# F2-VIDA4: el punto golpeado sigue al fotograma y al empuje reales (`shake` cambia a `hurt` y desplaza el cuerpo
+		# justo después de `flash`); si no, el blanco caía fuera del anillo y del tubo de la tobera.
+		if _fx_on and fighter.is_boss and _has_flash_piece():
+			_lit_mat.set_shader_parameter(&"flash_piece", _hit_piece())
 		if _hero_mat != null:
 			_update_hero_uniforms()
 			_tick_shoulder(delta)
@@ -544,8 +571,9 @@ func refresh() -> void:
 	_plate.set_values(fighter.hp, fighter.max_hp, fighter.block, fighter.st("scorch"))
 	_check_phase()
 	if _lit_mat != null:
-		# Quemadura (C6): sus grietas y emisivos suben 1 paso mientras arde.
-		_set_emit_boost(1 if fighter.st("scorch") > 0 and fighter.alive() else 0)
+		# Quemadura (C6): sus grietas y emisivos suben 1 paso mientras arde; desde `StatusFX.SCORCH_HOT`, 2 (F2-VIDA4).
+		var sc := fighter.st("scorch") if fighter.alive() else 0
+		_set_emit_boost(0 if sc <= 0 else (2 if sc >= StatusFX.SCORCH_HOT else 1))
 	_status.set_fighter(fighter)
 	_stolen_label.text = "Lleva %s Ascuas robadas" % Num.fmt(fighter.stolen) if fighter.stolen > 0.0 and fighter.alive() else ""
 	_refresh_intent()
@@ -624,12 +652,14 @@ func flash(color: Color = Color.WHITE) -> void:
 		_lit_mat.set_shader_parameter(&"flash_steps", 0)
 		if _has_flash_piece():
 			_lit_mat.set_shader_parameter(&"flash_piece", _hit_piece() if fighter.is_boss else Vector3(0, 0, -1))
+			_lit_mat.set_shader_parameter(&"flash_rest_steps", FLASH_BOSS_REST)
 		_fx_on = true
 		_use_fx_mat()
 		_flash_tween = create_tween().set_ignore_time_scale(true)
 		_flash_tween.tween_interval(FLASH_WHITE_S)
 		_flash_tween.tween_callback(func() -> void: _lit_mat.set_shader_parameter(&"flash_white", false))
-		for st: Array in FLASH_STEPS:
+		var steps: Array = FLASH_BOSS_STEPS if fighter.is_boss and _has_flash_piece() else FLASH_STEPS
+		for st: Array in steps:
 			var n: int = st[0]
 			_flash_tween.tween_callback(func() -> void: _lit_mat.set_shader_parameter(&"flash_steps", 0 if _dead else n))
 			_flash_tween.tween_interval(float(st[1]))
@@ -708,6 +738,8 @@ func shake(strength: float = 8.0) -> void:
 	var dir := -1.0 if fighter.is_player else 1.0
 	var push := clampf(roundf(strength / 4.0), 3.0, 5.0) * LEGACY_SCALE
 	_play(&"hurt")
+	if _fx_on and fighter.is_boss and _has_flash_piece():
+		_lit_mat.set_shader_parameter(&"flash_piece", _hit_piece())   # el blanco ya cae sobre el socket de `hurt`
 	_legacy_seq([["hurt", 0.22]] if fighter.is_player else [["crouch", 0.12]])
 	_tween_off([[Vector2(dir * push, 0), 0.05], [Vector2.ZERO, 0.15, Tween.TRANS_BACK, Tween.EASE_OUT]])
 

@@ -2,6 +2,7 @@ extends Node
 ## F2-VIDA · capturas fotograma a fotograma del combate del acto 1 (golpe, turno enemigo, Quemadura, muerte, reposo) para
 ## medir tiempos y píxeles en movimiento. No es parte de la QA: es la herramienta de evidencia del paquete.
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
+## F2-VIDA4 añade cola (flotantes apilados sobre la cabeza del gólem: daño, y en su turno bloqueo + 2 «+Hollín»; 1280×720).
 ## F2-VIDA3 añade descarte (las cartas vuelan al descarte al acabar el turno; 1280×720, cada fotograma).
 ## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
 ## (texto flotante apagándose por pasos). Las capturas de `mano`, `recompensa` y `flotante` van a 1280×720.
@@ -61,6 +62,8 @@ func _ready() -> void:
 			await _mano()
 		"descarte":
 			await _descarte()
+		"cola":
+			await _cola()
 		_:
 			await _golpe()
 	print("VIDA fin")
@@ -80,6 +83,12 @@ func _grab(tag: String, n: int, every := 1) -> void:
 		var anim := "%s:%d" % [hv._anim.animation, hv._anim.frame] if hv._anim != null else "-"
 		print("VIDA %s %03d t=%d ms héroe=%s eventos=%s" % [tag, i, Time.get_ticks_msec(), anim, ",".join(_events)])
 		_events.clear()
+		if tag.begins_with("full_cola"):
+			_check_floats(tag, i)
+		if OS.get_environment("VIDA_DBG") == "1" and not cs.enemy_views.is_empty():
+			var ev: FighterView = cs.enemy_views[0]
+			if ev._lit_mat != null and ev._anim != null:
+				print("  DBG piece=%s white=%s steps=%s anim=%s:%d pos=%s flip=%s xf=%s mat_propio=%s" % [ev._lit_mat.get_shader_parameter(&"flash_piece"), ev._lit_mat.get_shader_parameter(&"flash_white"), ev._lit_mat.get_shader_parameter(&"flash_steps"), ev._anim.animation, ev._anim.frame, ev._anim.position, ev._anim.flip_h, ev.actor.get_global_transform(), ev._anim.material == ev._lit_mat])
 		if i % every == 0:
 			var img := get_viewport().get_texture().get_image()
 			if not (tag.begins_with("mano") or tag.begins_with("recomp") or tag.begins_with("flot") or tag.begins_with("full") or tag.begins_with("desc")):
@@ -104,7 +113,12 @@ func _turno() -> void:
 
 func _estado() -> void:
 	var g: Fighter = cs.engine.enemies[0]
-	for v: int in [0, 3, 9]:
+	# F2-VIDA4: reposo congelado en el f0 para comparar Q0/Q1/Q3/Q9 píxel a píxel (sólo cambia el estado y la luz).
+	var ev: FighterView = cs.enemy_views[0]
+	if ev._anim != null:
+		ev._anim.frame = 0
+		ev._anim.speed_scale = 0.0
+	for v: int in [0, 1, 3, 9]:
 		g.statuses["scorch"] = v
 		g.block = 5 if v == 9 else 0
 		cs.enemy_views[0].refresh()
@@ -184,3 +198,41 @@ func _invoca() -> void:
 func _descarte() -> void:
 	cs._end_turn()
 	await _grab("desc", 24)
+
+
+## F2-VIDA4 (N1): la heroína golpea al gólem y, en el turno enemigo, el gólem se cubre y mete 2 Hollín (caso 10b). Cada
+## flotante debe quedar sobre la cabeza y la intención, sin pisarse con los demás. Captura completa cada 3 fotogramas.
+func _cola() -> void:
+	var g: Fighter = cs.engine.enemies[0]
+	for c: Card in cs.engine.hand.duplicate():
+		if cs.engine.can_play(c) and c.type() == "attack":
+			cs._play(cs.card_views[c.uid], g)
+			break
+	await _grab("full_cola_golpe", 30, 3)
+	g.intent = {"kind": "defend", "ops": [["block", 8], ["add_card", "soot", 2]]}
+	cs._end_turn()
+	await _grab("full_cola_turno", 90, 3)
+
+
+## Solapes de la cola: flotante con flotante, con la intención y con la caja del cuerpo (pantalla, px).
+func _check_floats(tag: String, i: int) -> void:
+	var rects: Array[Rect2] = []
+	for n: Node in cs._fx_layer.get_children():
+		if n is Label and (n as Label).visible and (n as Label).z_index == 100:
+			rects.append((n as Label).get_global_rect())
+	var pares := 0
+	for a in rects.size():
+		for b in range(a + 1, rects.size()):
+			if rects[a].intersects(rects[b]):
+				pares += 1
+	var con_intencion := 0
+	var con_cuerpo := 0
+	for v: FighterView in cs.enemy_views + [cs.player_view]:
+		var ir: Rect2 = v._intent.get_global_rect() if v._intent.visible else Rect2()
+		var br := Rect2(v.wv.world_to_ui(v.body_world().position), v.body_world().size * FighterView.WS)
+		for r in rects:
+			if ir.has_area() and r.intersects(ir):
+				con_intencion += 1
+			if r.intersects(br):
+				con_cuerpo += 1
+	print("COLA %s %03d flotantes=%d solapes=%d sobre_intencion=%d sobre_cuerpo=%d" % [tag, i, rects.size(), pares, con_intencion, con_cuerpo])
