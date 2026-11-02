@@ -147,6 +147,24 @@
 				"res://assets/baked/examples/golem_example@sooty_prev.png": "28ac24061ab91c0a52a34e5daf090d7c"
 			}
 		},
+		"great_bellows": {
+			"src": "res://scripts/art/defs/bosses/great_bellows.gd",
+			"hash": "153e758a625da3dc7ae28f56d97d35f20d610ec6c01c8b392ea8282624590d28",
+			"group": "bosses",
+			"files": [
+				"res://assets/baked/bosses/great_bellows_idx.png",
+				"res://assets/baked/bosses/great_bellows_prev.png",
+				"res://assets/baked/bosses/great_bellows@phase2_idx.png",
+				"res://assets/baked/bosses/great_bellows@phase2_prev.png",
+				"res://assets/baked/bosses/great_bellows.json"
+			],
+			"md5": {
+				"res://assets/baked/bosses/great_bellows_idx.png": "9d3798133dd89764c201598164df7d86",
+				"res://assets/baked/bosses/great_bellows_prev.png": "7e9990d5098eaf9a626e4be9db06bc4b",
+				"res://assets/baked/bosses/great_bellows@phase2_idx.png": "22608fecd855901f42ffa203032c5c80",
+				"res://assets/baked/bosses/great_bellows@phase2_prev.png": "55abba9d00c2e8636af65d827fba8847"
+			}
+		},
 		"hollow_knight": {
 			"src": "res://scripts/art/defs/creatures/hollow_knight.gd",
 			"hash": "0a8663d642c9b265c88d9be8d01db40075da43fb744fd7392ca988e4f867d183",
