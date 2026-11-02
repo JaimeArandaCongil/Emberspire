@@ -412,3 +412,19 @@ func _dim_steps() -> void:
 	# F2-VIDA4 (#4, N1 y N5): flotantes del combate en la cola sobre la cabeza; dorso fantasma en paleta.
 	_check(not cs.contains("UI.float_text(_fx_layer, _local(v.center())"), "combate: flotante sobre el cuerpo (usa `_float_over`)")
 	_check(not cs.contains("Art.card_back_small()"), "combate: dorso fantasma legado fuera de paleta (N5)")
+	# F2-VIDA5: rótulo «Turno enemigo» breve, en la banda superior (arte y 22–44), en la rejilla ×2 y legible.
+	var cs_s: GDScript = load("res://scripts/ui/screens/combat_screen.gd")
+	var cst: Dictionary = cs_s.get_script_constant_map()
+	var ty: float = cst["TAG_Y"]
+	var th: float = cst["TAG_H"]
+	_check(ty >= 44.0 and ty + th <= 88.0, "rótulo de turno enemigo fuera de la banda superior (y %d–%d de pantalla)" % [ty, ty + th])
+	_check(int(ty) % 2 == 0 and int(th) % 4 == 0, "rótulo de turno enemigo fuera de la rejilla ×2")
+	_check(float(cst["TAG_HOLD"]) + 0.066 <= 0.6, "rótulo de turno enemigo: dura más de 0,6 s")
+	_check(not cs.contains("_banner(\"Turno enemigo\""), "combate: «Turno enemigo» vuelve al banner grande")
+	var lum := func(c: Color) -> float:
+		var ch := func(v: float) -> float: return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
+		return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+	var la: float = lum.call(Palette.color(&"blood", 4))
+	var lb: float = lum.call(Palette.color(&"plate", 1))
+	var ratio := (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+	_check(ratio >= 4.5, "rótulo de turno enemigo: contraste %.2f:1 (mín. 4,5)" % ratio)

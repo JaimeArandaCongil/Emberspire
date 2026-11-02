@@ -11,6 +11,11 @@ const HINT_TURNS := 2              # el consejo desaparece al empezar el turno 3
 const TOAST_Y := 124.0             # avisos: bajo el consejo
 const BANNER_Y := 152.0            # banner de turno: arte y 76–108, por encima de las intenciones de enemigos normales
 const BANNER_H := 64.0
+# F2-VIDA5: rótulo «Turno enemigo» breve en la banda superior (arte y 25–41, dentro de 22–44), Fragua ×2 sobre placa.
+const TAG_Y := 50.0
+const TAG_H := 32.0
+const TAG_HOLD := 0.4              # total con entrada y salida por pasos: ≈ 0,47 s
+const TAG_CENTERS := [640.0, 496.0, 784.0, 352.0, 928.0, 1072.0]   # centros x de pantalla, por orden de preferencia
 const HERO_X := 162
 const ENEMY_X := Vector2i(300, 632)
 const SLOTS := {1: [466], 2: [396, 540], 3: [350, 460, 572]}
@@ -87,6 +92,10 @@ var _end_btn: EndTurnButton
 var _turn_banner: Label
 var _banner_bg: Panel
 var _banner_tw: Tween
+var _tag_bg: Panel
+var _tag_label: Label
+var _tag_tw: Tween
+var _relic_row: Control
 var _hint_plate: Control
 var _vignette: ColorRect
 var _vig_mat: ShaderMaterial
@@ -151,6 +160,17 @@ func build() -> void:
 	_turn_banner = UI.plabel("", 4, UI.EMBER)
 	_turn_banner.visible = false
 	_banner_bg.add_child(_turn_banner)
+	# F2-VIDA5: rótulo «Turno enemigo», misma placa, pequeño y en la banda superior.
+	_tag_bg = Panel.new()
+	_tag_bg.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 5), 2, 0, Vector4.ZERO))
+	_tag_bg.clip_contents = true
+	_tag_bg.visible = false
+	_tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tag_bg.z_index = 140
+	add_child(_tag_bg)
+	_tag_label = UI.plabel("Turno enemigo", 2, Palette.color(&"blood", 4))
+	_tag_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tag_bg.add_child(_tag_label)
 
 	engine.start()
 	_relayout(true)
@@ -519,6 +539,7 @@ func _on_embers_gained(_amount: float, _source: String) -> void:
 
 func _build_relic_bar() -> void:
 	var row := UI.hbox(4)
+	_relic_row = row
 	row.position = Vector2(8, 34)
 	add_child(row)
 	for id in run.relics:
@@ -904,7 +925,7 @@ func _end_turn() -> void:
 	engine.end_player_turn()
 	_relayout()
 	await get_tree().create_timer(0.35).timeout
-	_banner("Turno enemigo", Palette.color(&"blood", 4), 0.35)
+	_enemy_turn_tag()
 	engine.begin_enemy_phase()
 	for v in enemy_views:
 		v.refresh()
@@ -988,6 +1009,62 @@ func _banner_open(h: float) -> void:
 	_banner_bg.size.y = h
 	_banner_bg.position.y = BANNER_Y + (BANNER_H - h) * 0.5
 	_turn_banner.position.y = roundf((BANNER_H - float(PixelFont.px_size(4))) / 4.0) * 2.0 - (BANNER_H - h) * 0.5
+
+
+## F2-VIDA5 (DECISIONES): rótulo «Turno enemigo» breve en la banda superior (arte y 25–41). Entra y sale por pasos de
+## 33 ms (sin alfa) y dura ≈ 0,47 s. Se coloca en el primer hueco libre de flotantes, intenciones (la del jefe incluida)
+## y reliquias; si no hay hueco no sale, y si un flotante o una intención lo alcanza mientras está, se quita de golpe.
+func _enemy_turn_tag() -> void:
+	if _tag_tw != null:
+		_tag_tw.kill()
+	var tw := float(PixelFont.text_width(_tag_label.text)) * 2.0
+	var w := ceilf((tw + 24.0) / 4.0) * 4.0
+	var x := -1.0
+	for c: float in TAG_CENTERS:
+		var cx := roundf((c - w * 0.5) / 2.0) * 2.0
+		if not _tag_blocked(Rect2(global_position + Vector2(cx, TAG_Y), Vector2(w, TAG_H))):
+			x = cx
+			break
+	if x < 0.0:
+		_tag_bg.visible = false
+		return
+	_tag_bg.position = Vector2(x, TAG_Y)
+	_tag_bg.size = Vector2(w, TAG_H)
+	_tag_label.size = Vector2(tw + 8.0, float(PixelFont.px_size(2)))
+	_tag_label.position = Vector2(12.0, roundf((TAG_H - float(PixelFont.px_size(2))) / 4.0) * 2.0)
+	_tag_open(TAG_H * 0.5)
+	_tag_bg.visible = true
+	_tag_tw = create_tween()
+	_tag_tw.tween_interval(0.033)
+	_tag_tw.tween_callback(_tag_open.bind(TAG_H))
+	_tag_tw.tween_method(_tag_guard, 0.0, 1.0, TAG_HOLD)
+	_tag_tw.tween_callback(_tag_open.bind(TAG_H * 0.5))
+	_tag_tw.tween_interval(0.033)
+	_tag_tw.tween_callback(func() -> void: _tag_bg.visible = false)
+
+
+func _tag_open(h: float) -> void:
+	_tag_bg.size.y = h
+	_tag_bg.position.y = TAG_Y + roundf((TAG_H - h) / 4.0) * 2.0
+	_tag_label.visible = h >= TAG_H
+
+
+func _tag_guard(_t: float) -> void:
+	if _tag_bg.visible and _tag_blocked(_tag_bg.get_global_rect()):
+		_tag_bg.visible = false
+
+
+## ¿Pisa el rectángulo (global) un flotante, una intención de enemigo o la fila de reliquias?
+func _tag_blocked(r: Rect2) -> bool:
+	var g := r.grow(4.0)
+	if _fx_layer != null:
+		for n: Node in _fx_layer.get_children():
+			if n is Label and (n as Label).visible and (n as Label).z_index == 100 and (n as Label).get_global_rect().intersects(g):
+				return true
+	for v: FighterView in enemy_views:
+		if is_instance_valid(v) and v._intent != null and v._intent.visible and v._intent.get_global_rect().intersects(g):
+			return true
+	return _relic_row != null and is_instance_valid(_relic_row) and _relic_row.get_global_rect().intersects(g)
 
 
 # --- Efectos: F2-FX o respaldo con ArtParticles -------------------------------------------------------
