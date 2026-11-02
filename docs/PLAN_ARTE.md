@@ -1,7 +1,7 @@
 # Estado del arte v0.4
 Actualiza dirección al cerrar cada paquete. Fases y reparto originales: `docs/reviews/v04/PLAN.md`.
 
-**Fase actual: 2, corte vertical del combate del acto 1, segunda iteración.** Fase 1 cerrada. Correcciones C1–C20 en `docs/reviews/v04/director/f2_rev/dictamen.md`; problemas nuevos medidos en `director/f2_base/revision.md`.
+**Fase actual: 2, corte vertical del combate del acto 1, tercera iteración (F2-REV2 no pasa: `director/f2_rev2/dictamen.md`).** Fase 1 cerrada. Correcciones C1–C20 en `docs/reviews/v04/director/f2_rev/dictamen.md`; problemas nuevos medidos en `director/f2_base/revision.md`.
 Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 
 ## Paquetes de la fase 2
@@ -20,7 +20,14 @@ Se trabaja en la nube (Linux) desde la rama `main-0nvhs9`: ver `CLAUDE.md`.
 | F2-CRIA2 | `ash_slime`, `soot_golem`, `cinder_bat`, `candle_mite` (C5, C12, C13) | `creature-artist` | criaturas | hecho en dos tandas (`personajes/f2_cria2/`, `f2_cria2b/`); limo oscuro sobre el suelo; murciélago y ácaro < 0,10 de contraste a 1/4 en 2 fotogramas (pide C19) |
 | F2-JEFE | `great_bellows` en rig (C9) | `creature-artist` | `scripts/art/defs/bosses/**` | tras F2-CRIA2 |
 | F2-SALA | Ritmo del ladrillo y rejilla (C19) | `world-artist` | `scripts/art/bg/**`, `assets/baked/rooms/**` | tras F2-JEFE |
-| F2-REV2 | Segunda revisión; ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/` | al final |
+| F2-VIDA2/3, F2-ILUS2, F2-CRIA3 | Restos: alfa, integración del jefe, destello por pieza, quema sin alfa, murciélago de ceniza, puente del hombro | varios | ver diarios | hecho |
+| F2-REV2 | Segunda revisión; ≥ 8 por familia | `art-director` | `docs/reviews/v04/director/f2_rev2/` | hecho: **no pasa**. Heroína 8, Forja 8,5, HUD 8, vida 8; criaturas 7,5, jefe 7, sala 7,5, cartas 7,5, efectos 7,5, conjunto 7,5 |
+| F2-JEFE2 | Cuerpo del jefe ≥ 150 sin grúa, pliegues, cabeza | `creature-artist` | `great_bellows.gd` | pendiente (tercera iteración) |
+| F2-CRIA4 | `ash_slime` lobulado y separado del suelo; gesto del gólem | `creature-artist` | criaturas | tras F2-JEFE2 |
+| F2-VIDA4 | Destello del jefe por pieza, Quemadura a 1/4, flotantes fuera de la cara, carta alzada a la rejilla | `art-integrator` | `fighter_view.gd`, `status_fx.gd`, `combat_screen.gd`, `card_view.gd` | pendiente |
+| F2-SALA2 | Juntas −1 paso tras enemigos (desviación ≤ 12) | `world-artist` | `bg_act1.gd`, salas | pendiente |
+| F2-ILUS3 | Títulos largos (decisión N4) y «Fuego Interior» con escena | `card-illustrator` | `card_view.gd`, `set_icon.gd` | pendiente de decisión |
+| F2-REV3 | Revisión corta con el mismo `medir.py` | `art-director` | `director/f2_rev3/` | al final |
 
 ## Hecho hasta ahora
 - Paleta, biblia, rig, horneador, `palette_lit`, `LightRig`, `WorldView`, kit de UI, fuentes, marco de carta.
