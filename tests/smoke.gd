@@ -57,6 +57,9 @@ func _ready() -> void:
 	await _shot("07_combat")
 	var cs = main.current
 	await _check_light(cs)
+	await _check_block_edge(cs)
+	await _check_intents(cs)
+	await _check_glow(cs)
 	var views: Array = cs.card_views.values()
 	if views.size() > 2:
 		var cv: CardView = views[2]
@@ -68,8 +71,9 @@ func _ready() -> void:
 	if not cs.engine.hand.is_empty():
 		var c: Card = cs.engine.hand[0]
 		cs._try_burn(cs.card_views[c.uid])
-	await _wait(0.33)
+	await _check_burn_flight(cs)
 	await _shot("09_burn")
+	_check(not _rect_hits_floor_label(cs), "los avisos no tapan el rótulo del piso")
 	await _wait(0.8)
 	for c: Card in cs.engine.hand.duplicate():
 		if cs.engine.can_play(c) and c.type() == "attack":
@@ -97,8 +101,10 @@ func _ready() -> void:
 	main.go("combat", {"kind": "boss", "enemies": ["great_bellows"]})
 	await _wait(1.6)
 	cs = main.current
+	var before_summon: int = cs.enemy_views.size()
 	cs.engine._enemy_op(cs.engine.enemies[0], ["summon", "candle_mite", 2])
-	await _wait(0.8)
+	await _check_summon_reveal(cs, before_summon)
+	await _wait(0.5)
 	await _shot("14_boss_summon")
 	for e in cs.engine.enemies:
 		if e.alive():
@@ -226,6 +232,15 @@ func _check_light(cs) -> void:
 	print("calor 0.1 / 0.9 [martillo vivo, martillo frío, puntas]: ", results[0.1], " / ", results[0.9])
 	_check(results[0.9][0] > results[0.1][0] and results[0.1][1] > results[0.9][1], "la cara del martillo sigue al calor")
 	_check(results[0.9][2] > results[0.1][2], "las puntas del pelo siguen al calor")
+	# Un único shader: la heroína sólo cambia de parámetro; los demás no tienen el calor activado.
+	var base_sh: Shader = load("res://shaders/palette_lit.gdshader")
+	_check(hv._hero_mat.shader == base_sh and hv._hero_mat.get_shader_parameter(&"hero_heat") == true, "la heroína usa palette_lit con hero_heat")
+	var others_off := true
+	for ev: FighterView in cs.enemy_views:
+		if ev._anim != null:
+			var em := ev._anim.material as ShaderMaterial
+			others_off = others_off and em == cs._wv.lit_material and em.get_shader_parameter(&"hero_heat") != true
+	_check(others_off, "los enemigos no siguen al calor")
 	# Heat real: producción y quemas del combate.
 	var h0: float = cs._wv.lights.heat
 	cs._sync_light()
@@ -246,6 +261,141 @@ func _check_light(cs) -> void:
 	_check(cs._wv.lights._burn_t >= 0.0, "cada quema lanza la onda de LightRig")
 	await _wait(0.8)
 	hv._anim.play(&"idle")
+
+
+## El contorno de bloqueo y demás efectos de estado siguen la silueta del fotograma actual, en cualquier luchador y pose.
+func _check_block_edge(cs) -> void:
+	var cases: Array = [[cs.player_view, [&"idle", &"toss", &"attack", &"hurt", &"cast"]]]
+	for v: FighterView in cs.enemy_views:
+		cases.append([v, [&"idle", &"attack", &"hurt"]])
+	var t0 := Time.get_ticks_usec()
+	var hv: FighterView = cs.player_view
+	hv.status_fx.set_mask(hv.body_mask())
+	print("set_mask, coste por cambio de fotograma: %d µs" % (Time.get_ticks_usec() - t0))
+	for pair: Array in cases:
+		var v: FighterView = pair[0]
+		var name_v: String = v.fighter.def_id if v.fighter.def_id != "" else "heroina"
+		var saved: int = v.fighter.block
+		v.fighter.block = 5
+		v.refresh()
+		var bad := 0
+		var rows := 0
+		for an: StringName in pair[1]:
+			if not v._anim.sprite_frames.has_animation(an):
+				continue
+			for f in v._anim.sprite_frames.get_frame_count(an):
+				v._anim.play(an)
+				v._anim.pause()
+				v._anim.frame = f
+				await get_tree().process_frame
+				await get_tree().process_frame
+				var fx: StatusFX = v.status_fx
+				var frame := v.current_frame().get_image()
+				var origin := v.canvas_world()
+				var edges: PackedInt32Array = fx._right if v.fighter.is_player else fx._left
+				for i in edges.size():
+					if edges[i] < 0:
+						continue
+					rows += 1
+					var solid := Vector2(fx._body_x() + edges[i], fx._body_y() + i) - origin
+					var out := solid + (Vector2.RIGHT if v.fighter.is_player else Vector2.LEFT)
+					var inside := Rect2(Vector2.ZERO, frame.get_size()).has_point(out)
+					if frame.get_pixelv(Vector2i(solid)).a8 == 0 or (inside and frame.get_pixelv(Vector2i(out)).a8 != 0):
+						bad += 1
+		_check(rows > 0 and bad == 0, "bloqueo pegado a la silueta en %s: %d filas, %d fuera" % [name_v, rows, bad])
+		if v.fighter.is_player:
+			v._anim.play(&"toss")
+			v._anim.pause()
+			v._anim.frame = 1
+			await _wait(0.1)
+			await _shot("09a_block_toss")
+		v.fighter.block = saved
+		v.refresh()
+		v._anim.play(&"idle")
+	await _wait(0.4)
+
+
+## Placa de intención: dentro de la rejilla ×2, sobre su luchador y sin invadir la placa de vida ni el rótulo.
+func _check_intents(cs) -> void:
+	for v: FighterView in cs.enemy_views:
+		var r: Rect2 = v._intent.get_global_rect()
+		_check(int(r.size.x) % 2 == 0 and int(r.size.y) % 2 == 0 and v._intent._plate.texture != null, "placa de intención en la rejilla ×2 (%s)" % [r.size])
+		_check(r.end.y <= v._plate.get_global_rect().position.y and r.position.y >= 88.0 - IntentView.H, "la intención no invade otros elementos (y %d–%d)" % [r.position.y, r.end.y])
+
+
+## Resplandor: los cantos con luz cálida pasan a la rampa de oro y vuelven al apagarse.
+func _check_glow(cs) -> void:
+	var golds: Array = []
+	for i in 6:
+		golds.append(Palette.color(&"gold", i))
+	var rect := Rect2i(0, 110, 480, 420)
+	var off0: int = await _count_colors(rect, golds)
+	var until: float = Game.glow_until
+	var value: float = Game.glow_value
+	Game.glow_value = 2.0
+	Game.glow_until = Time.get_unix_time_from_system() + 60.0
+	await _wait(0.2)
+	_check(cs._wv.lights.gold, "LightRig recibe el Resplandor")
+	var on: int = await _count_colors(rect, golds)
+	await _shot("07b_glow")
+	Game.glow_until = until
+	Game.glow_value = value
+	await _wait(0.2)
+	var off1: int = await _count_colors(rect, golds)
+	print("píxeles de oro sin/con/sin Resplandor: ", off0, " / ", on, " / ", off1)
+	_check(on > off0 and off1 <= off0 + 40 and not cs._wv.lights.gold, "la luz cálida pasa a oro y vuelve (%d → %d → %d)" % [off0, on, off1])
+
+
+## La carta quemada vuela por detrás de la heroína: se dibuja antes que su actor en el mundo.
+func _check_burn_flight(cs) -> void:
+	var waited := 0.0
+	var seen := false
+	var hv: FighterView = cs.player_view
+	while waited < 0.33:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+		var sp: Sprite2D = cs._burn_card_sprite
+		if not seen and is_instance_valid(sp) and sp.get_parent() != null:
+			seen = true
+			_check(sp.get_index() < hv.actor.get_index() and sp.get_parent() == hv.actor.get_parent(), "la carta vuela por detrás de la heroína")
+			while is_instance_valid(sp) and sp.position.x > float(hv.center_x()) + 4.0:
+				await get_tree().process_frame
+				waited += get_process_delta_time()
+			if is_instance_valid(sp):
+				var tm := Engine.time_scale
+				Engine.time_scale = 0.01
+				await _shot("09b_burn_flight")
+				Engine.time_scale = tm
+	_check(seen, "la carta llegó a cruzar a la heroína")
+
+
+func _rect_hits_floor_label(cs) -> bool:
+	var fl: Rect2 = Rect2()
+	for ch: Node in cs.get_children():
+		if ch is FloorLabel:
+			fl = (ch as FloorLabel).get_global_rect()
+	for ch: Node in main.overlay_layer.get_children():
+		if ch is PanelContainer and (ch as Control).get_global_rect().intersects(fl):
+			return true
+	return false
+
+
+## Invocación: el recién llegado emerge de abajo arriba por `reveal` y vuelve al material común.
+func _check_summon_reveal(cs, before: int) -> void:
+	await _wait(0.26)
+	if cs.enemy_views.size() <= before:
+		_check(false, "la invocación añade luchadores")
+		return
+	var nv: FighterView = cs.enemy_views[before]
+	if nv._anim != null:
+		_check(nv._reveal_mat != null, "el invocado emerge por `reveal` (y = %s)" % [nv._reveal_mat.get_shader_parameter(&"reveal_y") if nv._reveal_mat != null else "?"])
+		var tm := Engine.time_scale
+		Engine.time_scale = 0.01
+		await _shot("14a_summon_reveal")
+		Engine.time_scale = tm
+	await _wait(0.3)
+	if nv._anim != null:
+		_check(nv._reveal_mat == null and nv._anim.material == cs._wv.lit_material, "el invocado vuelve al material común")
 
 
 ## Mano de 10, altura de vuelo y centros de la disposición.

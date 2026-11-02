@@ -2,8 +2,8 @@ extends RefCounted
 ## POLILLA DE LLAMA (`flame_moth`, acto 1) — PER · v0.4.
 ## Concepto: una polilla adicta a tu fuego: cada carta que quemas enciende más los ocelos de sus alas (`on_burn str+1`).
 ## Silueta: alas grandes y REDONDAS de terciopelo (el murciélago las tiene en punta y raídas), cuerpo peludo gordo, antenas de pluma.
-## ≈ 50×84 px de envergadura en un lienzo de 104×88. Vuela: socket `ground` = suelo bajo el cuerpo (idle:0).
-## Rasgo vivo: aleteo LENTO de 8 fotogramas, polvo de escamas que cae, ocelos que laten.
+## ≈ 50×84 px de envergadura en un lienzo de 128×128. Vuela: socket `ground` = suelo bajo el cuerpo (idle:0).
+## Rasgo vivo: aleteo lento de 6 fotogramas, polvo de escamas que cae, ocelos que laten.
 ## Animaciones: idle, react (al quemar: alas abiertas, ocelos al blanco), cast (bloqueo: se envuelve en las alas), attack, hurt, death.
 
 const HOVER := 42
@@ -45,7 +45,7 @@ static func _mirror(rows: Array) -> Array:
 
 
 static func build() -> RigDef:
-	var b := RigBuilder.new(&"flame_moth", Vector2i(104, 88), Vector2i(52, 50), -1)
+	var b := RigBuilder.new(&"flame_moth", Vector2i(128, 128), Vector2i(72, 68), -1)
 	b.material(&"wing", &"cloth")
 	b.material(&"fur", &"leather", {"texture": &"strands"})
 	b.material(&"chitin", &"soot")
@@ -98,6 +98,15 @@ static func build() -> RigDef:
 		&"burst": _pts([[4, 6, "y"], [36, 6, "y"], [2, 14, "o"], [38, 12, "o"], [8, 22, "y"], [32, 22, "o"], [20, 30, "y"], [14, 28, "o"], [26, 34, "o"]]),
 		&"ash": _pts([[8, 18, "o"], [14, 34, "o"], [30, 24, "o"], [26, 36, "y"], [36, 30, "o"]]),
 	}})
+	# Ceniza que queda en el suelo (sólo existe en la vista `pile`, último fotograma de la muerte).
+	b.stamp(&"ash_pile", &"root", Vector2(-8, 12), ["."], {"a": [&"ash", 6], "A": [&"ash", 8], "d": [&"ash", 4], "e": [&"fire", 3]}, {"views": {
+		&"pile": [
+		"......aA.........",
+		"...aaAAAaa..e....",
+		".daaaAAaaaaad..a.",
+		"ddaaaaaaaaaaaddd.",
+	],
+	}})
 	b.socket(&"ground", &"root", Vector2(0, HOVER))
 	b.socket(&"hit", &"head", Vector2(-6, 0))
 	b.socket(&"intent", &"head", Vector2(0, -14))
@@ -126,14 +135,14 @@ static func _w(a: float, extra := {}) -> Dictionary:
 
 static func _anims(b: RigBuilder) -> void:
 	var idle := {}
-	for f in 8:
-		var t := TAU * f / 8.0
-		var k := _w(-0.05 + 0.32 * sin(t), {&"@root": Vector2i(0, -1 if f in [2, 3, 4] else 0), &"abdomen": 0.08 * sin(t - 1.0), &"head": 0.04 * sin(t)})
-		k[&"view:dust"] = [&"none", &"p0", &"p1", &"p2", &"p3", &"none", &"none", &"none"][f]
-		k[&"view:head"] = &"shut" if f == 6 else StringName()
+	for f in 6:
+		var t := TAU * f / 6.0
+		var k := _w(-0.05 + 0.32 * sin(t), {&"@root": Vector2i(0, -1 if f in [1, 2] else 0), &"abdomen": 0.08 * sin(t - 1.0), &"head": 0.04 * sin(t)})
+		k[&"view:dust"] = [&"none", &"p0", &"p1", &"p2", &"p3", &"none"][f]
+		k[&"view:head"] = &"shut" if f == 5 else StringName()
 		k[&"emit:nf"] = 0
 		idle[f] = k
-	b.anim(&"idle", 8, 130, idle, {"interp": &"linear"})
+	b.anim(&"idle", 6, 160, idle, {"interp": &"hold"})
 	# Reacción a quemar: alas abiertas de golpe, ocelos encendidos, polvo incandescente.
 	b.anim(&"react", 3, [70, 110, 160], {
 		0: _w(-0.45, {&"@root": Vector2i(0, -2), &"view:dust": &"burst", &"view:head": &"", &"emit:nf": 2}),
@@ -159,10 +168,10 @@ static func _anims(b: RigBuilder) -> void:
 	# Muerte: las alas arden hacia dentro; el cuerpo cae y queda ceniza.
 	var d := {}
 	d[0] = _w(0.6, {&"body": 0.25, &"@root": Vector2i(3, 2), &"view:dust": &"burst", &"view:head": &"shut"})
-	d[1] = _w(0.9, {&"body": 0.5, &"@root": Vector2i(2, 7), &"view:dust": &"burst", &"view:head": &"shut", &"hide:ff": true})
-	d[2] = _w(1.1, {&"body": 0.8, &"@root": Vector2i(2, 13), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true})
-	d[3] = _w(1.1, {&"body": 1.1, &"@root": Vector2i(2, 20), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true})
-	d[4] = _w(1.1, {&"body": 1.45, &"@root": Vector2i(2, 27), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true, &"hide:antennae": true})
-	d[5] = {&"@root": Vector2i(2, 30), &"view:dust": &"ash", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true, &"hide:antennae": true,
+	d[1] = _w(0.9, {&"body": 0.25, &"@root": Vector2i(2, 7), &"view:dust": &"burst", &"view:head": &"shut", &"hide:ff": true})
+	d[2] = _w(1.1, {&"body": 0.3, &"@root": Vector2i(2, 13), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true})
+	d[3] = _w(1.1, {&"body": 0.3, &"@root": Vector2i(2, 20), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true})
+	d[4] = _w(1.1, {&"body": 0.3, &"hide:skull": true, &"hide:eyes": true, &"@root": Vector2i(2, 24), &"view:dust": &"ash", &"view:head": &"shut", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true, &"hide:antennae": true})
+	d[5] = {&"@root": Vector2i(2, 26), &"view:ash_pile": &"pile", &"view:dust": &"ash", &"hide:ff": true, &"hide:nf": true, &"hide:fh": true, &"hide:nh": true, &"hide:antennae": true,
 		&"hide:abd": true, &"hide:rings": true, &"hide:thorax": true, &"hide:skull": true, &"hide:eyes": true}
 	b.anim(&"death", 6, [80, 90, 100, 110, 130, 300], d, {"loop": false, "interp": &"hold"})

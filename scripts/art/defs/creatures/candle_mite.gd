@@ -1,12 +1,12 @@
 extends RefCounted
 ## ÁCARO DE VELA (`candle_mite`, acto 1) — PER · v0.4. Criatura pequeña: casi todo son LOSAS ASCII a mano con pasos forzados; el rig sólo anima.
 ## Concepto: un ácaro de caparazón oscuro que carga un cabo de vela al lomo y vive de su cera.
-## Silueta: escarabajo bajo con seis patas de aguja y una vela chorreante encendida encima. ≈ 26×28 px; lienzo 48×48; suelo y = 42.
+## Silueta: escarabajo bajo con seis patas de aguja y una vela chorreante encendida encima. ≈ 26×28 px; lienzo 64×52; suelo y = 46.
 ## Rasgo vivo: la llama parpadea (3 fotogramas), la cera gotea por el lateral, las antenas tiemblan, ojo de brasa.
 ## Telegrafía (cast, Fuerza): se levanta, la llama crece. Muerte: la cera se derrite y la mecha ESTALLA (anuncia su `on_death`).
 
 static func build() -> RigDef:
-	var b := RigBuilder.new(&"candle_mite", Vector2i(48, 48), Vector2i(24, 37), -1)
+	var b := RigBuilder.new(&"candle_mite", Vector2i(64, 52), Vector2i(38, 41), -1)
 	b.material(&"wax", &"linen")
 	b.material(&"shell", &"leather")
 	b.material(&"leg", &"boot")
@@ -132,7 +132,7 @@ static func _anims(b: RigBuilder) -> void:
 		k[&"hide:puddle"] = true
 		_legs(k, 0.06 * sin(TAU * f / 3.0))
 		idle[f] = k
-	b.anim(&"idle", 6, 130, idle, {"interp": &"hold"})
+	b.anim(&"idle", 6, 140, idle, {"interp": &"hold"})
 	# Telegrafía: se yergue, la llama crece.
 	var c0 := {&"body": 0.18, &"head": -0.1, &"candle": -0.08, &"@root": Vector2i(1, -1), &"view:wick": &"big", &"view:antenna": &"a1", &"hide:puddle": true, &"view:drip": &"d1"}
 	var c1 := c0.duplicate()

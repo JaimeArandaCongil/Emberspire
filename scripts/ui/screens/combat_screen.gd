@@ -4,6 +4,8 @@ extends Screen
 ## Los efectos de F2-FX (docs/reviews/v04/mundo_vivo/api_vfx.md) se enganchan si sus clases existen; si no, respaldo.
 
 # Disposición del mundo, en px de arte.
+const HINT_Y := 84.0               # bajo el rótulo del piso (y 30–80)
+const TOAST_Y := 112.0             # avisos: bajo el rótulo y el consejo
 const HERO_X := 162
 const ENEMY_X := Vector2i(300, 632)
 const SLOTS := {1: [466], 2: [396, 540], 3: [350, 460, 572]}
@@ -69,6 +71,8 @@ var _behind_layer: Control
 var _top_hud: TopHud
 var _crucible: EnergyCrucible
 var _burn_plate: BurnPlate
+var _burn_card_sprite: Sprite2D   # carta en vuelo por detrás de la heroína
+var _toast_slot := 0
 var _heat_label: Label
 var _furnace: Control
 var _draw_pile: PileCounter
@@ -153,9 +157,9 @@ func build() -> void:
 	elif kind == "elite":
 		_banner("Élite", Palette.color(&"blood", 4))
 	if run.tutorial and run.floor_num <= 1:
-		main.toast("Clic derecho en la Leña para QUEMARLA: +1 Energía y Ascuas para tu Forja", UI.EMBER)
+		_toast("Clic derecho en la Leña para QUEMARLA: +1 Energía y Ascuas para tu Forja", UI.EMBER)
 	if run.combat_mods.has("burn"):
-		main.toast("Puerta avivada: +1 Quema cada turno", UI.EMBER)
+		_toast("Puerta avivada: +1 Quema cada turno", UI.EMBER)
 
 
 func _full_layer() -> Control:
@@ -391,11 +395,39 @@ func _build_top() -> void:
 	fl.set_floor(run.floor_num, EnemyDB.act_name(run.floor_num), extra)
 	_build_relic_bar()
 	if run.tutorial:
-		var hint := UI.label("Clic: jugar  ·  Clic dcho: QUEMAR  ·  Mayús + clic dcho: QUEMAR EN CALIENTE (×2)  ·  Espacio: fin de turno", 14, UI.DIM)
-		hint.position = Vector2(0, 86)
-		hint.size = Vector2(1280, 16)
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		add_child(hint)
+		_build_hint("Clic: jugar  ·  Clic dcho: QUEMAR  ·  Mayús + clic dcho: QUEMAR EN CALIENTE (×2)  ·  Espacio: fin de turno")
+
+
+## Consejo del tutorial sobre placa opaca, bajo el rótulo del piso: se lee igual sobre ladrillo y estandartes.
+func _build_hint(text: String) -> void:
+	var w := roundf((PixelFont.pavesa_width(text) + 24.0) / 2.0) * 2.0
+	var plate := Panel.new()
+	plate.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 4), 1, 0, Vector4.ZERO))
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
+	plate.size = Vector2(w, 24)
+	add_child(plate)
+	var hint := UI.label(text, 14, UI.TEXT)
+	hint.position = Vector2(12, 3)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(hint)
+
+
+## Aviso de combate. Como `main.toast`, pero bajo el rótulo del piso y el consejo: ni los tapa ni se apila sobre ellos.
+func _toast(text: String, color: Color = UI.TEXT) -> void:
+	var p := UI.panel(Palette.color(&"plate", 1), color.darkened(0.3))
+	p.add_child(UI.plabel(text, 2, color) if text.length() <= 60 else UI.label(text, 18, color))
+	main.overlay_layer.add_child(p)
+	p.reset_size()
+	var y := TOAST_Y + 48.0 * (_toast_slot % 4)
+	_toast_slot += 1
+	get_tree().create_timer(1.2).timeout.connect(func() -> void:
+		if is_inside_tree():
+			_toast_slot = maxi(0, _toast_slot - 1))
+	p.position = Vector2(roundf((1280.0 - p.size.x) / 4.0) * 2.0, y)
+	var tw := p.create_tween()
+	tw.tween_interval(1.9)
+	tw.tween_callback(p.queue_free)
 
 
 func _on_embers_gained(_amount: float, _source: String) -> void:
@@ -578,6 +610,7 @@ func _sync_light() -> void:
 	_state.heat = h
 	_state.low_hp = low
 	_state.glow = Game.glow_active() > 0.0
+	_wv.lights.gold = _state.glow
 	_wv.lights.heat = h
 	_wv.lights.low_hp = 0.8 if low else 0.0
 	_vignette.visible = low and _room == null
@@ -594,6 +627,8 @@ func _process(delta: float) -> void:
 	if main.hud.visible:
 		main.hud.visible = false
 	_top_hud.position = -main.screen_layer.position
+	if (Game.glow_active() > 0.0) != _wv.lights.gold:   # el Resplandor caduca o se enciende sin evento de combate
+		_sync_light()
 	# Parallax por ratón, en px de arte enteros.
 	var mx := clampf((get_viewport().get_mouse_position().x - 640.0) / 640.0, -1.0, 1.0)
 	if _room != null:
@@ -636,11 +671,11 @@ func _on_card_clicked(cv: CardView, button: int) -> void:
 	if not engine.can_play(c):
 		Sfx.play("deny")
 		if c.type() == "fuel":
-			main.toast("Combustible: sólo puede QUEMARSE (clic derecho)", UI.EMBER)
+			_toast("Combustible: sólo puede QUEMARSE (clic derecho)", UI.EMBER)
 		elif not c.is_playable():
-			main.toast("Esta carta no se puede jugar", UI.DIM)
+			_toast("Esta carta no se puede jugar", UI.DIM)
 		else:
-			main.toast("No tienes energía suficiente", UI.RED)
+			_toast("No tienes energía suficiente", UI.RED)
 			_crucible.deny()
 		_deny(cv)
 		return
@@ -650,7 +685,7 @@ func _on_card_clicked(cv: CardView, button: int) -> void:
 		else:
 			_set_selected(cv)
 			Sfx.play("hover")
-			main.toast("Elige un objetivo", UI.EMBER)
+			_toast("Elige un objetivo", UI.EMBER)
 		return
 	_play(cv, null)
 
@@ -696,9 +731,9 @@ func _try_burn(cv: CardView, hot: bool = false) -> void:
 	if not engine.can_burn(cv.card):
 		Sfx.play("deny")
 		if not cv.card.is_burnable():
-			main.toast("La Ceniza Húmeda no prende: no se puede quemar", UI.BLUE)
+			_toast("La Ceniza Húmeda no prende: no se puede quemar", UI.BLUE)
 		else:
-			main.toast("El horno necesita respirar: no te quedan Quemas este turno", UI.DIM)
+			_toast("El horno necesita respirar: no te quedan Quemas este turno", UI.DIM)
 			if _forge != null:
 				_forge.call(&"deny")
 		_deny(cv)
@@ -706,9 +741,9 @@ func _try_burn(cv: CardView, hot: bool = false) -> void:
 	if hot and not engine.can_burn_hot(cv.card):
 		Sfx.play("deny")
 		if cv.card.hot_cost(engine.energy) < 0:
-			main.toast("Sólo las cartas jugables de coste 1 o más se queman en caliente", UI.DIM)
+			_toast("Sólo las cartas jugables de coste 1 o más se queman en caliente", UI.DIM)
 		else:
-			main.toast("No tienes Energía para quemarla en caliente", UI.RED)
+			_toast("No tienes Energía para quemarla en caliente", UI.RED)
 			_crucible.deny()
 		_deny(cv)
 		return
@@ -716,10 +751,10 @@ func _try_burn(cv: CardView, hot: bool = false) -> void:
 		_set_selected(null)
 	engine.burn_card(cv.card, hot)
 	if hot:
-		main.toast("¡En caliente! ×2 Ascuas y Maestría", UI.FIRE)
+		_toast("¡En caliente! ×2 Ascuas y Maestría", UI.FIRE)
 	if run.tutorial and not Game.seen_tips.has("mastery"):
 		Game.seen_tips["mastery"] = true
-		main.toast("Cada carta que quemas gana Maestría para siempre (+10% por nivel)", Palette.color(&"magic", 5))
+		_toast("Cada carta que quemas gana Maestría para siempre (+10% por nivel)", Palette.color(&"magic", 5))
 	_after_action()
 
 
@@ -843,10 +878,12 @@ func _fx_enemy_death(v: FighterView, embers: float) -> void:
 
 func _fx_summon(nv: FighterView) -> void:
 	if _summon_fx != null:
-		_summon_fx.call(&"play", nv.foot_world(), int(nv.body_width()))
+		nv.reveal(0.0)   # oculto hasta que SummonFX abre el suelo
+		_summon_fx.call(&"play", nv.foot_world(), int(nv.body_width()), nv.reveal)
 	else:
 		_burst(nv.center(), "spark", 14)
-	nv.spawn()
+	if _summon_fx == null:
+		nv.spawn()
 
 
 ## Vuelo de la carta a la Forja y efecto de quemar.
@@ -860,7 +897,7 @@ func _fx_burn(cv: CardView, c: Card, d: Dictionary) -> void:
 		_pending_mastery = 0
 		if cv != null:
 			var cs: Dictionary = _burn_fx.get_script().get_script_constant_map()
-			_fly_card_to_forge(cv, origin, cs["FLIGHT_START"], cs["FLIGHT_TIME"])
+			_fly_card_to_forge(cv, c, origin, cs["FLIGHT_START"], cs["FLIGHT_TIME"])
 		return
 	_state.pulse_inhale()
 	var fpos := _forge_mouth()
@@ -885,18 +922,51 @@ func _fx_burn(cv: CardView, c: Card, d: Dictionary) -> void:
 		_forge_tick = 1.0)
 
 
-func _fly_card_to_forge(cv: CardView, origin_world: Vector2, start: float, dur: float) -> void:
+## La carta vuela como interfaz sobre la mano y, al llegar a la heroína, pasa al mundo por DETRÁS de ella: una copia en un
+## SubViewport (preparada antes de despegar para que no parpadee) dibujada como sprite justo bajo su actor.
+func _fly_card_to_forge(cv: CardView, c: Card, origin_world: Vector2, start: float, dur: float) -> void:
 	var mouth: Vector2 = _forge.call(&"mouth_pos")
 	var from := cv.position
+	var sv := SubViewport.new()
+	sv.size = Vector2i(CardView.SIZE)
+	sv.transparent_bg = true
+	sv.gui_disable_input = true
+	sv.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var copy := CardView.new(c, engine)
+	copy.interactive = false
+	sv.add_child(copy)
+	add_child(sv)
+	var hero_box := player_view.body_world().grow(2.0)
+	_burn_card_sprite = null
+	var sprite: Array[Sprite2D] = [null]
 	var fly := func(t: float) -> void:
 		var p: Vector2 = _burn_fx.get_script().call(&"flight_point", origin_world, mouth, t)
+		var k: float = cv.scale.x
 		cv.position = _local(_wv.world_to_ui(p)) - CardView.SIZE * 0.5   # pivote en el centro de la carta
+		if sprite[0] == null:
+			var half := CardView.SIZE * 0.25 * k   # media carta, en px de arte
+			if not hero_box.intersects(Rect2(p - half, half * 2.0)):
+				return
+			sprite[0] = Sprite2D.new()
+			sprite[0].name = "CartaQuemada"
+			sprite[0].texture = sv.get_texture()
+			_actors.add_child(sprite[0])
+			_actors.move_child(sprite[0], player_view.actor.get_index())
+			_burn_card_sprite = sprite[0]
+			cv.visible = false
+		sprite[0].position = p
+		sprite[0].scale = Vector2.ONE * (0.5 * k)
 	cv.position = from + Vector2(0, -6)
 	var tw := cv.create_tween()
 	tw.tween_interval(start)
 	tw.tween_method(fly, 0.0, 1.0, dur)
 	tw.parallel().tween_property(cv, "scale", Vector2(0.25, 0.25), dur)
-	tw.tween_callback(cv.queue_free)
+	tw.tween_callback(func() -> void:
+		if sprite[0] != null:
+			sprite[0].queue_free()
+		sv.queue_free()
+		cv.queue_free())
 
 
 func _on_burn_impact(_hot: bool, shake_px: float, hitstop_s: float) -> void:
@@ -1011,7 +1081,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var c: Card = d["card"]
 			var lvl: int = d["level"]
 			var col: Color = Palette.color(&"magic", 5) if lvl >= Game.MASTERY_MAX else Palette.color(&"gold", 5)
-			main.toast("%s · Maestría %d%s" % [CardDB.get_def(c.id)["name"], lvl, " (¡máxima!)" if lvl >= Game.MASTERY_MAX else ""], col)
+			_toast("%s · Maestría %d%s" % [CardDB.get_def(c.id)["name"], lvl, " (¡máxima!)" if lvl >= Game.MASTERY_MAX else ""], col)
 			_pending_mastery = lvl
 			if _burn_fx == null:
 				_burst(_forge_mouth() + Vector2(0, -40), "glow", 16)
@@ -1145,7 +1215,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 				_coins(_top_hud.ember_anchor(), sv.center(), 6)
 				UI.float_text(_fx_layer, _local(sv.center()) + Vector2(0, -70), "−%s Ascuas" % Num.fmt(amt2), UI.RED, 22)
 				Sfx.play("coin", 0.3, -2.0)
-				main.toast("¡Te roba %s Ascuas de la Forja! Mátala para recuperarlas ×2" % Num.fmt(amt2), Palette.color(&"blood", 4))
+				_toast("¡Te roba %s Ascuas de la Forja! Mátala para recuperarlas ×2" % Num.fmt(amt2), Palette.color(&"blood", 4))
 				sv.refresh()
 		"refund":
 			var rv := _view_for(d["source"])
@@ -1291,7 +1361,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 			b.pressed.connect(func() -> void:
 				run.add_relic(rid)
 				Sfx.play("rebirth")
-				main.toast("Obtienes %s" % rd["name"], UI.EMBER)
+				_toast("Obtienes %s" % rd["name"], UI.EMBER)
 				for other in rrow.get_children():
 					(other as Button).disabled = true
 				b.modulate = Color(1.3, 1.2, 0.8)
@@ -1324,7 +1394,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 			view.create_tween().tween_property(view, "position:y", 2.0 if h else 10.0, 0.08))
 		cv.clicked.connect(func(_view: CardView, _b: int) -> void:
 			if cards_box.modulate.a < 0.9:
-				main.toast("Primero elige una reliquia", UI.EMBER)
+				_toast("Primero elige una reliquia", UI.EMBER)
 				return
 			run.deck.append(c)
 			Sfx.play("buy")
@@ -1342,7 +1412,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 		cards_box.add_child(prow)
 	var skip := UI.button("Quemar las ofrendas (+%s Ascuas)" % Num.fmt(skip_value), func() -> void:
 		if cards_box.modulate.a < 0.9:
-			main.toast("Primero elige una reliquia", UI.EMBER)
+			_toast("Primero elige una reliquia", UI.EMBER)
 			return
 		Game.gain_tower_embers(skip_value, "skip")
 		main.fly_embers(Vector2(640, 600), 6)

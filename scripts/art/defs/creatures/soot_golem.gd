@@ -2,8 +2,9 @@ extends RefCounted
 ## GÓLEM DE HOLLÍN (`soot_golem`, acto 1) — PER · v0.4, motor de rig v1.
 ## Concepto: un horno de ladrillo encorvado que anda con los nudillos y lleva el fuego en la barriga.
 ## Silueta: joroba alta con chimenea detrás, cabeza de carbón hundida delante, puño enorme apoyado (gorila).
-## ≈ 84 px de alto en un lienzo de 112×112; pies en y = 104; mira a la izquierda.
-## Rasgo vivo: la chimenea humea (bocanadas que suben) y cae una gota de hollín bajo el vientre; la puerta late.
+## ≈ 88 px de alto en un lienzo de 128×128; pies en y = 120; mira a la izquierda.
+## Rasgo vivo (6 f): la chimenea humea, la puerta late, cae una gota de hollín; el cuerpo sólo sube y baja 1 px.
+## Muerte por material: se agrieta, se le van las extremidades de carbón, la bóveda de ladrillo se hunde y queda un muñón de muro con la puerta apagándose.
 ## Telegrafía (cast): alza el puño sobre la cabeza y la puerta del horno se pone al blanco.
 
 static func _bricks(l: Vector2, st: int, n: int) -> int:
@@ -23,7 +24,7 @@ static func _bricks(l: Vector2, st: int, n: int) -> int:
 
 
 static func build() -> RigDef:
-	var b := RigBuilder.new(&"soot_golem", Vector2i(112, 112), Vector2i(62, 84), -1)
+	var b := RigBuilder.new(&"soot_golem", Vector2i(128, 128), Vector2i(76, 100), -1)
 	b.material(&"brick", &"furnace_brick", {"tex_fn": _bricks})
 	b.material(&"coal", &"coal", {"facet": {"cell_area": 40.0, "weight": 0.6, "crack": 0.18, "crack_slot": &"magma"}, "spec": true})
 	b.material(&"soot", &"rock_soot", {"texture": &"soot_grain"})
@@ -158,6 +159,37 @@ static func build() -> RigDef:
 	for i in 4:
 		var rp: Vector2 = [Vector2(-26, -3), Vector2(-14, -2), Vector2(22, -2), Vector2(32, -3)][i]
 		b.ell(StringName("rubble_%d" % i), &"root", &"coal", Vector3(rp.x, rp.y, 14), Vector3(6.5 - i * 0.6, 4.0, 5), {"flat": 0.3})
+	# Muerte: grietas de fuego, ladrillos que saltan, muñón de muro y cabeza caída (con @root = (0, 19), y local 1 = suelo).
+	b.stamp(&"cracks", &"spine", Vector2(-14, -40), [
+		"......h..........h....",
+		".......h........hH....",
+		"......hH.......hH.....",
+		".....hH.........H.....",
+		"......H.........hH....",
+		"......hH.........H....",
+		".......H........hH....",
+		".......h........H.....",
+	], {"h": [&"hot", 2], "H": [&"hot", 4]}, {"z_top": false})
+	var br := {"#": [&"brick", 6], "%": [&"brick", 4]}
+	b.stamp(&"bricks_fly", &"root", Vector2(-30, -58), ["."], br, {"views": {
+		&"none": ["."],
+		&"b0": _pts(66, 44, [[8, 16], [22, 6], [40, 2], [56, 10], [60, 22], [2, 26]]),
+		&"b1": _pts(66, 44, [[4, 26], [18, 18], [44, 12], [58, 22], [62, 34], [0, 36], [30, 8]]),
+	}})
+	b.poly(&"stump", &"root", &"brick", PackedVector2Array([Vector2(-30, 1), Vector2(-31, -9), Vector2(-24, -15), Vector2(-18, -12), Vector2(-13, -22), Vector2(-5, -20), Vector2(-1, -27), Vector2(8, -24), Vector2(12, -30), Vector2(20, -20), Vector2(25, -21), Vector2(32, -10), Vector2(33, 1)]), 12.0, 3.0, 5.0)
+	b.stamp(&"stump_door", &"root", Vector2(-12, -14), [
+		".iiiiiiiiiiiii.",
+		"iihHHHHHHHHHhii",
+		"iHHkHHkHHkHHkHi",
+		"iHHkHHkHHkHHkHi",
+		"iHhkhhkhhkhhkhi",
+		"iiiiiiiiiiiiiii",
+	], {"i": [&"iron", 5], "k": [&"iron", 2], "h": [&"fire", 2], "H": [&"fire", 4]}, {})
+	for i in 5:
+		var rb: Vector2 = [Vector2(-42, -5), Vector2(-20, -3), Vector2(24, -4), Vector2(36, -5), Vector2(44, -3)][i]
+		b.box(StringName("brick_down_%d" % i), &"root", &"brick", Vector3(rb.x, rb.y, 16), Vector3(9, 5, 5), 1.0)
+	b.ell(&"skull_down", &"root", &"coal", Vector3(-37, -7, 18), Vector3(10.5, 8, 7), {"flat": 0.3})
+	b.stamp(&"face_down", &"root", Vector2(-46, -8), ["kkkkk..kkkk", "...........", "kkkkkkkkkk.", "khkhkhkhk.."], {"k": [&"coal", 0], "h": [&"fire", 1]}, {})
 	b.socket(&"hit", &"fore_n", Vector2(0, 28))
 	b.socket(&"intent", &"head", Vector2(0, -18))
 	b.socket(&"smoke", &"spine", Vector2(19, -58))
@@ -168,34 +200,49 @@ static func build() -> RigDef:
 
 
 const PUFFS := ["puff_0", "puff_1", "puff_2", "puff_3"]
+const DEATH_PARTS := [&"cracks", &"stump", &"stump_door", &"brick_down_0", &"brick_down_1", &"brick_down_2", &"brick_down_3", &"brick_down_4", &"skull_down", &"face_down", &"rubble_0", &"rubble_1", &"rubble_2", &"rubble_3"]
+
+
+## Ladrillos sueltos para el sello de vistas: bloque de 3×2.
+static func _pts(w: int, h: int, pts: Array) -> Array:
+	var rows: Array = []
+	for y in h:
+		rows.append(".".repeat(w))
+	for p: Array in pts:
+		for dy in 2:
+			var r: String = rows[p[1] + dy]
+			rows[p[1] + dy] = r.substr(0, p[0]) + ("###" if dy == 0 else "%%%") + r.substr(p[0] + 3)
+	return rows
+
+
+## Oculta lo de la muerte en cualquier pose viva.
+static func _alive(k: Dictionary) -> Dictionary:
+	for id: StringName in DEATH_PARTS:
+		k[StringName("hide:%s" % id)] = true
+	k[&"view:bricks_fly"] = &"none"
+	return k
 
 
 static func _puffs(k: Dictionary, f: int) -> void:
-	# Ciclo de humo de 8 fotogramas: la columna crece y mengua desde la boca de la chimenea; nunca se despega.
-	var n: int = [2, 3, 4, 3][(f / 2) % 4]
+	# Ciclo de humo: la columna crece y mengua desde la boca de la chimenea; nunca se despega.
+	var n: int = [2, 3, 4, 3][f % 4]
 	for i in 4:
 		k[StringName("hide:" + PUFFS[i])] = i >= n
 
 
 static func _anims(b: RigBuilder) -> void:
-	# Reposo 8 f: respira (la joroba sube 1 px), cabeza y brazo con retraso, humo, goteo, la puerta late.
+	# Reposo 6 f: el cuerpo no se mece; humo, goteo y puerta que late hacen el rasgo vivo. Cabeza y brazo: 1 paso con retraso.
 	var idle := {}
-	for f in 8:
-		var t := TAU * f / 8.0
+	for f in 6:
 		var k := {}
-		k[&"@root"] = Vector2i(0, 1 if (f >= 4) else 0)
-		k[&"spine"] = 0.025 * sin(t)
-		k[&"head"] = 0.05 * sin(t)
-		k[&"arm_n"] = -0.03 * sin(t)
-		k[&"fore_n"] = 0.03 * sin(t)
-		k[&"arm_f"] = 0.03 * sin(t)
-		k[&"smoke"] = 0.08 * sin(t)
-		k[&"emit:door_fire"] = [0, 0, 1, 1, 0, 0, -1, 0][f]
-		k[&"emit:face"] = [0, 0, 0, 0, 0, 0, -2, 0][f]   # parpadeo de las brasas
-		k[&"view:drip"] = [&"d0", &"d0", &"d0", &"d1", &"d1", &"d2", &"d3", &"d0"][f]
+		k[&"@root"] = Vector2i(0, 1 if f in [3, 4] else 0)
+		k[&"head"] = 0.05 if f in [2, 3] else 0.0
+		k[&"emit:door_fire"] = [0, 1, 2, 1, 0, -1][f]
+		k[&"emit:face"] = [0, 0, 0, 0, -2, 0][f]   # parpadeo de las brasas
+		k[&"view:drip"] = [&"d0", &"d0", &"d1", &"d2", &"d3", &"d0"][f]
 		_puffs(k, f)
-		idle[f] = k
-	b.anim(&"idle", 8, 150, idle, {"interp": &"linear", "overlap": {&"head": 1.0, &"arm_n": 1.5, &"fore_n": 2.0, &"arm_f": 1.5}})
+		idle[f] = _alive(k)
+	b.anim(&"idle", 6, 170, idle, {"interp": &"hold"})
 	# Telegrafía (cast): puño alzado sobre la cabeza, la puerta al blanco, rugido.
 	var tell := {&"spine": 0.12, &"head": -0.15, &"arm_n": 2.3, &"fore_n": 0.9, &"arm_f": -0.2, &"@root": Vector2i(2, -1),
 		&"emit:door_fire": 2, &"emit:face": 1, &"view:head": &"roar", &"z:arm_n": 4.0, &"view:drip": &"d0", &"hide:knuckles": true}
@@ -203,57 +250,62 @@ static func _anims(b: RigBuilder) -> void:
 	tell2[&"@root"] = Vector2i(2, -2)
 	tell2[&"emit:door_fire"] = 3
 	_puffs(tell, 0)
-	_puffs(tell2, 2)
+	_puffs(tell2, 1)
+	_alive(tell)
+	_alive(tell2)
 	b.anim(&"cast", 2, [120, 400], {0: tell, 1: tell2}, {"loop": false, "interp": &"hold"})
 	# Ataque: carga (= telegrafía) → estela → puñetazo al suelo → recuperación.
 	var smash := {&"spine": -0.08, &"head": 0.1, &"arm_n": 0.1, &"fore_n": 0.08, &"arm_f": 0.15, &"@root": Vector2i(-3, 2),
 		&"emit:door_fire": 2, &"emit:knuckles": 3, &"view:head": &"roar", &"view:drip": &"d0"}
 	var settle := {&"spine": -0.04, &"head": 0.05, &"arm_n": 0.05, &"fore_n": 0.04, &"@root": Vector2i(-1, 1), &"emit:door_fire": 1,
 		&"view:drip": &"d0"}
-	_puffs(smash, 4)
-	_puffs(settle, 6)
+	_puffs(smash, 2)
+	_puffs(settle, 3)
+	_alive(smash)
+	_alive(settle)
 	b.anim(&"attack", 4, [140, 40, 110, 160], {0: tell2, 1: smash, 2: smash, 3: settle}, {"loop": false, "interp": &"hold"})
 	b.smear(&"attack", 1, &"fore_n", Vector2(0, 24), &"fire", 15.0, false).samples = 48
 	# Golpe recibido: retrocede, la cabeza atrás, ojos cerrados un instante.
 	var h1 := {&"spine": 0.1, &"head": -0.2, &"arm_n": 0.15, &"@root": Vector2i(3, 0), &"view:head": &"hurt", &"emit:door_fire": -1}
 	var h2 := {&"spine": 0.05, &"head": -0.1, &"arm_n": 0.08, &"@root": Vector2i(2, 0), &"emit:door_fire": 0}
-	_puffs(h1, 2)
-	_puffs(h2, 4)
+	_puffs(h1, 1)
+	_puffs(h2, 2)
+	_alive(h1)
+	_alive(h2)
 	h1[&"view:drip"] = &"d0"
 	h2[&"view:drip"] = &"d0"
 	b.anim(&"hurt", 2, [90, 150], {0: h1, 1: h2}, {"loop": false, "interp": &"hold"})
-	# Muerte (se desmorona): se encoge, las extremidades de carbón caen, queda el horno roto con la puerta apagándose.
-	var legs_gone := {&"hide:foot_f": true, &"hide:foot_n": true, &"hide:calf_f": true, &"hide:calf_n": true}
-	var arm_f_gone := {&"hide:fist_f": true, &"hide:fore_f2": true, &"hide:fore_f1": true}
+	# Muerte por material: el horno se agrieta → se le van puños y patas de carbón → la bóveda cae, saltan ladrillos → muñón de muro; la puerta se apaga.
+	var coal_gone := {&"hide:fist_f": true, &"hide:fore_f2": true, &"hide:fore_f1": true, &"hide:fist_n": true, &"hide:knuckles": true, &"hide:fore_n2": true, &"hide:foot_f": true, &"hide:foot_n": true, &"hide:calf_f": true, &"hide:calf_n": true}
 	var d := {}
 	d[0] = h1.duplicate()
-	d[1] = {&"spine": -0.12, &"head": 0.25, &"arm_n": -0.15, &"@root": Vector2i(0, 2), &"view:head": &"hurt", &"emit:door_fire": 0}
-	d[2] = {&"spine": -0.22, &"head": 0.4, &"arm_n": -0.3, &"fore_n": 0.25, &"@root": Vector2i(-1, 5), &"view:head": &"dead", &"emit:door_fire": -1, &"hide:fist_f": true, &"hide:fist_n": true, &"hide:knuckles": true}
-	d[3] = {&"spine": -0.3, &"head": 0.5, &"arm_n": -0.4, &"fore_n": 0.45, &"@root": Vector2i(-2, 10), &"view:head": &"dead", &"emit:door_fire": -1, &"hide:fist_n": true, &"hide:knuckles": true, &"hide:fore_n2": true}
-	d[3].merge(legs_gone)
-	d[3].merge(arm_f_gone)
-	d[4] = {&"spine": -0.34, &"head": 0.55, &"arm_n": -0.5, &"fore_n": 0.6, &"@root": Vector2i(-2, 15), &"view:head": &"dead", &"emit:door_fire": -2,
-		&"hide:thigh_f": true, &"hide:thigh_n": true, &"hide:chimney_fire": true, &"hide:fist_n": true, &"hide:knuckles": true, &"hide:fore_n2": true, &"hide:fore_n1": true, &"hide:cuff_n": true, &"hide:cuff_rivets": true}
-	d[4].merge(legs_gone)
-	d[4].merge(arm_f_gone)
-	for f in [5, 6, 7]:
-		var dd: Dictionary = d[4].duplicate()
-		dd[&"@root"] = Vector2i(-2, 19)
-		dd[&"hide:upper_n"] = true
-		dd[&"hide:pelvis"] = true
-		dd[&"hide:upper_f"] = true
-		dd[&"emit:door_fire"] = -2 - (f - 4)
+	d[0][&"emit:door_fire"] = 2
+	d[1] = _alive({&"spine": -0.04, &"head": 0.2, &"arm_n": -0.1, &"@root": Vector2i(1, 1), &"view:head": &"hurt", &"emit:door_fire": 3, &"hide:cracks": false})
+	d[2] = _alive({&"spine": -0.08, &"head": 0.4, &"arm_n": -0.2, &"fore_n": 0.2, &"@root": Vector2i(0, 5), &"view:head": &"dead", &"emit:door_fire": 2, &"hide:cracks": false, &"hide:chimney_fire": true, &"hide:fist_f": true, &"hide:fist_n": true, &"hide:knuckles": true, &"view:bricks_fly": &"b0"})
+	d[3] = _alive({&"spine": -0.1, &"head": 0.5, &"arm_n": -0.35, &"fore_n": 0.4, &"@root": Vector2i(0, 11), &"view:head": &"dead", &"emit:door_fire": 1, &"hide:cracks": false, &"hide:chimney_fire": true, &"hide:chimney": true, &"hide:chimney_cap": true, &"view:bricks_fly": &"b1"})
+	d[3].merge(coal_gone)
+	# Muñón: se oculta todo lo que estaba en pie.
+	var fall := _alive({&"@root": Vector2i(0, 19), &"emit:stump_door": -1, &"view:head": &"dead", &"view:bricks_fly": &"none"})
+	fall.merge(coal_gone)
+	for pid: String in ["torso", "hump", "pelvis", "chimney", "chimney_cap", "chimney_fire", "door", "door_fire", "skull", "brow", "face", "upper_n", "upper_f", "cuff_n", "cuff_rivets", "fore_n1", "thigh_f", "thigh_n", "drip", "hoop_38", "hoop_27"]:
+		fall[StringName("hide:" + pid)] = true
+	for y0: int in [38, 27]:
+		for i in 7:
+			fall[StringName("hide:rivet_%d_%d" % [y0, i])] = true
+	for id: StringName in DEATH_PARTS:
+		fall[StringName("hide:%s" % id)] = id == &"cracks"
+	d[4] = fall
+	d[5] = fall.duplicate()
+	d[5][&"emit:stump_door"] = -1
+	d[6] = fall.duplicate()
+	d[6][&"emit:stump_door"] = -2
+	d[7] = fall.duplicate()
+	d[7][&"emit:stump_door"] = -4
+	for f in [0, 1, 2, 3, 4, 5, 6, 7]:
 		for i in 4:
-			dd[StringName("hide:rubble_%d" % i)] = false
-		d[f] = dd
-	for f in [0, 1, 2, 3, 4]:
+			(d[f] as Dictionary)[StringName("hide:rubble_%d" % i)] = f < 3
 		for i in 4:
-			(d[f] as Dictionary)[StringName("hide:rubble_%d" % i)] = true
-		for i in 4:
-			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = i > 2 - mini(f, 3)
-	for f in [5, 6, 7]:
-		for i in 4:
-			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = true
+			(d[f] as Dictionary)[StringName("hide:" + PUFFS[i])] = f > 3 or i > 2 - mini(f, 3)
 	b.anim(&"death", 8, [80, 100, 110, 120, 140, 160, 200, 400], d, {"loop": false, "interp": &"hold"})
 	# Los escombros sólo existen al final de la muerte.
 	for an: StringName in b.def.anims.keys():

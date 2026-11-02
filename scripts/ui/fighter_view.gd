@@ -27,9 +27,6 @@ const STATUS_Y := 556.0
 const VIEW_BOTTOM := 582.0      # por debajo sólo hay mano
 const INTENT_GAP := 36.0        # 18 px de arte sobre la cabeza
 const INTENT_MIN_Y := 88.0      # base de la banda de intención de jefe (y de arte 44)
-## Pelo y martillo de la Fogonera siguen al calor (docs/reviews/v04/personajes/fogonera_final.md).
-const TIP_HEAT := 0.35
-const TIP_RADIUS := 26.0
 const HERO_ID := &"fogonera"
 const FLASH_SHADER := """
 shader_type canvas_item;
@@ -42,7 +39,6 @@ void fragment() {
 }
 """
 
-static var _hero_shader: Shader
 static var _flash_shader: Shader
 
 var fighter: Fighter
@@ -88,6 +84,12 @@ var _intent: IntentView
 var _name_label: Label
 var _stolen_label: Label
 var _intent_y := 0.0
+## Fotograma ya enviado a StatusFX: contorno y llamas siguen la silueta actual, no la de reposo.
+static var _mask_cache := {}
+var _fx_frame := -1
+var _fx_anim := &""
+var _fx_at := Vector2(INF, INF)
+var _reveal_mat: ShaderMaterial
 
 
 ## `parent`: nodo del mundo donde va el actor. `shape_key`: forma legada si la criatura no tiene hoja horneada.
@@ -134,8 +136,9 @@ func _build_baked() -> void:
 	_anim.centered = false
 	_anim.sprite_frames = SpriteBank.sprite_frames(_baked_id)
 	if fighter.is_player:
-		_hero_mat = ShaderMaterial.new()
-		_hero_mat.shader = _hero_heat_shader()
+		# Mismo shader con el calor activado: pelo y martillo (docs/reviews/v04/personajes/fogonera_final.md).
+		_hero_mat = wv.lit_material.duplicate() as ShaderMaterial
+		_hero_mat.set_shader_parameter(&"hero_heat", true)
 		_anim.material = _hero_mat
 	else:
 		_anim.material = wv.lit_material
@@ -213,32 +216,6 @@ func _build_ui() -> void:
 	add_child(_stolen_label)
 
 
-## Copia de `palette_lit` sólo para la heroína: la cara `hot` del martillo va del paso 1 al 5 con `forge_heat` y las puntas
-## de `fire` junto a la cabeza pasan a `hair 2` con poco calor. El shader base no usa `forge_heat`: si algún día lo hace,
-## esto desaparece. Si el texto base cambia, respaldo al shader base.
-static func _hero_heat_shader() -> Shader:
-	if _hero_shader != null:
-		return _hero_shader
-	var base: Shader = load("res://shaders/palette_lit.gdshader")
-	var needle := "s = clamp(stp + emit_pulse, 0, 15);"
-	var decl := "uniform bool unlit = false;"
-	if not (base.code.contains(needle) and base.code.contains(decl)):
-		push_warning("FighterView: palette_lit cambió; pelo y martillo no siguen al calor")
-		_hero_shader = base
-		return base
-	var body := """%s
-		if (mat_i == %d) {
-			s = clamp(stp - 4 + int(round(forge_heat * 4.0)) + emit_pulse, 1, 15);
-		} else if (mat_i == %d && tips_follow_heat && forge_heat <= %f && distance(px, head_pos) < %f) {
-			mat_i = %d;
-			s = 2;
-		}""" % [needle, Palette.index(&"hot"), Palette.index(&"fire"), TIP_HEAT, TIP_RADIUS, Palette.index(&"hair")]
-	var sh := Shader.new()
-	sh.code = base.code.replace(needle, body).replace(decl, decl + "\nuniform vec2 head_pos = vec2(0.0);\nuniform bool tips_follow_heat = true;")
-	_hero_shader = sh
-	return sh
-
-
 # --- Colocación -----------------------------------------------------------------------------------
 
 ## Coloca el centro del cuerpo en la X de mundo `cx`, con los pies sobre el suelo. También recoloca la mitad de interfaz.
@@ -257,8 +234,7 @@ func place(cx: int) -> void:
 	_intent_y = maxf(top - INTENT_GAP, INTENT_MIN_Y) - position.y
 	_stolen_label.position = Vector2(-60, _intent_y - 40.0)
 	_place_intent()
-	if status_fx != null:
-		status_fx.call(&"set_body", body_world())
+	_fx_frame = -1
 
 
 func center_x() -> int:
@@ -302,6 +278,57 @@ func canvas_world() -> Vector2:
 	return actor.position + _base + _off.round()
 
 
+## Silueta del fotograma actual para StatusFX: [rectángulo respecto al actor, sin desplazamiento; imagen de ese tamaño].
+func _frame_mask() -> Array:
+	var key: String
+	var tex: Texture2D = null
+	if _anim != null:
+		key = "%s|%s|%d" % [_baked_id, _anim.animation, _anim.frame]
+	else:
+		tex = _legacy.texture
+		key = "leg|%d" % tex.get_instance_id()
+	if _mask_cache.has(key):
+		return _mask_cache[key]
+	var out: Array = [_body, null]
+	if _anim != null:
+		var m := SpriteBank.meta(_baked_id)
+		var src := SpriteBank.atlas_image(_baked_id)
+		if src != null:
+			var w := int(m["size"][0])
+			var h := int(m["size"][1])
+			var fr := src.get_region(Rect2i(_anim.frame * w, int(m["anims"][String(_anim.animation)]["row"]) * h, w, h))
+			var used := fr.get_used_rect()
+			if used.has_area():
+				out = [Rect2(_base + Vector2(used.position), Vector2(used.size)), fr.get_region(used)]
+	else:
+		var src := tex.get_image()
+		var used := src.get_used_rect()
+		var img := src.get_region(used)
+		img.resize(img.get_width() * LEGACY_SCALE, img.get_height() * LEGACY_SCALE, Image.INTERPOLATE_NEAREST)
+		out = [Rect2(_base + Vector2(used.position * LEGACY_SCALE), Vector2(used.size * LEGACY_SCALE)), img]
+	_mask_cache[key] = out
+	return out
+
+
+## Mantiene StatusFX sobre la silueta del fotograma actual. Sin estados no se hace nada (y no cuesta nada).
+func _sync_status_fx() -> void:
+	if status_fx == null or (fighter.block <= 0 and fighter.statuses.is_empty()):
+		return
+	var frame_id: int = _anim.frame if _anim != null else _legacy.texture.get_instance_id()
+	var anim_id: StringName = _anim.animation if _anim != null else &""
+	var at := actor.position + _off.round()
+	if frame_id == _fx_frame and anim_id == _fx_anim and at == _fx_at:
+		return
+	var fm := _frame_mask()
+	var rect: Rect2 = fm[0]
+	status_fx.call(&"set_body", Rect2(at + rect.position, rect.size))
+	if frame_id != _fx_frame or anim_id != _fx_anim:
+		status_fx.call(&"set_mask", fm[1])
+	_fx_frame = frame_id
+	_fx_anim = anim_id
+	_fx_at = at
+
+
 ## Fotograma actual, para DeathEmbers.
 func current_frame() -> Texture2D:
 	if _anim != null:
@@ -342,6 +369,7 @@ func _process(delta: float) -> void:
 		return
 	_t += delta
 	var p := _base + _off.round()
+	_sync_status_fx()
 	if _anim != null:
 		_anim.position = p
 		if _flash_spr.visible:
@@ -634,6 +662,25 @@ func spawn() -> void:
 	_legacy_mat.set_shader_parameter("progress", 1.0)
 	var tw := create_tween()
 	tw.tween_method(func(v: float) -> void: _legacy_mat.set_shader_parameter("progress", v), 1.0, 0.0, 0.5)
+
+
+## Emersión de SummonFX (`reveal.call(f)`, f 0→1): el sprite aparece de abajo arriba. Con f = 1 vuelve al material común.
+func reveal(f: float) -> void:
+	_shadow.visible = f > 0.0 and not _dead
+	if _legacy != null:
+		_legacy_mat.set_shader_parameter("progress", 1.0 - f)
+		return
+	if f >= 1.0:
+		if _reveal_mat != null:
+			_anim.material = _hero_mat if _hero_mat != null else wv.lit_material
+			_reveal_mat = null
+		return
+	if _reveal_mat == null:
+		_reveal_mat = (_anim.material as ShaderMaterial).duplicate() as ShaderMaterial
+		_anim.material = _reveal_mat
+		_play(&"cast")
+	var bottom := actor.position.y + _body.end.y + _off.y
+	_reveal_mat.set_shader_parameter(&"reveal_y", floorf(bottom - f * _body.size.y))
 
 
 func _gui_input(ev: InputEvent) -> void:

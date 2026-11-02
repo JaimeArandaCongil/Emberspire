@@ -6,7 +6,7 @@ shader_type canvas_item;
 
 global uniform sampler2D palette_lut : filter_nearest, repeat_disable;
 global uniform vec4 forge_light;      // x, y (mundo), radio, pasos en el centro (con parpadeo; 0 = luz nominal horneada)
-global uniform float forge_heat;      // 0..1 (calor de la Forja; lo leen otros shaders: pelo, martillo)
+global uniform float forge_heat;      // 0..1 (calor de la Forja; sólo actúa con `hero_heat`: pelo y martillo)
 global uniform vec4 burn_pulse;       // x, y, radio actual, fuerza (pasos) — onda de quemar carta
 global uniform float low_hp;          // 0..1 — oscurece los bordes de la escena
 global uniform vec4 light_0;          // x, y, radio, pasos (negativo = sombra)
@@ -14,7 +14,7 @@ global uniform vec4 light_1;
 global uniform vec4 light_2;
 global uniform vec4 light_3;
 global uniform vec4 light_cold;       // 1 = la luz i es fría
-global uniform float cold_bias;       // 1 = toda la escena en rampas frías (ambiente helado)
+global uniform float cold_bias;       // temperatura: 1 = rampas frías (ambiente helado), -1 = la luz cálida pasa a oro (Resplandor)
 global uniform int emit_pulse;        // pasos extra de los emisivos (quemar, Resplandor)
 global uniform sampler2D light_mask : filter_linear, repeat_disable;   // R: 0.5 = 0 pasos, ±4 pasos
 global uniform vec4 light_mask_rect;  // x, y, ancho, alto (mundo) que cubre la máscara
@@ -23,6 +23,22 @@ global uniform vec2 world_size;       // 640×360
 
 // 1 = este sprite no recibe luz dinámica (p. ej. interfaz dibujada con índices)
 uniform bool unlit = false;
+// Sólo el material de la heroína: la cara `hot` del martillo va del paso 1 al 5 con `forge_heat` y las puntas de `fire`
+// junto a `head_pos` (mundo) pasan a `hair 2` con poco calor. En los demás, una sola comparación en la rama emisiva.
+uniform bool hero_heat = false;
+uniform vec2 head_pos = vec2(0.0);
+uniform bool tips_follow_heat = true;
+// Invocación: las filas de mundo por encima de esta Y no se dibujan (el luchador emerge de abajo arriba).
+uniform float reveal_y = -100000.0;
+
+// Índices de `Palette`; LightRig.ensure_globals comprueba que no cambien.
+const int MAT_FIRE = 4;
+const int MAT_GOLD = 5;
+const int MAT_HAIR = 14;
+const int MAT_HOT = 31;
+const float TIP_HEAT = 0.35;
+const float TIP_RADIUS = 26.0;
+const float GOLD_FROM = 0.25;
 
 varying vec2 world_pos;
 varying float flip_x;
@@ -38,7 +54,7 @@ float falloff(vec2 p, vec4 l) {
 
 void fragment() {
 	vec4 d = texture(TEXTURE, UV);
-	if (d.a < 0.5 / 255.0) {
+	if (d.a < 0.5 / 255.0 || world_pos.y < reveal_y) {
 		discard;
 	}
 	int mat_i = int(round(d.r * 255.0));
@@ -55,6 +71,14 @@ void fragment() {
 	int s = stp;
 	if (emissive) {
 		s = clamp(stp + emit_pulse, 0, 15);
+		if (hero_heat) {
+			if (mat_i == MAT_HOT) {
+				s = clamp(stp - 4 + int(round(forge_heat * 4.0)) + emit_pulse, 1, 15);
+			} else if (mat_i == MAT_FIRE && tips_follow_heat && forge_heat <= TIP_HEAT && distance(px, head_pos) < TIP_RADIUS) {
+				mat_i = MAT_HAIR;
+				s = 2;
+			}
+		}
 	} else if (!unlit && stp > 0) {
 		float warm = forge_light.w * falloff(anchor, forge_light);
 		float coldl = 0.0;
@@ -94,6 +118,12 @@ void fragment() {
 			cold = true;
 		}
 		if (warm >= 2.0 && cold_bias < 0.5) {
+			cold = false;
+		}
+		// Resplandor: los cantos que recibe la luz cálida cambian a la rampa de oro (biblia §11), sin salir de la paleta.
+		if (cold_bias < -0.5 && bevel && warm >= GOLD_FROM) {
+			mat_i = MAT_GOLD;
+			s = clamp(s - 2, 1, 15);
 			cold = false;
 		}
 	}

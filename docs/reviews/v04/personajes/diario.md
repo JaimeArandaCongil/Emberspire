@@ -70,3 +70,34 @@ El encargo decía `ember_bat`; el id real de `enemy_db` es `cinder_bat`, y ése 
 
 ### Sin revisar
 - Las animaciones sólo se han visto como fotogramas en hojas, no en movimiento ni en el juego con el shader `palette_lit` y fondos reales. La integración en combate es de TEC.
+
+## F2-CRIA: correcciones de la prueba ciega (criatura_1, 2, 3)
+
+### Discrepancias con el encargo
+- **`shape` de `ash_glutton` NO cambiado** (sigue `"slime"`). Probado: con `"shape": "ash_glutton"`, `tools/qa.sh game` da `FALLO: forma de enemigo existe: ash_glutton` (`tests/test_runner.gd:53` exige `Art.has_shape`, y `SHAPES` está en `scripts/art/legacy/`, fuera del paquete). No hace falta: `fighter_view.gd:104` elige la hoja por `def_id`, no por `shape`; `shape` sólo es el respaldo legado (CLAUDE.md pide respaldo). `monster_texture` de `SpriteBank` no tiene llamadores. Comprobado en ejecución: `SpriteBank.has(&"ash_glutton") = true` y captura de combate con el arte nuevo. Si dirección quiere el campo cambiado, hay que tocar `Art.SHAPES` o la prueba.
+- **El "montículo negro" de `07_combat.png` era `ash_slime`**, no `ash_glutton`: `tests/smoke.gd:55` pide `soot_golem, ember_magpie, ash_slime`. `ash_glutton` no sale en el recorrido y sólo aparece en encuentros del **acto 2** (`enemy_db.gd:99`), no en el acto 1. Por eso también retoqué `ash_slime`: más alto (26 px), costra con grietas de brasa y alquitrán dos pasos más claro.
+
+### Por criatura
+- **`hollow_knight`** (100 px, tope de élite; lienzo 152×160). Hierro con rampa no monótona (banda oscura de reflejo), brillos a mano paso 10 pegado a paso 2, 17 remaches sellados (hombrera, gola, faldón, escudo). Capa redibujada desde la gola con pliegues cada 7 px, borde oscuro y cola de golondrina; en ataque cae detrás. Antebrazo +2 px, mano sellada. Sin recortes. Muerte: rodillas → se desarma con el yelmo rodando → piezas planas y espada visible → coraza vacía con la brasa apagándose.
+- **`ember_magpie`** (48 px, medio; lienzo 124×96). Más erguida, patas con talón, cuello y collar dentado, pecho poligonal con plumas de 2 px, cola en tres puntas con dos plumas de transición, abanico de tres primarias, halo en la brasa, huida contenida. Muerte: estallido de plumas, cae de costado, el botín rueda y se apaga por pasos.
+- **`ash_glutton`** rehecho sin mirar la forma anterior (72 px, medio; lienzo 168×116; se quita la variante `sooty`, sin uso, y sus PNG). Cuadrúpedo con máscara de hueso a ras de suelo, colmillos, cresta de esquirlas de escoria (material del acto 2), panza colgante con costuras de brasa. Reposo: masticar y tragar. Muerte: costuras revientan, costillas y brasas al aire, esquirlas sueltas, montón de ceniza con cráneo.
+- **Reposo y muerte en el resto.** `soot_golem` 8→6 f sin mecer el cuerpo, muerte nueva (grietas, bóveda hundida, muñón de muro con la puerta apagándose). `ash_slime` y `flame_moth` 8→6 f. `cinder_bat` y `flame_moth`: el cuerpo ya no gira al caer; se consume y queda un montón de ceniza. `cinder_bat` (90→140 ms) ya tenía 6 f. `candle_mite` (130→140 ms) ya tenía 6 f y muerte por material: sólo tiempo. Lienzos ampliados en las cinco para quitar recortes medidos en ataque y muerte (`flame_moth` tenía el último fotograma vacío).
+
+### Comprobado
+`tools/qa.sh all` en verde (1745 y 5 suites), `bake_art --check` al día, `tests/smoke.tscn` sin errores, hojas revisadas (`img/*_sheet_x3.png`), medición por script de recortes en todos los fotogramas (0) y captura de combate con `hollow_knight` + `ash_glutton` y con el trío del recorrido. Script y capturas fuera del repo.
+
+### No comprobado
+- Animación en movimiento: sólo fotogramas. Tampoco vi las muertes dentro del combate real, con `HitFX` y el retiro del actor.
+- Criterio de 10 evaluadores a 32 px: sólo mi propia lectura.
+- `cinder_bat`, `candle_mite` y `flame_moth`: revisé hoja y métricas, no su diseño ni su aspecto en combate.
+- `tests/art/out/qa/*` lo reescribe el horneador: cambia aunque esté fuera del paquete.
+- El otro agente tiene cambios sin cerrar en `palette_lit` y `fighter_view`: el aspecto en combate puede variar.
+
+### Pendiente
+- `soot_golem` mide 88 px y es normal: §8 da medio ≤ 72 y élite ≥ 80. Decisión de dirección.
+- `ash_slime` ahora lee más a roca que a limo; la costra pálida se aprecia poco en combate.
+- El abanico de la urraca aún recuerda a una mano.
+- Los sellos no giran: oculto remaches y brillos en poses muy giradas, así que el caballero pierde detalle en ataque.
+
+### Notas que creo alcanzables (mi estimación, no un dictamen)
+`hollow_knight` 8, `ember_magpie` 8, `ash_glutton` 8. Ninguna con margen.

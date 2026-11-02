@@ -75,3 +75,36 @@ Las 7 condiciones: PER-1, 2, 3 y 6 y los límites de DA son errores de `RigLint`
 - Arte legado sin `palette_lit`: no recibe luz de escena. Actos 2 y 3 sólo vistos por no fallar en el recorrido.
 - Sin probar: quema en caliente con ratón real, muerte de heroína vista sólo en `18b`, GPU integrada, WebGL2.
 - `set_hint()` y `deny()` conectados, no vistos en partida.
+
+## F2-FIX: correcciones del combate integrado (2026-11-02)
+**1. Línea cian: era el contorno de BLOQUEO de `StatusFX`, no un borde de luz.** La heroína empieza con 5 de bloqueo. `_draw_block_edge` usa `frost_glow 3` y traza el borde derecho de una máscara que sólo se enviaba una vez, con el fotograma 0 de `idle`. Al pasar a `toss` el martillo cambia de lado y la línea seguía dibujando el martillo de reposo: por eso flotaba junto a la pierna. Tampoco seguía `_off` (empujones y embestidas).
+- **Afecta a todo luchador con bloqueo:** en enemigos, por el lado izquierdo (visto en el gólem, `10b`). También a las llamas de quemadura, que usan la misma silueta.
+- **Se conserva**, porque comunica bloqueo (`api_vfx.md`). `FighterView._sync_status_fx()` envía cada cambio de fotograma con `set_body` + `set_mask`, tal como pide la API (máscara del tamaño de `body`). `status_fx.gd` no se ha tocado.
+- **Medido (`smoke`):** ninguna fila separada de la silueta en heroína (1507 filas), gólem (1322), urraca (552) y limo (358), recorriendo sus poses. Captura `09a_block_toss`.
+- **Coste:** `set_mask` ~1,3 ms por cambio de fotograma (cada 150 ms en reposo), sólo con estados activos. Sin estados, cero. Con 4 luchadores en el mismo fotograma, unos 5 ms; es un escaneo con `get_pixel` en `status_fx.gd` (MV) que se podría cachear por fotograma.
+
+**2. Un único shader.** Eliminada la copia. `palette_lit` gana `hero_heat`, `head_pos` y `tips_follow_heat`; la heroína usa el mismo shader con un material propio. `LightRig.ensure_globals` avisa si cambian los índices `MAT_*`.
+- **Martillo, calor 0,1 → 0,9 (`smoke`):** vivo 0 → 64, frío 72 → 0, puntas 4 → 32. Igual que antes. Enemigos sin `hero_heat` y con el material común.
+- **Coste:** 60 capas de 96 filas por atlas, con lectura del búfer para forzar la GPU: antes 1,48–1,52 ms, ahora 1,51, con `hero_heat` 1,51–1,55. Sin diferencia sobre el ruido en esta GPU; la lectura pesa en esos tiempos. GPU integrada y WebGL2 sin medir.
+
+**3. Martillo de lado: pose prevista, con salto.** `toss` y `cast` llevan `"hf": true` (`hammer_in_far_hand`, «pose de lanzar», `fogonera_final.md`): 07 es reposo y 09 es `toss`. Pero pasa de mano sin fotograma puente, al entrar y al volver a reposo. **Es de la definición de la heroína (`scripts/art/defs/hero/fogonera.gd`), fuera de este paquete: sin corregir.** Propuesta: un fotograma de paso en `toss`/`cast`, o no cambiar de mano al quemar.
+
+**4. Carta quemada.** Vuela como interfaz sobre la mano y, al tocar la caja de la heroína, pasa al mundo como `Sprite2D` justo bajo su actor, con la imagen de una copia de la carta en un `SubViewport`. Comprobado orden de dibujo y captura `09b_burn_flight`. La trayectoria de `flight_point` cruza a la altura de sus pies; las placas de interfaz siguen delante de la carta.
+
+**5. Intenciones.** Placa opaca de `plate` con contorno, canto claro y punta hacia su dueño (26×30 px con icono solo, ×2), en `HudArt.intent_plate`. Escudo pasado a `frost_glow`, el color del bloqueo. Se mantiene el hueco de 18 px de DECISIONES. `api_hud.md` (de cartas_ui) no menciona la placa.
+- **Punto gris bajo el escudo del tercer enemigo:** bocanada del cráter del limo (`puff_*`, material `smoke`, en el socket `smoke`). Es animación de `ash_slime` en sus fotogramas 1–6, no una intención. Es de F2-CRIA si molesta.
+
+**6. Consejo y avisos.** Consejo sobre placa, en `UI.TEXT`. El «tooltip» de 09 era un `main.toast` a y = 60. `main.gd` no es de este paquete: `combat_screen._toast` lo sustituye en combate, desde y = 112, sin fundido y con el mismo apilado. `smoke` comprueba que no pisa el rótulo.
+
+**7. Horneado y exportación.**
+- `qa.sh bake` sin `--only`: hojas + salas. `--only=rooms`: sólo salas. `--only=ids`: esas hojas + comprobación de salas. Secuencias de los 4 casos comprobadas con un Godot simulado; las de hojas no se han ejecutado de verdad, porque tocarían `manifest.json`.
+- `qa.sh bake --only=rooms` real: 50 archivos, 60,8 s, `bake_rooms --check: al día`.
+- **No existía `export_presets.cfg`: lo he creado** (Windows, `include_filter="assets/baked/rooms/*.txt"`, excluye `tests`, `docs`, `screenshots`). `--export-pack` genera el `.pck` con los 14 `.txt`. No he arrancado el juego desde ese `.pck` ni exportado el `.exe`.
+
+**8. Resplandor y SummonFX.**
+- **Oro:** `LightRig.gold`, conectado en `_sync_light`, también al caducar. Sin global nuevo, porque `project.godot` no es de este paquete: `cold_bias = -1` significa oro. Los cantos con luz cálida ≥ 0,25 pasan a la rampa `gold`; Forja y luces cálidas, +1 paso. Medido: 0 → 5864 → 0 píxeles de oro en la zona de la Forja. Captura `07b_glow`. A juicio de dirección: es un cambio de cantos, no de toda la pared, y en el muro se lee como trazos de ladrillo dorados.
+- **Invocación:** `FighterView.reveal(f)` con `reveal_y` en el shader; `SummonFX` la llama y `spawn()` queda como respaldo. Vuelve al material común al terminar (`smoke`, `14a_summon_reveal`). Sólo probado con `candle_mite` horneado; rama de arte legado sin ver.
+
+**Comprobado.** `tests/smoke.tscn`: SMOKE OK, sin errores de script. `== QA: 1745 comprobaciones, 0 fallos`.
+**`tools/qa.sh all` NO está en verde:** `test_tec` falla sólo en frescura de `ash_glutton`, `ember_magpie` y `hollow_knight`, cuyas definiciones está editando F2-CRIA ahora mismo (08:53–08:54; el número de fallos creció mientras medía). Se resuelve cuando hornee. Hay que repetir `qa.sh all` al cerrar ambos paquetes.
+**Sin comprobar.** Quema en caliente con ratón real, GPU integrada, WebGL2, Resplandor en la sala de tiro y actos 2–3.

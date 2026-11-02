@@ -9,11 +9,13 @@ extends Node
 ##   var id := rig.add_light(pos, 90, 1.5)        luz móvil (antorcha, proyectil, golpe); máx. 4
 ##   rig.move_light(id, pos) · rig.remove_light(id)
 ##   rig.cold = true                              ambiente frío: rampas frías en toda la escena
+##   rig.gold = true                              Resplandor: la luz cálida pasa a oro (cantos a la rampa `gold`, Forja +1 paso)
 ##   rig.set_mask(img, Rect2(0, 0, 640, 360))     máscara local de baja resolución (R8: 128 = 0 pasos, ±4)
 ## Todo se expresa en PASOS de rampa; nada sale de la paleta.
 
 const FLICKER_HZ := 12.0          # cadencia del parpadeo: la de una animación de pixel art
 const MAX_LIGHTS := 4
+const GOLD_STEPS := 1.0           # pasos extra de la Forja y de las luces cálidas con Resplandor
 
 ## Posición y radio de la luz de la Forja (mundo 640×360; Forja de combate x 8–112, suelo y = 264).
 @export var forge_pos := Vector2(60, 230)
@@ -32,6 +34,10 @@ const MAX_LIGHTS := 4
 	set(v):
 		cold = v
 		_dirty = true
+@export var gold := false:
+	set(v):
+		gold = v
+		_dirty = true
 
 var _lights: Array = []           # [pos: Vector2, radius: float, steps: float, cold: bool] o null
 var _burn_t := -1.0
@@ -49,6 +55,9 @@ var _mask_tex: ImageTexture
 static func ensure_globals() -> void:
 	## La LUT no puede ir en project.godot (se construye de `Palette`): se fija aquí, una vez.
 	RenderingServer.global_shader_parameter_set(&"palette_lut", Palette.build_lut())
+	# Constantes de `palette_lit`: si la paleta se reordena, hay que actualizarlas allí.
+	if Palette.index(&"fire") != 4 or Palette.index(&"gold") != 5 or Palette.index(&"hair") != 14 or Palette.index(&"hot") != 31:
+		push_error("LightRig: los índices MAT_* de palette_lit no coinciden con Palette")
 
 
 func _ready() -> void:
@@ -110,8 +119,14 @@ func steps_at(p: Vector2) -> float:
 	var f := _forge_steps() * _fall(p, forge_pos, forge_radius)
 	for l in _lights:
 		if l != null:
-			f += float(l[2]) * _fall(p, l[0], l[1])
+			f += _light_steps(l) * _fall(p, l[0], l[1])
 	return f
+
+
+func _light_steps(l: Array) -> float:
+	# El parpadeo de un brasero baja de 0 sin dejar de ser luz cálida; las sombras reales son de −1 o menos.
+	var warm: bool = not bool(l[3]) and float(l[2]) > -1.0
+	return float(l[2]) + (GOLD_STEPS if gold and warm else 0.0)
 
 
 func _fall(p: Vector2, c: Vector2, r: float) -> float:
@@ -119,7 +134,7 @@ func _fall(p: Vector2, c: Vector2, r: float) -> float:
 
 
 func _forge_steps() -> float:
-	return (heat - 0.5) * 2.0 * forge_range * 0.5 + _flicker
+	return (heat - 0.5) * 2.0 * forge_range * 0.5 + _flicker + (GOLD_STEPS if gold else 0.0)
 
 
 func _process(delta: float) -> void:
@@ -145,13 +160,13 @@ func _push() -> void:
 	rs.global_shader_parameter_set(&"forge_light", Vector4(forge_pos.x, forge_pos.y, forge_radius, _forge_steps()))
 	rs.global_shader_parameter_set(&"forge_heat", heat)
 	rs.global_shader_parameter_set(&"low_hp", low_hp)
-	rs.global_shader_parameter_set(&"cold_bias", 1.0 if cold else 0.0)
+	rs.global_shader_parameter_set(&"cold_bias", 1.0 if cold else (-1.0 if gold else 0.0))   # el frío manda sobre el oro
 	var colds := Vector4.ZERO
 	for i in MAX_LIGHTS:
 		var l: Variant = _lights[i]
 		var v := Vector4.ZERO
 		if l != null:
-			v = Vector4(l[0].x, l[0].y, l[1], l[2])
+			v = Vector4(l[0].x, l[0].y, l[1], _light_steps(l))
 			colds[i] = 1.0 if l[3] else 0.0
 		rs.global_shader_parameter_set(StringName("light_%d" % i), v)
 	rs.global_shader_parameter_set(&"light_cold", colds)
@@ -172,5 +187,6 @@ func _exit_tree() -> void:
 	heat = 0.5
 	low_hp = 0.0
 	cold = false
+	gold = false
 	_push()
 	RenderingServer.global_shader_parameter_set(&"light_mask_on", 0.0)

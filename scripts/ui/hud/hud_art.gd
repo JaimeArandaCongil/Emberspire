@@ -66,8 +66,9 @@ static func _pal_steel() -> Dictionary:
 	return {"k": Palette.OUTLINE, "w": P(&"steel", 6, true), "m": P(&"steel", 5, true), "g": P(&"gold", 4), "b": P(&"leather", 4)}
 
 
+## Escudo en el color del bloqueo (`frost_glow`, como su contorno en StatusFX): el acero claro se perdía sobre el muro.
 static func _pal_shield() -> Dictionary:
-	return {"k": Palette.OUTLINE, "w": P(&"steel", 6, true), "c": P(&"steel", 5, true), "b": P(&"steel", 3, true), "g": P(&"gold", 4)}
+	return {"k": Palette.OUTLINE, "w": P(&"frost_glow", 5), "c": P(&"frost_glow", 3), "b": P(&"frost_glow", 2), "g": P(&"gold", 4)}
 
 
 static func _pal_fire() -> Dictionary:
@@ -116,6 +117,29 @@ static func status_image(id: String) -> Image:
 		"choke":
 			return _sprite(SMOKE, {"k": Palette.OUTLINE, "w": P(&"ash", 7, true), "m": P(&"ash", 4, true)})
 	return _sprite(EYE, {"k": Palette.OUTLINE, "w": P(&"linen", 4), "y": P(&"magic", 4)})
+
+
+## Placa de intención: `w` × 13 px nativos más una punta de 2 hacia el dueño. Contorno, canto claro arriba y cara oscura.
+static func intent_plate(w: int) -> ImageTexture:
+	var key := "intplate:%d" % w
+	if _tex.has(key):
+		return _tex[key]
+	var body_h := 13
+	var img := Image.create(w, body_h + 2, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in body_h:
+		for x in w:
+			var corner := (x == 0 or x == w - 1) and (y == 0 or y == body_h - 1)
+			if corner:
+				continue
+			var edge := x == 0 or x == w - 1 or y == 0 or y == body_h - 1
+			img.set_pixel(x, y, Palette.OUTLINE if edge else (P(&"plate", 5) if y == 1 else P(&"plate", 2)))
+	var cx := w / 2
+	for x in range(cx - 1, cx + 2):
+		img.set_pixel(x, body_h, Palette.OUTLINE)
+	img.set_pixel(cx, body_h, P(&"plate", 2))
+	img.set_pixel(cx, body_h + 1, Palette.OUTLINE)
+	return tex(key, img)
 
 
 static func intent_texture(kind: String) -> ImageTexture:

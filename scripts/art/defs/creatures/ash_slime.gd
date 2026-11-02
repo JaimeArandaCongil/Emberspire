@@ -2,26 +2,30 @@ extends RefCounted
 ## LIMO DE CENIZA (`ash_slime`, acto 1) — PER · v0.4.
 ## Concepto: un charco de alquitrán con una COSTRA de ceniza pálida encima; por las grietas de la costra asoma la brasa.
 ## Silueta: gota baja y asimétrica (lomo alto atrás), chorretones por la base, cráter humeante, dos brasas por ojos, sin boca en reposo.
-## ≈ 22×38 px; lienzo 72×60; suelo y = 50. Cuerpo: LOSA a mano con pasos forzados y dos deformaciones (aplastado/estirado) sin escalar en pantalla.
-## Rasgo vivo: respira alternando normal/aplastado, burbuja de humo del cráter, brillo húmedo que recorre el flanco, parpadeo, goterón.
+## ≈ 22×38 px; lienzo 100×68; suelo y = 58. Cuerpo: LOSA a mano con pasos forzados y dos deformaciones (aplastado/estirado) sin escalar en pantalla.
+## Rasgo vivo (6 f): burbuja de humo del cráter, se aplasta al soltarla, brillo húmedo que recorre el flanco, parpadeo, goterón.
 ## Telegrafía (cast): se aplasta y abre los ojos. Ataque: se encoge, salta en arco, cae y salpica. Muerte: se extiende y se seca.
 
 const BODY := [
-	"...............hhhhhhgg...............",
-	"............hhhhgkkkkgggg.............",
-	"..........hhhhgkkFFFkkgfff............",
-	".........hhhggfgkkFkkgfgfff...........",
-	"........hhggggfffggggffFfddd..........",
-	".......hggFgfffdffggfffdFddcc.........",
-	"......ggfffddFddddffffddddccccc.......",
-	".....gffddddddddddddddddccccccbb......",
-	"....fddddcccdddddddddcccccccbbbb......",
-	"...ddddccccccccdddccccccccbbbbbbb.....",
-	"..dddcccccccccccccccccccbbbbbbbbbb....",
-	".dddcccccccccccccccccbbbbbbbbbbbbba...",
-	".ddccccccccccccccbbbbbbbbbbbbbbbbaa...",
-	"ddcccccccbbbbbbbbbbbbbbbbbbbbbbaaaaa..",
-	"dccccbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaa..",
+	"..........................hhgg........",
+	"......................hhhggkkgg.......",
+	"....................hhhgkkkkkkgf......",
+	"..................hhggkkFFFFkkgff.....",
+	"................hhggffgkkFFkkgffdd....",
+	"..............hhggfrfffgkkkkgfrfddc...",
+	"............hhggfffrfffffgggffrrddcc..",
+	"..........hhggffdrrfffggfffffffddccc..",
+	"........hhggffdddrdffFgfffdddfdddccc..",
+	".......hggffddcccddrrfffddcccdddcccb..",
+	"......hgffddcccccddrdfdddcccccddcccb..",
+	".....hgfddccccccccddddddcccccccccbbb..",
+	"....gfddcccccccccccccccccccccccbbbbb..",
+	"...gfdccccccccccccccccccccccbbbbbbbb..",
+	"..gfdccccccccccccccccccccbbbbbbbbbbba.",
+	".gfdcccccccccccccccccbbbbbbbbbbbbbbaa.",
+	".fdccccccccccccccbbbbbbbbbbbbbbbbbaaa.",
+	"fdcccccccbbbbbbbbbbbbbbbbbbbbbbaaaaaa.",
+	"dccccbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaa.",
 	"cccbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaa.",
 	"bbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaa.",
 	".bbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaa.",
@@ -36,8 +40,8 @@ const PUDDLE := [
 	".aaaaa...aaaaaaaaa....aaaaaaa...aa..",
 ]
 const LEGEND := {
-	"h": [&"ash", 8], "g": [&"ash", 6], "f": [&"ash", 5],
-	"d": [&"tar", 4], "c": [&"tar", 3], "b": [&"tar", 2], "a": [&"tar", 1], "k": [&"tar", 0], "F": [&"fire", 5],
+	"h": [&"ash", 9], "g": [&"ash", 7], "f": [&"ash", 6], "r": [&"fire", 4],
+	"d": [&"tar", 5], "c": [&"tar", 4], "b": [&"tar", 3], "a": [&"tar", 2], "k": [&"tar", 0], "F": [&"fire", 5],
 }
 
 
@@ -59,7 +63,7 @@ static func _scaled(rows: Array, sx: float, sy: float) -> Array:
 
 
 static func build() -> RigDef:
-	var b := RigBuilder.new(&"ash_slime", Vector2i(72, 60), Vector2i(36, 47), -1)
+	var b := RigBuilder.new(&"ash_slime", Vector2i(100, 68), Vector2i(62, 55), -1)
 	b.material(&"ash", &"ash")
 	b.material(&"tar", &"coal")
 	b.material(&"smoke", &"smoke", {"rim": false})
@@ -74,7 +78,7 @@ static func build() -> RigDef:
 	var sq := _scaled(BODY, 1.16, 0.75)
 	var st := _scaled(BODY, 0.82, 1.25)
 	var me := _scaled(BODY, 1.3, 0.45)
-	b.slab(&"body", &"root", BODY, Vector2(-19, -17), LEGEND, 0.0, 1.0, 2.0)
+	b.slab(&"body", &"root", BODY, Vector2(-19, -21), LEGEND, 0.0, 1.0, 2.0)
 	b.slab(&"body_sq", &"root", sq, Vector2(-22, 3 - sq.size()), LEGEND, 0.0, 1.0, 2.0)
 	b.slab(&"body_st", &"root", st, Vector2(-16, 3 - st.size()), LEGEND, 0.0, 1.0, 2.0)
 	b.slab(&"body_me", &"root", me, Vector2(-25, 3 - me.size()), LEGEND, 0.0, 1.0, 2.0)
@@ -143,16 +147,16 @@ static func _pose(form: int, root: Vector2i, extra := {}) -> Dictionary:
 
 static func _anims(b: RigBuilder) -> void:
 	var idle := {}
-	for f in 8:
-		var k := _pose(1 if f in [3, 4] else 0, Vector2i.ZERO)
-		k[&"view:face_arm"] = &"blink" if f == 6 else (&"g1" if f in [2, 3, 4] else (&"g2" if f == 5 else &"g0"))
-		k[&"view:drip"] = [&"d0", &"d0", &"d1", &"d1", &"d2", &"d2", &"d3", &"d0"][f]
+	for f in 6:
+		var k := _pose(1 if f == 3 else 0, Vector2i.ZERO)
+		k[&"view:face_arm"] = &"blink" if f == 5 else (&"g1" if f in [1, 2] else (&"g2" if f == 3 else &"g0"))
+		k[&"view:drip"] = [&"d0", &"d1", &"d1", &"d2", &"d3", &"d0"][f]
 		k[&"emit:body"] = 1 if f in [2, 3] else 0
-		var bub := [-1, 0, 0, 1, 1, 2, 2, -1][f] as int
+		var bub := [-1, 0, 1, 1, 2, -1][f] as int
 		for i in 3:
 			k[StringName("hide:puff_%d" % i)] = i != bub
 		idle[f] = k
-	b.anim(&"idle", 8, 170, idle, {"interp": &"hold"})
+	b.anim(&"idle", 6, 170, idle, {"interp": &"hold"})
 	# Telegrafía: se aplasta, ojos enormes.
 	b.anim(&"cast", 2, [140, 400], {
 		0: _pose(1, Vector2i(0, 0), {&"view:face_arm": &"wide"}),

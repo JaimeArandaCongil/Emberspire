@@ -2,7 +2,7 @@ extends RefCounted
 ## MURCIÉLAGO BRASA (`cinder_bat`, acto 1) — PER · v0.4. (El encargo lo llamaba "ember_bat"; el id real de enemy_db es cinder_bat.)
 ## Concepto: un murciélago que anida en las chimeneas, con las alas quemadas.
 ## Silueta: gran triángulo de alas raídas a ¾ (una a cada lado del cuerpo), orejas en punta, núcleo encendido en el pecho.
-## ≈ 44×84 px de envergadura en un lienzo de 104×96. Vuela: sin suelo; el centro del cuerpo está en y = 54.
+## ≈ 44×84 px de envergadura en un lienzo de 124×128. Vuela: sin suelo; el centro del cuerpo está en y = 70.
 ## Rasgo vivo: aleteo de 6 fotogramas con vaivén, venas de brasa en las alas, chispas que caen por los agujeros, parpadeo.
 ## Telegrafía (cast): pliega las alas hacia arriba y se inclina para caer en picado. Ataque: dos pasadas. Muerte: se deshace en pavesas.
 
@@ -55,7 +55,7 @@ static func _mirror(rows: Array) -> Array:
 
 
 static func build() -> RigDef:
-	var b := RigBuilder.new(&"cinder_bat", Vector2i(104, 96), Vector2i(52, 54), -1)
+	var b := RigBuilder.new(&"cinder_bat", Vector2i(124, 128), Vector2i(68, 70), -1)
 	b.material(&"fur", &"soot", {"texture": &"soot_grain"})
 	b.material(&"skin", &"rock_soot")
 	b.material(&"magma", &"hot")
@@ -126,6 +126,15 @@ static func build() -> RigDef:
 		&"d2": _sparks([[1, 8, "o"], [22, 3, "o"], [6, 30, "o"], [36, 14, "o"], [20, 34, "y"]]),
 	}})
 	# Vuelo: el socket `ground` es el suelo bajo el cuerpo (idle:0); colocar el lienzo para que caiga en la línea de suelo.
+	# Ceniza que queda en el suelo (sólo existe en la vista `pile`, último fotograma de la muerte).
+	b.stamp(&"ash_pile", &"root", Vector2(-8, 20), ["."], {"a": [&"ash", 6], "A": [&"ash", 8], "d": [&"ash", 4], "e": [&"fire", 3]}, {"views": {
+		&"pile": [
+		"......aA.........",
+		"...aaAAAaa..e....",
+		".daaaAAaaaaad..a.",
+		"ddaaaaaaaaaaaddd.",
+	],
+	}})
 	b.socket(&"ground", &"root", Vector2(0, HOVER))
 	b.socket(&"hit", &"head", Vector2(-8, 3))
 	b.socket(&"intent", &"head", Vector2(0, -14))
@@ -165,7 +174,7 @@ static func _anims(b: RigBuilder) -> void:
 		k[&"view:head"] = &"shut" if f == 4 else StringName()
 		k[&"emit:core"] = [0, 1, 1, 0, -1, 0][f]
 		idle[f] = k
-	b.anim(&"idle", 6, 90, idle, {"interp": &"linear", "overlap": {&"head": 1.0}})
+	b.anim(&"idle", 6, 140, idle, {"interp": &"linear", "overlap": {&"head": 1.0}})
 	# Telegrafía: alas plegadas arriba, morro abajo, el núcleo se aviva.
 	var c0 := _wings(-0.7, -0.5, {&"body": -0.25, &"head": -0.2, &"@root": Vector2i(3, -2), &"view:spark": &"none", &"view:head": &"open", &"emit:core": 1})
 	var c1 := _wings(-0.85, -0.6, {&"body": -0.3, &"head": -0.25, &"@root": Vector2i(4, -3), &"view:spark": &"none", &"view:head": &"open", &"emit:core": 2})
@@ -186,10 +195,10 @@ static func _anims(b: RigBuilder) -> void:
 	# Muerte: las alas se deshacen en pavesas de fuera adentro; el núcleo se apaga mientras cae.
 	var d := {}
 	d[0] = _wings(0.8, 0.6, {&"body": 0.3, &"head": 0.25, &"@root": Vector2i(4, 2), &"view:head": &"shut", &"view:spark": &"d1"})
-	d[1] = _wings(1.0, 0.9, {&"body": 0.45, &"head": 0.35, &"@root": Vector2i(3, 5), &"view:head": &"shut", &"view:spark": &"d0", &"hide:wing_f_out": true, &"emit:core": -1})
-	d[2] = _wings(1.1, 1.0, {&"body": 0.6, &"head": 0.4, &"@root": Vector2i(3, 9), &"view:head": &"shut", &"view:spark": &"d0", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"emit:core": -2})
-	d[3] = _wings(1.1, 1.0, {&"body": 0.8, &"head": 0.5, &"@root": Vector2i(3, 14), &"view:head": &"shut", &"view:spark": &"d1", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"emit:core": -3})
-	d[4] = _wings(1.1, 1.0, {&"body": 1.0, &"head": 0.6, &"@root": Vector2i(3, 19), &"view:head": &"shut", &"view:spark": &"d1", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"hide:wing_n_in": true, &"emit:core": -4})
-	d[5] = {&"@root": Vector2i(3, 22), &"view:spark": &"d2", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"hide:wing_n_in": true,
+	d[1] = _wings(1.0, 0.9, {&"body": 0.3, &"head": 0.3, &"@root": Vector2i(3, 5), &"view:head": &"shut", &"view:spark": &"d0", &"hide:wing_f_out": true, &"emit:core": -1})
+	d[2] = _wings(1.1, 1.0, {&"body": 0.3, &"head": 0.35, &"@root": Vector2i(3, 9), &"view:head": &"shut", &"view:spark": &"d0", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"emit:core": -2})
+	d[3] = _wings(1.1, 1.0, {&"body": 0.3, &"head": 0.4, &"@root": Vector2i(3, 14), &"view:head": &"shut", &"view:spark": &"d1", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"emit:core": -3})
+	d[4] = _wings(1.1, 1.0, {&"body": 0.3, &"head": 0.4, &"@root": Vector2i(3, 19), &"hide:skull": true, &"hide:ear_n": true, &"hide:ear_f": true, &"hide:face": true, &"view:head": &"shut", &"view:spark": &"d1", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"hide:wing_n_in": true, &"emit:core": -4})
+	d[5] = {&"@root": Vector2i(3, 22), &"view:ash_pile": &"pile", &"view:spark": &"d2", &"hide:wing_f_out": true, &"hide:wing_n_out": true, &"hide:wing_f_in": true, &"hide:wing_n_in": true,
 		&"hide:belly": true, &"hide:scruff": true, &"hide:skull": true, &"hide:ear_n": true, &"hide:ear_f": true, &"hide:face": true, &"hide:feet": true, &"hide:core": true}
 	b.anim(&"death", 6, [80, 90, 100, 110, 130, 300], d, {"loop": false, "interp": &"hold"})
