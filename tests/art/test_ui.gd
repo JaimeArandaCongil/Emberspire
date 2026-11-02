@@ -26,6 +26,7 @@ func run() -> Array:
 	_illustrations()
 	_text_fit()
 	_card_view()
+	_dim_steps()
 	return fails
 
 
@@ -300,3 +301,34 @@ func _card_view() -> void:
 	var inked := CardView.ink("Inflige [color=#ffd36a]6[/color] y [color=#ff9a4a]Agotar.[/color]")
 	_check(inked.contains("[b][color=#%s]6" % Palette.UI[&"num"].to_html(false)), "ink: cifra")
 	_check(inked.contains("[color=#%s]Agotar" % Palette.UI[&"keyword"].to_html(false)), "ink: palabra clave")
+
+
+# ------------------------------------------------------------------------- atenuar por pasos (§12, F2-VIDA2)
+
+## Textos flotantes y recompensas bloqueadas se apagan por pasos de rampa, nunca con alfa.
+func _dim_steps() -> void:
+	for c: Color in [UI.TEXT, UI.DIM, UI.EMBER, UI.RED, UI.BLUE, UI.GREEN, Palette.color(&"gold", 5)]:
+		for d in [1, 2, 3]:
+			var o := UI.step_color(c, -d)
+			_check(Palette.is_palette_color(o), "step_color(%s, -%d) fuera de paleta" % [c.to_html(false), d])
+		_check(UI.step_color(c, -3).get_luminance() < c.get_luminance(), "step_color(%s, -3) no oscurece" % c.to_html(false))
+	var lut := UI.dim_lut(-2).get_image()
+	_check(lut.get_width() == 1024 and lut.get_height() == 512 * UI.DIM_LAYERS, "dim_lut: 1024 × 512·capas (64³ celdas)")
+	var bad := 0
+	var filled := 0
+	for y in lut.get_height():
+		for x in 512:
+			var src := lut.get_pixel(x + 512, y)
+			if src.a > 0.5:
+				filled += 1
+				var dst := lut.get_pixel(x, y)
+				if not Palette.is_palette_color(dst) or not Palette.is_palette_color(src):
+					bad += 1
+	_check(bad == 0, "dim_lut: %d entradas fuera de paleta" % bad)
+	_check(filled + UI.dim_lut_collisions == Palette.all_colors().size(), "dim_lut: faltan colores (%d)" % filled)
+	_check(UI.dim_lut_collisions == 0, "dim_lut: %d colores de paleta sin sitio (más capas que DIM_LAYERS)" % UI.dim_lut_collisions)
+	var src := FileAccess.get_file_as_string("res://scripts/ui/ui.gd")
+	var ft := src.substr(src.find("static func float_text"), 1400)
+	_check(not ft.contains("modulate:a"), "UI.float_text no debe fundirse con alfa")
+	var cs := FileAccess.get_file_as_string("res://scripts/ui/screens/combat_screen.gd")
+	_check(not cs.contains("cards_box.modulate"), "recompensas: las cartas bloqueadas no se atenúan con alfa")

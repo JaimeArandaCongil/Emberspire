@@ -2,6 +2,8 @@ extends Node
 ## F2-VIDA · capturas fotograma a fotograma del combate del acto 1 (golpe, turno enemigo, Quemadura, muerte, reposo) para
 ## medir tiempos y píxeles en movimiento. No es parte de la QA: es la herramienta de evidencia del paquete.
 ## Uso (con ventana y fps fijos; VIDA_MODE = golpe | turno | estado | muerte | reposo):
+## F2-VIDA2 añade: jefe (golpe al jefe del acto 1), recompensa (reliquias de jefe antes/después de elegir) y flotante
+## (texto flotante apagándose por pasos). Las capturas de `mano`, `recompensa` y `flotante` van a 1280×720.
 ##   VIDA_DIR=/ruta VIDA_MODE=golpe xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --fixed-fps 60 res://tests/art/vida_capturas.tscn
 ## `reposo` se mide a --fixed-fps 30 (12 s = 360 fotogramas, como F2-REV). Guarda PNG a 640×360 (un píxel de arte = 1 px)
 ## y escribe en la salida estándar una línea por fotograma con la animación de la heroína y los eventos del motor.
@@ -26,11 +28,26 @@ func _ready() -> void:
 	await _frames(10)
 	Game.start_run(1234)
 	Game.run.floor_num = 4
-	main.go("combat", {"kind": "combat", "enemies": ["soot_golem", "ember_magpie", "ash_slime"]})
+	var mode := OS.get_environment("VIDA_MODE")
+	if mode in ["jefe", "recompensa", "fase2", "invoca"]:
+		Game.run.floor_num = 10
+		main.go("combat", {"kind": "boss", "enemies": ["great_bellows"]})
+	else:
+		main.go("combat", {"kind": "combat", "enemies": ["soot_golem", "ember_magpie", "ash_slime"]})
 	await _frames(90)
 	cs = main.current
 	cs.engine.event.connect(func(k: String, _d: Dictionary) -> void: _events.append(k))
-	match OS.get_environment("VIDA_MODE"):
+	match mode:
+		"jefe":
+			await _golpe()
+		"recompensa":
+			await _recompensa()
+		"fase2":
+			await _fase2()
+		"invoca":
+			await _invoca()
+		"flotante":
+			await _flotante()
 		"turno":
 			await _turno()
 		"estado":
@@ -62,7 +79,7 @@ func _grab(tag: String, n: int, every := 1) -> void:
 		_events.clear()
 		if i % every == 0:
 			var img := get_viewport().get_texture().get_image()
-			if not tag.begins_with("mano"):
+			if not (tag.begins_with("mano") or tag.begins_with("recomp") or tag.begins_with("flot") or tag.begins_with("full")):
 				img.resize(640, 360, Image.INTERPOLATE_NEAREST)
 			img.save_png(dir.path_join("%s_%03d.png" % [tag, i]))
 
@@ -111,3 +128,50 @@ func _mano() -> void:
 	cs._relayout(true)
 	await _frames(40)
 	await _grab("mano10", 1)
+
+
+## Reliquias de jefe: cartas 2 pasos más abajo hasta elegir; después, a su color.
+func _recompensa() -> void:
+	for e in cs.engine.enemies:
+		if e.alive():
+			cs.engine._damage(e, 99999, false)
+	cs.engine._check_end()
+	cs._finish()
+	await _frames(150)
+	await _grab("recomp_antes", 1)
+	for b: Node in cs.find_children("*", "Button", true, false):
+		if (b as Button).custom_minimum_size == Vector2(290, 120):
+			(b as Button).pressed.emit()
+			break
+	await _frames(20)
+	await _grab("recomp_despues", 1)
+
+
+## Texto flotante: sube y se apaga por pasos de rampa (sin alfa). Una captura cada 3 fotogramas.
+## VIDA_OLD=1 reproduce el fundido anterior (modulate:a de 1 a 0 en 350 ms desde los 450) para medir el antes.
+func _flotante() -> void:
+	for t: Array in [[Vector2(470, 300), "12", UI.TEXT, 33], [Vector2(820, 300), "+1.2K", UI.EMBER, 24]]:
+		UI.float_text(cs._fx_layer, t[0], t[1], t[2], t[3])
+		if OS.get_environment("VIDA_OLD") == "1":
+			var l: Label = cs._fx_layer.get_child(cs._fx_layer.get_child_count() - 1)
+			l.create_tween().tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.45)
+	await _grab("flot", 54, 3)
+
+
+## Jefe: intención en la banda (captura completa), golpe que lo baja del 50 % → fase 2 (cada 3 f) y fase 2 asentada.
+func _fase2() -> void:
+	await _grab("full_jefe_intencion", 1)
+	var b: Fighter = cs.engine.enemies[0]
+	cs.engine._damage(b, int(ceil(b.max_hp * 0.55)), false)
+	await _grab("fase2", 36, 3)
+	await _frames(60)
+	await _grab("full_jefe_fase2", 1)
+
+
+## Turno del jefe con invocación forzada: anima `summon`, el jefe se aparta y los ácaros salen en sus huecos.
+func _invoca() -> void:
+	cs.engine.enemies[0].intent = {"kind": "summon", "ops": [["summon", "candle_mite", 2]]}
+	cs._end_turn()
+	await _grab("invoca", 120, 4)
+	await _frames(60)
+	await _grab("full_invoca", 1)

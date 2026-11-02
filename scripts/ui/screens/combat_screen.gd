@@ -348,6 +348,9 @@ func _enemy_centers(alive: Array[FighterView]) -> Array[int]:
 		if fits:
 			out.assign(SLOTS[n])
 			return out
+	var boss_fit := _boss_centers(alive)
+	if not boss_fit.is_empty():
+		return boss_fit
 	var total := 0.0
 	for v in alive:
 		total += v.body_width()
@@ -362,7 +365,64 @@ func _enemy_centers(alive: Array[FighterView]) -> Array[int]:
 	return out
 
 
-func _layout_enemies(animate: bool) -> void:
+## Jefe ancho con invocaciones (F2-VIDA2): el jefe apoya su borde izquierdo en x 300 y cada invocación va a un hueco libre
+## (a su derecha hasta x 632 o a ras de suelo bajo su cuerpo, p. ej. bajo la tobera), sin pisarle ni pisarse, y con las
+## placas de PV separadas al menos su ancho. Si no caben, vacío (reparto general).
+func _boss_centers(alive: Array[FighterView]) -> Array[int]:
+	var bi := -1
+	for i in alive.size():
+		if alive[i].fighter.is_boss:
+			bi = i
+	if bi < 0 or alive.size() < 2:
+		return []
+	var boss := alive[bi]
+	var plate_w := ceili(HpPlate.SIZE.x / FighterView.WS) + 2
+	var cb := ENEMY_X.x + ceili(boss.body_width() * 0.5)
+	var right0 := cb + ceili(boss.body_width() * 0.5)
+	var mw := 0.0
+	var mh := 0
+	for v in alive:
+		if v != boss:
+			mw = maxf(mw, v.body_width())
+			mh = maxi(mh, int(v.body_world().size.y))
+	var need := int(ceil(mw)) + 4
+	var spots: Array[int] = []
+	# A la derecha: ni el cuerpo ni la placa pasan de x 632.
+	var x := mini(ENEMY_X.y - int(ceil(mw * 0.5)) - 2, ENEMY_X.y - plate_w / 2)
+	while x - int(ceil(mw * 0.5)) >= right0 + 2:
+		spots.append(x)
+		x -= maxi(plate_w, need)
+	for g: Vector2i in boss.ground_gaps(mh + 2, need):
+		var c := cb + (g.x + g.y) / 2
+		if c - mw * 0.5 >= ENEMY_X.x:
+			spots.append(c)
+	if spots.size() < alive.size() - 1:
+		return []
+	# Placas: la del jefe y las elegidas no se solapan.
+	var chosen: Array[int] = []
+	for c in spots:
+		if chosen.size() == alive.size() - 1:
+			break
+		var ok := absi(c - cb) >= plate_w
+		for o in chosen:
+			ok = ok and absi(c - o) >= plate_w
+		if ok:
+			chosen.append(c)
+	if chosen.size() < alive.size() - 1:
+		return []
+	var out: Array[int] = []
+	var k := 0
+	for i in alive.size():
+		if i == bi:
+			out.append(cb)
+		else:
+			out.append(chosen[k])
+			k += 1
+	return out
+
+
+## `snap`: vista que se coloca ya en su sitio aunque las demás se deslicen (la recién invocada).
+func _layout_enemies(animate: bool, snap: FighterView = null) -> void:
 	var alive: Array[FighterView] = []
 	for v in enemy_views:
 		if v.fighter.alive():
@@ -371,7 +431,7 @@ func _layout_enemies(animate: bool) -> void:
 	for i in alive.size():
 		var v := alive[i]
 		var target := centers[i]
-		if animate:
+		if animate and v != snap:
 			var from := v.center_x()
 			v.create_tween().tween_method(func(t: float) -> void:
 				v.place(int(round(lerpf(from, target, t)))), 0.0, 1.0, 0.3).set_trans(Tween.TRANS_QUAD)
@@ -816,7 +876,12 @@ func _end_turn() -> void:
 		if not v.fighter.alive():
 			continue
 		var is_atk := String(v.fighter.intent.get("kind", "")).begins_with("attack")
-		if is_atk:
+		# Invocar / ahogar tienen animación propia en el jefe (F2-JEFE): se resuelven en su soplo aunque también ataquen.
+		var special := _move_anim(v.fighter)
+		var key: float = v.gesture(special) if special != &"" and v.has_anim(special) else 0.0
+		if key > 0.0:
+			await get_tree().create_timer(key).timeout
+		elif is_atk:
 			# C1: el daño cae en el fotograma de impacto del ataque.
 			await get_tree().create_timer(v.lunge(-1.0)).timeout
 		else:
@@ -834,6 +899,18 @@ func _end_turn() -> void:
 		_finish()
 		return
 	_relayout()
+
+
+## Animación propia del movimiento del enemigo: `summon` si invoca, `choke` si ahoga el horno; si no, vacío.
+func _move_anim(f: Fighter) -> StringName:
+	for op: Variant in f.intent.get("ops", []):
+		if op is Array and not (op as Array).is_empty():
+			match String(op[0]):
+				"summon":
+					return &"summon"
+				"choke":
+					return &"choke"
+	return &""
 
 
 ## Banner de turno (C16 y F2-BASE c): placa opaca de paleta sobre las intenciones, nunca encima; cifra Fragua ×4 en el
@@ -1243,7 +1320,7 @@ func _on_event(k: String, d: Dictionary) -> void:
 						_layout_enemies(true))
 		"summon":
 			var nv := _add_enemy_view(d["fighter"])
-			_layout_enemies(false)
+			_layout_enemies(true, nv)   # el jefe se aparta deslizándose; la invocación aparece ya en su hueco
 			_fx_summon(nv)
 			Sfx.play("debuff")
 		"steal":
@@ -1398,6 +1475,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 	var cards_box := UI.vbox(10)
+	var lock := {"on": false, "cover": null}   # diccionario: las lambdas copian las variables locales
 	if relics.size() > 1:
 		if kind == "boss":
 			v.add_child(_center_label("Las llamas del acto te restauran." if not run.has_pact("pact_hunger") else "El Hambre no te deja descansar.", UI.GREEN))
@@ -1405,7 +1483,8 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 		var rrow := UI.hbox(20)
 		rrow.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.add_child(rrow)
-		cards_box.modulate.a = 0.35
+		# Las cartas esperan 2 pasos más abajo hasta elegir reliquia (§12: pasos de paleta, nunca alfa).
+		lock["on"] = true
 		for id in relics:
 			var rd := RelicDB.get_def(id)
 			var b := Button.new()
@@ -1416,8 +1495,8 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 			hb.position = Vector2(10, 10)
 			hb.size = Vector2(270, 100)
 			hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			hb.add_child(UI.icon(rd["icon"], 5))
-			var rt := UI.rich("[color=#ffd36a]%s[/color]\n%s" % [rd["name"], rd["desc"]], 14)
+			hb.add_child(UI.icon(rd["icon"], 4))   # ×4 (antes ×5: fuera de la rejilla ×2)
+			var rt := UI.rich("[color=#%s]%s[/color]\n%s" % [Palette.UI[&"title"].to_html(false), rd["name"], rd["desc"]], 14)
 			rt.custom_minimum_size.x = 190
 			hb.add_child(rt)
 			b.add_child(hb)
@@ -1428,19 +1507,26 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 				_toast("Obtienes %s" % rd["name"], UI.EMBER)
 				for other in rrow.get_children():
 					(other as Button).disabled = true
-				b.modulate = Color(1.3, 1.2, 0.8)
-				cards_box.modulate.a = 1.0)
+				# La elegida conserva el aspecto de «hover» (antes `modulate` 1,3: fuera de paleta); las demás, inhabilitadas.
+				b.add_theme_stylebox_override("disabled", b.get_theme_stylebox("hover"))
+				b.add_theme_color_override("font_disabled_color", b.get_theme_color("font_hover_color"))
+				lock["on"] = false
+				if lock["cover"] != null:
+					(lock["cover"] as Node).queue_free()
+					lock["cover"] = null)
 			rrow.add_child(b)
 	elif not relics.is_empty():
 		var rd := RelicDB.get_def(relics[0])
 		var rr := UI.hbox(10)
 		rr.alignment = BoxContainer.ALIGNMENT_CENTER
 		rr.add_child(UI.icon(rd["icon"], 4))
-		var rt2 := UI.rich("[color=#ffd36a]Reliquia: %s[/color]\n%s" % [rd["name"], rd["desc"]], 17)
+		var rt2 := UI.rich("[color=#%s]Reliquia: %s[/color]\n%s" % [Palette.UI[&"title"].to_html(false), rd["name"], rd["desc"]], 17)
 		rt2.custom_minimum_size.x = 380
 		rr.add_child(rt2)
 		v.add_child(rr)
 	v.add_child(cards_box)
+	if lock["on"]:
+		lock["cover"] = UI.dim_cover(cards_box, -2, [UI.PANEL])   # la cara del panel (placa 2) no cambia
 	cards_box.add_child(_center_label("Elige una carta para tu mazo", UI.TEXT))
 	var row := UI.hbox(30 if rewards.size() <= 3 else 18)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1457,7 +1543,7 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 		cv.hover_changed.connect(func(view: CardView, h: bool) -> void:
 			view.create_tween().tween_property(view, "position:y", 2.0 if h else 10.0, 0.08))
 		cv.clicked.connect(func(_view: CardView, _b: int) -> void:
-			if cards_box.modulate.a < 0.9:
+			if lock["on"]:
 				_toast("Primero elige una reliquia", UI.EMBER)
 				return
 			run.deck.append(c)
@@ -1475,13 +1561,15 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 		prow.add_child(purge)
 		cards_box.add_child(prow)
 	var skip := UI.button("Quemar las ofrendas (+%s Ascuas)" % Num.fmt(skip_value), func() -> void:
-		if cards_box.modulate.a < 0.9:
+		if lock["on"]:
 			_toast("Primero elige una reliquia", UI.EMBER)
 			return
 		Game.gain_tower_embers(skip_value, "skip")
 		main.fly_embers(Vector2(640, 600), 6)
 		_leave(), 18)
-	skip.custom_minimum_size = Vector2(360, 44)
+	# 362×46 (antes 360×44): el Button centra el texto Mini y con 360×44 caía en columna y fila impares.
+	skip.custom_minimum_size = Vector2(362, 46)
+	skip.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var srow := UI.hbox()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
 	srow.add_child(skip)
@@ -1491,10 +1579,30 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 	await get_tree().create_timer(0.4).timeout
 	if not is_inside_tree():
 		return
+	_grid_rows(cards_box)
+	_grid_rows(v)
 	var ps := panel.get_combined_minimum_size()
 	panel.size = ps
 	panel.position = Vector2(roundf((1280.0 - ps.x) / 4.0) * 2.0, maxf(48.0, roundf((720.0 - ps.y) / 4.0) * 2.0))
 	root.visible = true
+
+
+## Rejilla ×2 en columnas centradas: cada fila mide múltiplos de 4 px y se centra como caja (no el texto dentro de una
+## etiqueta ancha ni el contenido dentro de una fila ancha), así (ancho − fila) / 2 cae siempre en par.
+func _grid_rows(box: BoxContainer) -> void:
+	for c: Node in box.get_children():
+		var ctl := c as Control
+		if ctl == null or ctl.top_level:
+			continue
+		if ctl is Label or ctl is RichTextLabel:
+			if ctl is Label:
+				(ctl as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+				ctl.custom_minimum_size.x = UI.text_width(ctl)
+		elif ctl is BoxContainer and ctl != box:
+			(ctl as BoxContainer).alignment = BoxContainer.ALIGNMENT_BEGIN
+		var m := ctl.get_combined_minimum_size()
+		ctl.custom_minimum_size = Vector2(ceilf(m.x / 4.0) * 4.0, ceilf(m.y / 4.0) * 4.0)
+		ctl.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 
 func _center_label(text: String, color: Color) -> Label:

@@ -446,8 +446,134 @@ static func float_text(parent: Node, pos: Vector2, text: String, color: Color, s
 		l.position = (pos - l.size * 0.5).round())
 	var y0 := pos.y
 	tw.tween_method(func(v: float) -> void: l.position.y = roundf((y0 - l.size.y * 0.5 - rise * v) / 2.0) * 2.0, 0.0, 1.0, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.45)
+	# Se apaga por pasos de su rampa (§12: nunca alfa): −1, −2, −3 cada 90 ms desde los 450 ms y desaparece.
+	var fade := l.create_tween()
+	fade.tween_interval(0.45)
+	for d in FADE_STEPS:
+		var c := step_color(color, -d)
+		fade.tween_callback(func() -> void: l.add_theme_color_override("font_color", c))
+		fade.tween_interval(0.09)
 	tw.tween_callback(l.queue_free)
+
+
+## Pasos con que se apagan los textos flotantes (desde su color de rampa).
+const FADE_STEPS: Array[int] = [1, 2, 3]
+
+
+## Mueve `d` pasos dentro de la rampa del color. Los colores fijos de `Palette.UI` (texto, tenue…) no están en ninguna
+## rampa: se toma la rampa cálida de color más parecido. El resultado siempre es de paleta.
+static var _ramp_of: Dictionary = {}
+
+static func step_color(c: Color, d: int) -> Color:
+	var k := Palette.key8(c)
+	var f: Variant = _ramp_of.get(k)
+	if f == null:
+		f = Palette.find(c)
+		if f == null:
+			var bd := INF
+			for m: StringName in Palette.ORDER:
+				var r := Palette.ramp(m)
+				if r.size() < 4:
+					continue
+				for s in r.size():
+					var e := Vector3(c.r - r[s].r, c.g - r[s].g, c.b - r[s].b).length_squared()
+					if e < bd:
+						bd = e
+						f = [m, s, false]
+		_ramp_of[k] = f
+	var a: Array = f
+	return Palette.color(a[0], int(a[1]) + d, a[2])
+
+
+## Atenuado por pasos de paleta (§12, «la sala baja 2 pasos, no alfa») para INTERFAZ ya dibujada: un rectángulo encima
+## lee la pantalla y cambia cada color de paleta por el mismo color `d` pasos más abajo de su rampa. LUT de 64³ celdas
+## (6 bits por canal) con `DIM_LAYERS` capas; cada capa guarda origen y destino, así dos colores de paleta que comparten celda no se
+## confunden. Lo que no es de paleta se deja igual. Uso: `var c := UI.dim_cover(control, -2)`; `c.queue_free()` para quitarlo.
+const DIM_SHADER := """shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
+uniform sampler2D dim_lut : filter_nearest, repeat_disable;
+void fragment() {
+	vec3 c = texture(screen_tex, SCREEN_UV).rgb;
+	ivec3 k = ivec3(floor(c * 255.0 + 0.5));
+	ivec3 q = k / 4;
+	ivec2 cell = ivec2(q.r + 64 * (q.b % 8), q.g + 64 * (q.b / 8));
+	vec3 o = c;
+	for (int layer = 0; layer < 4; layer++) {
+		ivec2 base = cell + ivec2(0, 512 * layer);
+		vec4 src = texelFetch(dim_lut, base + ivec2(512, 0), 0);
+		if (src.a > 0.5 && ivec3(floor(src.rgb * 255.0 + 0.5)) == k) {
+			o = texelFetch(dim_lut, base, 0).rgb;
+			break;
+		}
+	}
+	COLOR = vec4(o, 1.0);
+}
+"""
+static var _dim_shader: Shader
+static var _dim_luts: Dictionary = {}
+const DIM_LAYERS := 4   # = bucle del shader
+## Colores de paleta sin sitio en la LUT (más de `DIM_LAYERS` en la misma celda): se quedan sin atenuar. Lo mide `test_ui`.
+static var dim_lut_collisions := 0
+
+## `keep`: colores que no cambian (p. ej. la cara del panel de debajo, para que no se vea la caja del atenuado).
+## Disposición 1024 × 512·capas: x < 512 destino, x ≥ 512 origen; capa n en y 512·n.
+static func dim_lut(d: int, keep: Array = []) -> ImageTexture:
+	var lk := "%d|%s" % [d, keep]
+	if _dim_luts.has(lk):
+		return _dim_luts[lk]
+	var kept := {}
+	for kc: Color in keep:
+		kept[Palette.key8(kc)] = true
+	var img := Image.create_empty(1024, 512 * DIM_LAYERS, false, Image.FORMAT_RGBA8)
+	var used := {}
+	dim_lut_collisions = 0
+	for k: int in Palette.all_colors():
+		var c := Color8((k >> 16) & 255, (k >> 8) & 255, k & 255)
+		var cell := Vector2i((c.r8 >> 2) + 64 * ((c.b8 >> 2) % 8), (c.g8 >> 2) + 64 * ((c.b8 >> 2) / 8))
+		var layer: int = used.get(cell, 0)
+		if layer >= DIM_LAYERS:
+			dim_lut_collisions += 1
+			continue
+		used[cell] = layer + 1
+		var at := cell + Vector2i(0, 512 * layer)
+		img.set_pixelv(at, c if kept.has(k) else step_color(c, d))
+		img.set_pixelv(at + Vector2i(512, 0), c)
+	var t := ImageTexture.create_from_image(img)
+	_dim_luts[lk] = t
+	return t
+
+
+static func dim_cover(target: Control, d: int = -2, keep: Array = []) -> ColorRect:
+	if _dim_shader == null:
+		_dim_shader = Shader.new()
+		_dim_shader.code = DIM_SHADER
+	var r := ColorRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.top_level = true
+	# `top_level` deja de heredar la z: se pone la z absoluta del destino + 1.
+	var z := 0
+	var n: Node = target
+	while n is CanvasItem:
+		z += (n as CanvasItem).z_index
+		if not (n as CanvasItem).z_as_relative:
+			break
+		n = n.get_parent()
+	r.z_as_relative = false
+	r.z_index = z + 1
+	var m := ShaderMaterial.new()
+	m.shader = _dim_shader
+	m.set_shader_parameter("dim_lut", dim_lut(d, keep))
+	r.material = m
+	target.add_child(r)
+	var follow := func() -> void:
+		r.global_position = target.global_position
+		r.size = target.size
+	follow.call()
+	target.get_tree().process_frame.connect(follow)
+	r.tree_exiting.connect(func() -> void:
+		if target.get_tree().process_frame.is_connected(follow):
+			target.get_tree().process_frame.disconnect(follow))
+	return r
 
 
 ## Pulso de escala para elementos de INTERFAZ (nunca para sprites del mundo: usar FighterView).

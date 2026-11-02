@@ -37,19 +37,21 @@ func _init() -> void:
 	_rate.position = Vector2(140, 8)
 	add_child(_rate)
 	# Derecha, de derecha a izquierda: música, polvo, calor, braseros.
+	# Botón sin texto (el texto del Button le daba 31 px de alto mínimo: borde inferior en fila impar) y la nota en Fragua ×2
+	# como etiqueta hija en coordenadas pares: caja 32×28 en (1240, 2) y glifo centrado en par.
 	var music := Button.new()
-	music.text = "♪"
-	# Fragua ×2 en la rejilla (antes ×1 en y 3: medio píxel de arte).
-	UI.pixelize(music, 2)
-	music.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	music.position = Vector2(1240, 2)
 	music.custom_minimum_size = Vector2(32, 28)
 	music.size = Vector2(32, 28)
 	music.focus_mode = Control.FOCUS_NONE
-	var pad := Vector4(roundf((32.0 - PixelFont.text_width("♪") * 2.0) / 4.0) * 2.0 - 2.0, 0, 0, 2)
+	var pad := Vector4.ZERO
 	music.add_theme_stylebox_override("normal", UIKit.sb_iron(3, pad))
 	music.add_theme_stylebox_override("hover", UIKit.sb_plate(Palette.color(&"plate", 3), Palette.color(&"ember_ui", 3), 1, 0, pad))
 	music.add_theme_stylebox_override("pressed", UIKit.sb_iron(2, pad))
+	var note := UI.plabel("♪", 2, UI.TEXT)
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note.position = Vector2(roundf((32.0 - PixelFont.text_width("♪") * 2.0) / 4.0) * 2.0, 4)
+	music.add_child(note)
 	music.tooltip_text = "Silenciar / activar audio"
 	music.pressed.connect(func() -> void: audio_pressed.emit())
 	add_child(music)

@@ -27,10 +27,19 @@ const STATUS_Y := 556.0
 const VIEW_BOTTOM := 582.0      # por debajo sólo hay mano
 const INTENT_GAP := 36.0        # 18 px de arte sobre la cabeza
 const INTENT_MIN_Y := 88.0      # base de la banda de intención de jefe (y de arte 44)
+## Jefe: intención fija y quieta en la banda y 22–44 de arte (DECISIONES); su base en pantalla, centrada en la banda (22 px).
+const BOSS_INTENT_BOTTOM := 78.0
+const GESTURE_KEY_FRAME := 2    # `summon` / `choke` del jefe: el soplo sale en el f2
+## Fase 2 de jefes con variante horneada `@phase2`: por debajo de esta fracción de PV.
+const PHASE2_AT := 0.5
 const HERO_ID := &"fogonera"
 ## Destello de impacto (biblia §12, C2): 1 f de silueta blanca de 33 ms REALES y subida de pasos que conserva el dibujo.
 const FLASH_WHITE_S := 0.033
 const FLASH_STEPS := [[3, 0.05], [2, 0.05], [1, 0.05]]
+## Jefes (C2): el blanco sólo en la pieza golpeada. Necesita `uniform vec3 flash_piece` en `palette_lit` (x, y de mundo,
+## radio; radio < 0 = todo el cuerpo): los píxeles cuyo ANCLA cae dentro del radio se ponen blancos y los demás sólo suben
+## pasos. Mientras el shader no lo declare, el jefe destella entero como cualquier criatura (respaldo).
+const FLASH_PIECE_R := 10.0
 ## Segundo reposo de la heroína (biblia §8, C15): martillo al hombro cada 6–10 s, con puente de entrada y salida.
 const SHOULDER_EVERY := Vector2(6.0, 10.0)
 const SHOULDER_HOLD := 2.0
@@ -227,7 +236,7 @@ func place(cx: int) -> void:
 	_name_label.size = Vector2(w + 80.0, 16)
 	_name_label.position = Vector2(-40, _plate.position.y - 18.0)
 	_stolen_label.size = Vector2(w + 120.0, 16)
-	_intent_y = maxf(top - INTENT_GAP, INTENT_MIN_Y) - position.y
+	_intent_y = (BOSS_INTENT_BOTTOM if fighter.is_boss else maxf(top - INTENT_GAP, INTENT_MIN_Y)) - position.y
 	_stolen_label.position = Vector2(-60, _intent_y - 40.0)
 	_place_intent()
 	_fx_frame = -1
@@ -262,6 +271,33 @@ func body_mask() -> Image:
 		img = src.get_region(src.get_used_rect())
 		img.resize(img.get_width() * LEGACY_SCALE, img.get_height() * LEGACY_SCALE, Image.INTERPOLATE_NEAREST)
 	return img
+
+
+## Huecos a ras de suelo bajo el cuerpo (p. ej. bajo la tobera del jefe): intervalos [x0, x1) de columnas vacías en las
+## `rows` filas de abajo, en px de arte relativos al centro del cuerpo. Sirve para colocar invocaciones sin pisar al jefe.
+func ground_gaps(rows: int, min_w: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var img := body_mask()
+	if img == null:
+		return out
+	var h := img.get_height()
+	var w := img.get_width()
+	var half := int(round(_body.size.x * 0.5))
+	var start := -1
+	for x in w + 1:
+		var empty := x < w
+		if x < w:
+			for y in range(maxi(0, h - rows), h):
+				if img.get_pixel(x, y).a > 0.0:
+					empty = false
+					break
+		if empty and start < 0:
+			start = x
+		elif not empty and start >= 0:
+			if x - start >= min_w:
+				out.append(Vector2i(start - half, x - half))
+			start = -1
+	return out
 
 
 ## Centro de los pies en el mundo.
@@ -378,7 +414,9 @@ func _process(delta: float) -> void:
 	if _dead:
 		return
 	if _intent.visible:
-		_intent.position.y = _intent_y - _intent.size.y + 2.0 * roundf(sin(_t * 3.0))
+		# El jefe no se mece: nada se anima dentro de la banda de intención (§15).
+		var bob := 0.0 if fighter.is_boss else 2.0 * roundf(sin(_t * 3.0))
+		_intent.position.y = _intent_y - _intent.size.y + bob
 	if _legacy == null:
 		return
 	if _legacy_glow != null:
@@ -503,6 +541,7 @@ func refresh() -> void:
 	if fighter == null:
 		return
 	_plate.set_values(fighter.hp, fighter.max_hp, fighter.block, fighter.st("scorch"))
+	_check_phase()
 	if _lit_mat != null:
 		# Quemadura (C6): sus grietas y emisivos suben 1 paso mientras arde.
 		_set_emit_boost(1 if fighter.st("scorch") > 0 and fighter.alive() else 0)
@@ -512,6 +551,29 @@ func refresh() -> void:
 	if status_fx != null:
 		status_fx.call(&"sync", fighter.statuses, fighter.block)
 	queue_redraw()
+
+
+var _phase2 := false
+
+## Cambio de fase del jefe (F2-JEFE): al bajar de `PHASE2_AT` de PV, la hoja pasa a la variante `@phase2` conservando la
+## animación y el fotograma, y entra `hurt` como transición (cae bajo el blanco del golpe que la provoca). Sin variante
+## horneada (legado u otras criaturas), no hace nada.
+func _check_phase() -> void:
+	if _phase2 or _anim == null or not fighter.is_boss or not fighter.alive():
+		return
+	if float(fighter.hp) >= float(fighter.max_hp) * PHASE2_AT:
+		return
+	if not (SpriteBank.meta(_baked_id).get("variants", []) as Array).has("phase2"):
+		return
+	_phase2 = true
+	var a := _anim.animation
+	var f := _anim.frame
+	_anim.sprite_frames = SpriteBank.sprite_frames(_baked_id, true, &"phase2")
+	if _anim.sprite_frames.has_animation(a):
+		_anim.play(a)
+		_anim.set_frame_and_progress(mini(f, _anim.sprite_frames.get_frame_count(a) - 1), 0.0)
+	if a == &"idle" or a == &"hurt":
+		_play(&"hurt")
 
 
 func _refresh_intent() -> void:
@@ -559,6 +621,8 @@ func flash(color: Color = Color.WHITE) -> void:
 	if _anim != null:
 		_lit_mat.set_shader_parameter(&"flash_white", true)
 		_lit_mat.set_shader_parameter(&"flash_steps", 0)
+		if _has_flash_piece():
+			_lit_mat.set_shader_parameter(&"flash_piece", _hit_piece() if fighter.is_boss else Vector3(0, 0, -1))
 		_fx_on = true
 		_use_fx_mat()
 		_flash_tween = create_tween().set_ignore_time_scale(true)
@@ -576,6 +640,30 @@ func flash(color: Color = Color.WHITE) -> void:
 	_flash_tween.tween_interval(FLASH_WHITE_S)
 	_flash_tween.tween_callback(func() -> void: _legacy_mat.set_shader_parameter("flash_color", color))
 	_flash_tween.tween_method(func(v: float) -> void: _legacy_mat.set_shader_parameter("flash", v), 0.85, 0.0, 0.1)
+
+
+static var _flash_piece_ok: int = -1
+
+func _has_flash_piece() -> bool:
+	if _flash_piece_ok < 0:
+		_flash_piece_ok = 0
+		var sh: Shader = _lit_mat.shader if _lit_mat != null else null
+		if sh != null:
+			for u: Dictionary in sh.get_shader_uniform_list():
+				if u.get("name", "") == "flash_piece":
+					_flash_piece_ok = 1
+	return _flash_piece_ok == 1
+
+
+## Punto golpeado del jefe en coordenadas de mundo: el socket `hit` del fotograma actual si el rig lo declara; si no,
+## el centro del cuerpo. Con un jefe multiparte (atlas por parte), aquí se elegiría la parte y su material.
+func _hit_piece() -> Vector3:
+	var p: Vector2 = _body.get_center()
+	var sk: Variant = SpriteBank.socket(_baked_id, _anim.animation, _anim.frame, &"hit")
+	if sk != null:
+		p = _anim.position + Vector2(sk as Vector2i)
+	var w := actor.get_global_transform() * p
+	return Vector3(w.x, w.y, FLASH_PIECE_R)
 
 
 func _flash_reset() -> void:
@@ -653,10 +741,20 @@ func swing() -> float:
 
 
 ## Gesto enemigo sin ataque (defenderse, fortalecerse…).
-func gesture() -> void:
+func has_anim(anim: StringName) -> bool:
+	return _anim != null and _anim.sprite_frames.has_animation(anim)
+
+
+## Gesto de intención no ofensiva. `anim` = animación propia del movimiento (`summon`, `choke`) si el rig la tiene; si no,
+## `cast`. Devuelve los segundos hasta su fotograma clave (f2: soplo o bocanada), o 0 con `cast`.
+func gesture(anim: StringName = &"cast") -> float:
+	if _anim != null and anim != &"cast" and _anim.sprite_frames.has_animation(anim):
+		_play(anim)
+		return maxf(0.1, _ms_until(anim, GESTURE_KEY_FRAME, 0.22))
 	_play(&"cast")
 	_legacy_seq([["crouch", 0.1], ["stretch", 0.12], ["base", 0.06]])
 	_tween_off([[Vector2(0, -2.0), 0.1], [Vector2.ZERO, 0.12, Tween.TRANS_BACK, Tween.EASE_OUT]])
+	return 0.0
 
 
 ## Habilidad o poder: alza el martillo. Devuelve los segundos hasta el gesto (2.º fotograma de `cast`).
