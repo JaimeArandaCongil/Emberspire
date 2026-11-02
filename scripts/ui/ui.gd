@@ -3,7 +3,7 @@ extends RefCounted
 ## Kit de UI: tema, constructores de widgets y efectos reutilizables.
 ## Rejillas: el MUNDO se dibuja a ×4 (PX) y la INTERFAZ a ×2 (UI_PX). Nada de escalas fraccionarias
 ## ni rotaciones sobre pixel art del mundo (ver docs/ART_BIBLE.md).
-## v0.4: paneles y botones son 9-slice teselados (`UIKit`); texto pequeño en Pavesa 6×9 a ×1, etiquetas en Mini 3×5 ×2,
+## v0.4: paneles y botones son 9-slice teselados (`UIKit`); etiquetas y avisos en Mini 3×5 ×2, Pavesa 6×9 ×1 sólo en tooltips y cuerpo,
 ## títulos en Fragua 5×7 a escala entera. Colores de la paleta maestra (`Palette`).
 
 ## Precargas (no dependen de la caché de class_name: el juego arranca aunque no se haya reimportado).
@@ -184,15 +184,20 @@ static func box(bg: Color, border: Color = EDGE, bw: int = 4, shadow: int = 4) -
 
 static func build_theme() -> Theme:
 	var t := Theme.new()
-	# Tipografía: Pavesa (6×9, ×1) por defecto; Fragua (5×7) en títulos y botones cortos vía pixelize().
-	t.default_font = PixelFont.pavesa()
-	t.default_font_size = PixelFont.P_LINE
+	# Tipografía (DECISIONES «Etiquetas del HUD»): Mini 3×5 ×2 por defecto (etiquetas, avisos, pestañas, botones largos);
+	# Pavesa 6×9 ×1 sólo en tooltips y cuerpo de texto (`rich()`); Fragua 5×7 en títulos y cifras vía plabel()/pixelize().
+	t.default_font = PixelFont.mini()
+	t.default_font_size = PixelFont.mini_size(2)
 	for cls: String in ["Label", "Button", "RichTextLabel", "TooltipLabel", "TabContainer", "CheckBox", "LineEdit"]:
 		t.set_color("font_shadow_color", cls, OUTLINE)
-		t.set_constant("shadow_offset_x", cls, 1)
-		t.set_constant("shadow_offset_y", cls, 1)
+		# Sombra en la rejilla ×2; sólo el texto Pavesa ×1 (tooltip, cuerpo) la lleva de 1 px.
+		var sh := 1 if cls in ["RichTextLabel", "TooltipLabel"] else UI_PX
+		t.set_constant("shadow_offset_x", cls, sh)
+		t.set_constant("shadow_offset_y", cls, sh)
 		t.set_constant("outline_size", cls, 0)
 		t.set_constant("shadow_outline_size", cls, 0)
+	t.set_font("font", "TooltipLabel", PixelFont.pavesa())
+	t.set_font_size("font_size", "TooltipLabel", PixelFont.P_LINE)
 	t.set_color("font_color", "Label", TEXT)
 	t.set_color("font_outline_color", "Label", OUTLINE)
 	t.set_color("default_color", "RichTextLabel", TEXT)
@@ -240,18 +245,13 @@ static func build_theme() -> Theme:
 	return t
 
 
-## Etiqueta. Desde 20 px usa Fragua a escala entera (títulos, cifras); por debajo, Pavesa 6×9 a ×1 con sombra de 1 px.
-## Pavesa sólo existe a ×1, así que la jerarquía entre 10 y 19 px se conserva con la negrita: desde 16 px, doble trazo.
+## Etiqueta. Desde 20 px usa Fragua a escala entera (títulos, cifras); por debajo, Mini 3×5 a ×2 (DECISIONES: Pavesa ×1
+## queda sólo para cuerpo de carta y tooltips). `size` ya no cambia el cuerpo de letra por debajo de 20.
 static func label(text: String, size: int = 16, color: Color = TEXT) -> Label:
 	if size >= 20:
 		return plabel(text, pixel_scale(size), color)
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_override("font", PixelFont.pavesa_bold() if size >= 16 else PixelFont.pavesa())
-	l.add_theme_font_size_override("font_size", PixelFont.P_LINE)
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_constant_override("outline_size", 0)
-	l.add_theme_constant_override("line_spacing", 0)
+	var l := mlabel(text, color)
+	l.add_theme_constant_override("line_spacing", 2)
 	return l
 
 
@@ -268,6 +268,23 @@ static func mlabel(text: String, color: Color = TEXT) -> Label:
 	return l
 
 
+## Centra el texto de `l` en [x0, x0 + width] con el desplazamiento en la rejilla ×2. El centrado de Label/Button cae en
+## píxel impar cuando (ancho − texto) / 2 es impar: medio píxel de arte (F2-BASE). Llamar tras cambiar el texto.
+static func snap_center(l: Label, x0: float, width: float) -> void:
+	var tw := text_width(l)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.position.x = x0 + roundf((width - tw) / (2.0 * UI_PX)) * UI_PX
+	l.size.x = tw
+
+
+## Ancho en píxeles de pantalla del texto de una etiqueta (con su fuente y tamaño actuales).
+static func text_width(c: Control) -> float:
+	var f := c.get_theme_font("font")
+	var fs := c.get_theme_font_size("font_size")
+	var t: String = c.get("text")
+	return ceilf(f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x) if f != null else 0.0
+
+
 ## Escala entera de la fuente pixel equivalente a un tamaño de fuente liso.
 static func pixel_scale(size: int) -> int:
 	return clampi(int(round(size / 11.0)), 1, 8)
@@ -282,7 +299,33 @@ static func plabel(text: String, scale: int = 2, color: Color = TEXT) -> Label:
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_constant_override("outline_size", 0)
 	l.add_theme_constant_override("line_spacing", 0)
+	l.material = fragua_material()
 	return l
+
+
+## Fragua lleva el contorno horneado en el glifo (`UI.k`); sin esto, `font_color` lo tiñe y sale de la paleta
+## (`1a0a04` en las Ascuas, `190d0e` en el texto claro, `020101` en su sombra). El material deja el contorno intacto.
+static var _fragua_mat: ShaderMaterial
+
+static func fragua_material() -> ShaderMaterial:
+	if _fragua_mat == null:
+		var sh := Shader.new()
+		sh.code = """shader_type canvas_item;
+varying vec4 v_col;
+void vertex() { v_col = COLOR; }
+void fragment() {
+	vec4 t = texture(TEXTURE, UV);
+	vec3 k = vec3(26.0, 15.0, 18.0) / 255.0;
+	if (t.a > 0.5 && distance(t.rgb, k) < 0.012) {
+		COLOR = vec4(k, t.a * v_col.a);
+	} else {
+		COLOR = t * v_col;
+	}
+}
+"""
+		_fragua_mat = ShaderMaterial.new()
+		_fragua_mat.shader = sh
+	return _fragua_mat
 
 
 ## Aplica la fuente pixel a un control con texto (Button, Label…).
@@ -290,6 +333,8 @@ static func pixelize(c: Control, scale: int = 2) -> void:
 	c.add_theme_font_override("font", PixelFont.font())
 	c.add_theme_font_size_override("font_size", PixelFont.px_size(scale))
 	c.add_theme_constant_override("outline_size", 0)
+	if c.material == null:
+		c.material = fragua_material()
 
 
 static func rich(text: String, size: int = 15) -> RichTextLabel:

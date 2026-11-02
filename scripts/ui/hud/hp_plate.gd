@@ -25,17 +25,16 @@ func _init() -> void:
 	custom_minimum_size = SIZE
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label = UI.plabel("", 2)
-	_label.position = Vector2(0, -3)
+	# Rejilla ×2: cifra Fragua de 26 px de línea en y −2 (antes −3: medio píxel de arte, F2-BASE).
+	_label.position = Vector2(0, -2)
 	_label.size = Vector2(SIZE.x, 26)
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
 	_block_label = UI.mlabel("")
-	_block_label.position = Vector2(-BLOCK_W - 2, -5)
-	_block_label.size = Vector2(BLOCK_W, 26)
-	_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_block_label.position = Vector2(-BLOCK_W - 2, 2)
+	_block_label.size = Vector2(BLOCK_W, 16)
+	_block_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_block_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_block_label.add_theme_color_override("font_shadow_color", Palette.OUTLINE)
 	add_child(_block_label)
@@ -48,6 +47,8 @@ func set_values(hp: int, max_hp: int, block: int = 0, scorch: int = 0) -> void:
 	_scorch = scorch
 	_label.text = "%d/%d" % [hp, max_hp]
 	_block_label.text = str(block) if block > 0 else ""
+	UI.snap_center(_label, 0.0, SIZE.x)
+	UI.snap_center(_block_label, -BLOCK_W - 2.0, BLOCK_W)
 	queue_redraw()
 
 
@@ -146,7 +147,7 @@ func _draw() -> void:
 			var col := Palette.color(&"fire", 5) if i % 2 == 0 else Palette.color(&"fire", 3)
 			_rect(x0 + real - 1 - i, y0, 1, hn, col)
 	if _block > 0:
-		draw_texture(_shield(), Vector2(-BLOCK_W - 2, -3))
+		draw_texture(_shield(), Vector2(-BLOCK_W - 2, -4))
 
 
 func _rect(x: int, y: int, w: int, h: int, c: Color) -> void:

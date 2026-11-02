@@ -31,7 +31,7 @@ func _init() -> void:
 	add_child(bg)
 	_ember = _icon(HudArt.intent_texture("steal"), 10)
 	_embers = UI.plabel("0", 2, UI.EMBER)
-	_embers.position = Vector2(32, 1)
+	_embers.position = Vector2(32, 2)
 	add_child(_embers)
 	_rate = UI.label("", 14, UI.DIM)
 	_rate.position = Vector2(140, 8)
@@ -39,12 +39,14 @@ func _init() -> void:
 	# Derecha, de derecha a izquierda: música, polvo, calor, braseros.
 	var music := Button.new()
 	music.text = "♪"
-	UI.pixelize(music, 1)
-	music.position = Vector2(1240, 3)
-	music.custom_minimum_size = Vector2(32, 24)
-	music.size = Vector2(32, 24)
+	# Fragua ×2 en la rejilla (antes ×1 en y 3: medio píxel de arte).
+	UI.pixelize(music, 2)
+	music.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	music.position = Vector2(1240, 2)
+	music.custom_minimum_size = Vector2(32, 28)
+	music.size = Vector2(32, 28)
 	music.focus_mode = Control.FOCUS_NONE
-	var pad := Vector4(4, 0, 4, 2)
+	var pad := Vector4(roundf((32.0 - PixelFont.text_width("♪") * 2.0) / 4.0) * 2.0 - 2.0, 0, 0, 2)
 	music.add_theme_stylebox_override("normal", UIKit.sb_iron(3, pad))
 	music.add_theme_stylebox_override("hover", UIKit.sb_plate(Palette.color(&"plate", 3), Palette.color(&"ember_ui", 3), 1, 0, pad))
 	music.add_theme_stylebox_override("pressed", UIKit.sb_iron(2, pad))

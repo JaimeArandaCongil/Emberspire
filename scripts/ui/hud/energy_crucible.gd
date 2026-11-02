@@ -27,10 +27,10 @@ func _init() -> void:
 	_img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_img)
 	_label = UI.plabel("", 2)
-	_label.size = Vector2(SIZE.x, 40)
-	_label.position = Vector2(0, 21)
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# Rejilla ×2: línea Fragua de 26 px arriba en y 28 (antes centrada en 40 desde 21) y x centrada en par.
+	_label.size = Vector2(SIZE.x, 26)
+	_label.position = Vector2(0, 28)
+	_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
 	_apply()
@@ -40,6 +40,7 @@ func set_energy(cur: int, max_energy: int) -> void:
 	_cur = cur
 	_max = maxi(1, max_energy)
 	_label.text = "%d/%d" % [_cur, _max]
+	UI.snap_center(_label, 0.0, SIZE.x)
 	_label.add_theme_color_override("font_color", UI.TEXT if _cur > 0 else UI.DIM)
 
 

@@ -562,13 +562,13 @@ func check_status_fx() -> Array:
 	if s.active_loop() != &"weak":
 		out.append("[MV estados] débil debe tener prioridad sobre fuerza")
 	s.sync({"str": 1, "weak": 2, "scorch": 4}, 4)
-	if s.active_loop() != &"scorch" or s.flame_count() != 2:
-		out.append("[MV estados] quemadura: prioridad y número de llamas")
+	if s.active_loop() != &"scorch" or s.flame_count() != 4:
+		out.append("[MV estados] quemadura: prioridad y número de lenguas (C6: 3–5)")
 	if s._shield_t < 0.0:
 		out.append("[MV estados] ganar bloqueo no gira el escudo")
 	s.sync({"scorch": 30}, 0)
-	if s.flame_count() != 3:
-		out.append("[MV estados] como mucho 3 llamas")
+	if s.flame_count() != 5 or s.flame_height() != 6:
+		out.append("[MV estados] como mucho 5 lenguas de 6 px")
 	if s._shatter_t < 0.0:
 		out.append("[MV estados] perder bloqueo no rompe el escudo")
 	s.sync({"scorch": 30, "vuln": 1}, 0)

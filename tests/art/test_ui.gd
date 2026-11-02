@@ -71,14 +71,17 @@ func _fonts() -> void:
 	_check(fp.get_height(13) == PixelFont.P_LINE, "Pavesa: un tamaño menor no debe escalar fraccionariamente")
 	var fm := PixelFont.mini()
 	_check(fm.get_height(PixelFont.mini_size(2)) == PixelFont.M_LINE * 2, "Mini: alto de línea a ×2")
+	# DECISIONES «Etiquetas del HUD»: Mini ×2 por debajo de 20; Pavesa ×1 sólo en cuerpo de carta y tooltips.
 	var l := UI.label("Inflige", 14)
-	_check(l.get_theme_font("font") == fp, "UI.label(<20) debe usar Pavesa")
+	_check(l.get_theme_font("font") == fm and l.get_theme_font_size("font_size") == PixelFont.mini_size(2), "UI.label(<20) debe usar Mini ×2")
+	_check(l.get_theme_constant("shadow_offset_x") == 2 and l.get_theme_constant("shadow_offset_y") == 2, "UI.label(<20): sombra en la rejilla ×2")
 	l.free()
 	var lb := UI.label("Chispa", 18)
-	_check(lb.get_theme_font("font") == PixelFont.pavesa_bold(), "UI.label(16–19) debe usar Pavesa negrita")
+	_check(lb.get_theme_font("font") == fm, "UI.label(16–19) debe usar Mini ×2")
 	lb.free()
 	var l2 := UI.label("Título", 30)
 	_check(l2.get_theme_font("font") == PixelFont.font(), "UI.label(>=20) debe usar Fragua")
+	_check(l2.material == UI.fragua_material(), "Fragua lleva el material que no tiñe su contorno")
 	l2.free()
 	var r := UI.rich("x")
 	_check(r.get_theme_font("normal_font") == fp, "UI.rich debe usar Pavesa")
@@ -89,7 +92,9 @@ func _fonts() -> void:
 
 func _theme() -> void:
 	var t := UI.build_theme()
-	_check(t.default_font == PixelFont.pavesa(), "tema: fuente por defecto Pavesa")
+	_check(t.default_font == PixelFont.mini() and t.default_font_size == PixelFont.mini_size(2), "tema: fuente por defecto Mini ×2")
+	_check(t.get_font("font", "TooltipLabel") == PixelFont.pavesa(), "tema: tooltips en Pavesa ×1")
+	_check(t.get_constant("shadow_offset_x", "Label") == 2, "tema: sombra de etiqueta en la rejilla ×2")
 	var n := 0
 	for type_name: String in t.get_stylebox_type_list():
 		for sb_name: String in t.get_stylebox_list(type_name):

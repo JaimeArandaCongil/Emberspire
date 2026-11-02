@@ -28,18 +28,14 @@ const VIEW_BOTTOM := 582.0      # por debajo sólo hay mano
 const INTENT_GAP := 36.0        # 18 px de arte sobre la cabeza
 const INTENT_MIN_Y := 88.0      # base de la banda de intención de jefe (y de arte 44)
 const HERO_ID := &"fogonera"
-const FLASH_SHADER := """
-shader_type canvas_item;
-uniform vec4 tint = vec4(1.0);
-void fragment() {
-	if (texture(TEXTURE, UV).a < 0.002) {
-		discard;
-	}
-	COLOR = tint;
-}
-"""
-
-static var _flash_shader: Shader
+## Destello de impacto (biblia §12, C2): 1 f de silueta blanca de 33 ms REALES y subida de pasos que conserva el dibujo.
+const FLASH_WHITE_S := 0.033
+const FLASH_STEPS := [[3, 0.05], [2, 0.05], [1, 0.05]]
+## Segundo reposo de la heroína (biblia §8, C15): martillo al hombro cada 6–10 s, con puente de entrada y salida.
+const SHOULDER_EVERY := Vector2(6.0, 10.0)
+const SHOULDER_HOLD := 2.0
+## Fotograma de impacto de `attack` (anticipación, estela, impacto) en heroína y criaturas.
+const IMPACT_FRAME := 2
 
 var fighter: Fighter
 var engine: CombatEngine
@@ -60,8 +56,9 @@ var _anim: AnimatedSprite2D     # hoja horneada, o null
 var _legacy: Sprite2D           # arte legado, o null
 var _legacy_glow: Sprite2D
 var _legacy_mat: ShaderMaterial
-var _flash_spr: Sprite2D
-var _flash_mat: ShaderMaterial
+var _lit_mat: ShaderMaterial     # material propio (destello, Quemadura); en la heroína = _hero_mat
+var _fx_on := false              # enemigos: usan el material común salvo durante destello o Quemadura
+var _emit_boost := 0
 var _hero_mat: ShaderMaterial
 var _shadow: _ShadowNode
 var _base := Vector2.ZERO       # esquina del lienzo respecto al actor
@@ -77,6 +74,9 @@ var _idle_period := 0.6
 var _idle_b := false
 var _lift := 0
 var _flash_tween: Tween
+var _shoulder_wait := 0.0
+var _shoulder_state := 0          # 0 reposo normal · 1 entrando · 2 al hombro · 3 saliendo
+var _shoulder_left := 0.0
 var _act_tween: Tween
 var _plate: HpPlate
 var _status: StatusRow
@@ -139,9 +139,15 @@ func _build_baked() -> void:
 		# Mismo shader con el calor activado: pelo y martillo (docs/reviews/v04/personajes/fogonera_final.md).
 		_hero_mat = wv.lit_material.duplicate() as ShaderMaterial
 		_hero_mat.set_shader_parameter(&"hero_heat", true)
+		_hero_mat.set_shader_parameter(&"gold_ok", false)
+		_lit_mat = _hero_mat
 		_anim.material = _hero_mat
 	else:
+		# Copia para destello y Quemadura; en reposo el enemigo comparte `wv.lit_material` (lotes y prueba del recorrido).
+		_lit_mat = wv.lit_material.duplicate() as ShaderMaterial
+		_lit_mat.set_shader_parameter(&"gold_ok", false)
 		_anim.material = wv.lit_material
+	_shoulder_wait = randf_range(SHOULDER_EVERY.x, SHOULDER_EVERY.y)
 	actor.add_child(_anim)
 	var r := SpriteBank.body_rect(_baked_id)
 	var g := SpriteBank.ground_y(_baked_id)
@@ -152,16 +158,6 @@ func _build_baked() -> void:
 	_anim.animation_finished.connect(_on_anim_finished)
 	_anim.play(&"idle")
 	_anim.set_frame_and_progress(randi() % maxi(1, _anim.sprite_frames.get_frame_count(&"idle")), randf())
-	_flash_spr = Sprite2D.new()
-	_flash_spr.centered = false
-	_flash_spr.visible = false
-	_flash_mat = ShaderMaterial.new()
-	if _flash_shader == null:
-		_flash_shader = Shader.new()
-		_flash_shader.code = FLASH_SHADER
-	_flash_mat.shader = _flash_shader
-	_flash_spr.material = _flash_mat
-	actor.add_child(_flash_spr)
 
 
 func _build_legacy() -> void:
@@ -372,11 +368,9 @@ func _process(delta: float) -> void:
 	_sync_status_fx()
 	if _anim != null:
 		_anim.position = p
-		if _flash_spr.visible:
-			_flash_spr.position = p
-			_flash_spr.texture = current_frame()
 		if _hero_mat != null:
 			_update_hero_uniforms()
+			_tick_shoulder(delta)
 	elif _legacy != null:
 		_legacy.position = p
 	if targetable:
@@ -412,13 +406,60 @@ func _update_hero_uniforms() -> void:
 
 
 func _on_anim_finished() -> void:
-	if not _dead:
-		_anim.play(&"idle")
+	if _dead:
+		return
+	if _shoulder_state == 1:
+		_shoulder_state = 2
+		_shoulder_left = SHOULDER_HOLD
+		_anim.play(&"idle_shoulder")
+		return
+	_shoulder_state = 0
+	_anim.play(&"idle")
 
 
 func _play(anim: StringName) -> void:
 	if _anim != null and _anim.sprite_frames.has_animation(anim):
+		_shoulder_state = 0
+		_shoulder_wait = randf_range(SHOULDER_EVERY.x, SHOULDER_EVERY.y)
 		_anim.play(anim)
+
+
+## Segundo reposo: sólo desde `idle`. Puente = `shoulder_in` / `shoulder_out` si F2-HERO los hornea; si no, `windup`
+## (el martillo pasa por arriba hacia el hombro, el mismo arco que el martillazo).
+func _tick_shoulder(delta: float) -> void:
+	if _dead or not _anim.sprite_frames.has_animation(&"idle_shoulder"):
+		return
+	match _shoulder_state:
+		0:
+			if _anim.animation != &"idle":
+				return
+			_shoulder_wait -= delta
+			if _shoulder_wait <= 0.0:
+				_shoulder_state = 1
+				_anim.play(_bridge(&"shoulder_in"))
+		2:
+			_shoulder_left -= delta
+			if _shoulder_left <= 0.0:
+				_shoulder_state = 3
+				_shoulder_wait = randf_range(SHOULDER_EVERY.x, SHOULDER_EVERY.y)
+				_anim.play(_bridge(&"shoulder_out"))
+
+
+func _bridge(anim: StringName) -> StringName:
+	return anim if _anim.sprite_frames.has_animation(anim) else &"windup"
+
+
+## Segundos hasta el fotograma `frame` de `anim` (horneado), o `fallback` si no existe.
+func _ms_until(anim: StringName, frame: int, fallback: float) -> float:
+	if _anim == null or not _anim.sprite_frames.has_animation(anim):
+		return fallback
+	var ms: Array = SpriteBank.frame_ms(_baked_id, anim)
+	if ms.size() <= frame:
+		return fallback
+	var t := 0.0
+	for i in frame:
+		t += float(ms[i]) / 1000.0
+	return t
 
 
 func _set_legacy_pose(pose: String) -> void:
@@ -462,6 +503,9 @@ func refresh() -> void:
 	if fighter == null:
 		return
 	_plate.set_values(fighter.hp, fighter.max_hp, fighter.block, fighter.st("scorch"))
+	if _lit_mat != null:
+		# Quemadura (C6): sus grietas y emisivos suben 1 paso mientras arde.
+		_set_emit_boost(1 if fighter.st("scorch") > 0 and fighter.alive() else 0)
 	_status.set_fighter(fighter)
 	_stolen_label.text = "Lleva %s Ascuas robadas" % Num.fmt(fighter.stolen) if fighter.stolen > 0.0 and fighter.alive() else ""
 	_refresh_intent()
@@ -507,27 +551,53 @@ func _intent_tooltip() -> String:
 
 # --- Gestos ------------------------------------------------------------------------------------------
 
-## Destello de impacto: 1 fotograma blanco (33 ms) y luego el color dado durante 100 ms. Sin fundidos.
+## Destello de impacto (C2): 1 f de silueta blanca (33 ms reales, el hitstop no lo estira) y después la pieza sube
+## 3 → 2 → 1 pasos de su propia rampa: se sigue viendo el dibujo. `color` sólo lo usa el arte legado.
 func flash(color: Color = Color.WHITE) -> void:
 	if _flash_tween:
 		_flash_tween.kill()
 	if _anim != null:
-		_flash_spr.visible = true
-		_flash_spr.position = _base + _off.round()
-		_flash_spr.texture = current_frame()
-		_flash_mat.set_shader_parameter(&"tint", Color.WHITE)
-		_flash_tween = create_tween()
-		_flash_tween.tween_interval(0.033)
-		_flash_tween.tween_callback(func() -> void: _flash_mat.set_shader_parameter(&"tint", color))
-		_flash_tween.tween_interval(0.1)
-		_flash_tween.tween_callback(func() -> void: _flash_spr.visible = false)
+		_lit_mat.set_shader_parameter(&"flash_white", true)
+		_lit_mat.set_shader_parameter(&"flash_steps", 0)
+		_fx_on = true
+		_use_fx_mat()
+		_flash_tween = create_tween().set_ignore_time_scale(true)
+		_flash_tween.tween_interval(FLASH_WHITE_S)
+		_flash_tween.tween_callback(func() -> void: _lit_mat.set_shader_parameter(&"flash_white", false))
+		for st: Array in FLASH_STEPS:
+			var n: int = st[0]
+			_flash_tween.tween_callback(func() -> void: _lit_mat.set_shader_parameter(&"flash_steps", 0 if _dead else n))
+			_flash_tween.tween_interval(float(st[1]))
+		_flash_tween.tween_callback(_flash_reset)
 		return
 	_legacy_mat.set_shader_parameter("flash_color", Color.WHITE)
 	_legacy_mat.set_shader_parameter("flash", 1.0)
-	_flash_tween = create_tween()
-	_flash_tween.tween_interval(0.033)
+	_flash_tween = create_tween().set_ignore_time_scale(true)
+	_flash_tween.tween_interval(FLASH_WHITE_S)
 	_flash_tween.tween_callback(func() -> void: _legacy_mat.set_shader_parameter("flash_color", color))
 	_flash_tween.tween_method(func(v: float) -> void: _legacy_mat.set_shader_parameter("flash", v), 0.85, 0.0, 0.1)
+
+
+func _flash_reset() -> void:
+	if _lit_mat != null:
+		_lit_mat.set_shader_parameter(&"flash_white", false)
+		_lit_mat.set_shader_parameter(&"flash_steps", 0)
+	_fx_on = false
+	_use_fx_mat()
+
+
+## Material propio sólo si hace falta (destello en curso o emisivos realzados); si no, el común.
+func _use_fx_mat() -> void:
+	if _anim == null or _hero_mat != null or _reveal_mat != null:
+		return
+	_anim.material = _lit_mat if (_fx_on or _emit_boost != 0) else wv.lit_material
+
+
+func _set_emit_boost(n: int) -> void:
+	_emit_boost = n
+	if _lit_mat != null:
+		_lit_mat.set_shader_parameter(&"emit_boost", n)
+	_use_fx_mat()
 
 
 func _tween_off(seq: Array) -> Tween:
@@ -553,28 +623,33 @@ func shake(strength: float = 8.0) -> void:
 	_tween_off([[Vector2(dir * push, 0), 0.05], [Vector2.ZERO, 0.15, Tween.TRANS_BACK, Tween.EASE_OUT]])
 
 
-## Embestida enemiga: anticipación → lanzamiento → impacto → vuelta.
-func lunge(dir: float) -> void:
+## Embestida enemiga: anticipación → lanzamiento → impacto → vuelta. Devuelve los segundos hasta el impacto (fotograma
+## `IMPACT_FRAME` de `attack`): la pantalla resuelve el daño entonces (C1).
+func lunge(dir: float) -> float:
 	_play(&"attack")
-	_legacy_seq([["crouch", 0.16], ["stretch", 0.1], ["base", 0.26]])
-	_tween_off([[Vector2(-8.0 * dir, 0), 0.16, Tween.TRANS_SINE, Tween.EASE_OUT],
-		[Vector2(24.0 * dir, 0), 0.06, Tween.TRANS_QUAD, Tween.EASE_IN],
+	var hit := maxf(0.1, _ms_until(&"attack", IMPACT_FRAME, 0.22))
+	_legacy_seq([["crouch", hit - 0.06], ["stretch", 0.1], ["base", 0.26]])
+	_tween_off([[Vector2(-8.0 * dir, 0), hit - 0.05, Tween.TRANS_SINE, Tween.EASE_OUT],
+		[Vector2(24.0 * dir, 0), 0.05, Tween.TRANS_QUAD, Tween.EASE_IN],
 		[null, 0.06],
 		[Vector2.ZERO, 0.24, Tween.TRANS_QUAD, Tween.EASE_OUT]])
+	return hit
 
 
-## Martillazo de la heroína.
-func swing() -> void:
+## Martillazo de la heroína. Devuelve los segundos hasta el fotograma de impacto (C1): la carta se resuelve entonces.
+func swing() -> float:
 	if not fighter.is_player:
-		lunge(1.0)
-		return
+		return lunge(1.0)
 	_play(&"attack")
 	_legacy_seq([["windup", 0.18], ["smear", 0.033], ["strike", 0.09], ["recover", 0.12], ["idle", 0.1]])
-	_tween_off([[Vector2(-4.0, 0), 0.14, Tween.TRANS_SINE, Tween.EASE_OUT],
-		[null, 0.04],
-		[Vector2(12.0, 0), 0.033, Tween.TRANS_LINEAR, Tween.EASE_IN],
+	var hit := _ms_until(&"attack", IMPACT_FRAME, 0.213)
+	var smear := clampf(_ms_until(&"attack", 1, 0.18), 0.05, hit)
+	# Carga hacia atrás hasta la estela; el avance de 12 px llega justo en el impacto.
+	_tween_off([[Vector2(-4.0, 0), smear, Tween.TRANS_SINE, Tween.EASE_OUT],
+		[Vector2(12.0, 0), maxf(0.016, hit - smear), Tween.TRANS_LINEAR, Tween.EASE_IN],
 		[null, 0.09],
 		[Vector2.ZERO, 0.22, Tween.TRANS_BACK, Tween.EASE_OUT]])
+	return hit
 
 
 ## Gesto enemigo sin ataque (defenderse, fortalecerse…).
@@ -584,13 +659,14 @@ func gesture() -> void:
 	_tween_off([[Vector2(0, -2.0), 0.1], [Vector2.ZERO, 0.12, Tween.TRANS_BACK, Tween.EASE_OUT]])
 
 
-## Habilidad o poder: alza el martillo.
-func cast() -> void:
+## Habilidad o poder: alza el martillo. Devuelve los segundos hasta el gesto (2.º fotograma de `cast`).
+func cast() -> float:
 	if not fighter.is_player:
-		return
+		return 0.0
 	_play(&"cast")
 	_legacy_seq([["cast", 0.3], ["recover", 0.08]])
 	_tween_off([[Vector2(0, -2.0), 0.08], [null, 0.18], [Vector2.ZERO, 0.12]])
+	return _ms_until(&"cast", 1, 0.08)
 
 
 ## Quemar: echa la carta a la Forja, a su izquierda.
@@ -619,8 +695,13 @@ func die() -> void:
 	if _dead:
 		return
 	_retire_ui()
-	flash(Palette.color(&"gold", 5))
+	# C4: sin destello que tape la caída. Si el golpe mortal aún está en su fotograma blanco, se acaba ahí.
 	if _anim != null:
+		if _flash_tween != null and _flash_tween.is_valid() and _flash_tween.get_total_elapsed_time() >= FLASH_WHITE_S:
+			_flash_tween.kill()
+			_flash_reset()
+		_set_emit_boost(0)
+		_shoulder_state = 0
 		_anim.play(&"death" if _anim.sprite_frames.has_animation(&"death") else &"hurt")
 		if not fighter.is_player:
 			var dur := 0.1
@@ -674,6 +755,7 @@ func reveal(f: float) -> void:
 		if _reveal_mat != null:
 			_anim.material = _hero_mat if _hero_mat != null else wv.lit_material
 			_reveal_mat = null
+			_use_fx_mat()
 		return
 	if _reveal_mat == null:
 		_reveal_mat = (_anim.material as ShaderMaterial).duplicate() as ShaderMaterial

@@ -32,7 +32,7 @@ func _init() -> void:
 	_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_icon)
 	_label = UI.plabel("", 2)
-	_label.position = Vector2(PAD + ICON + GAP, PAD - 5.0)
+	_label.position = Vector2(PAD + ICON + GAP, PAD - 4.0)   # rejilla ×2 (antes −1: medio píxel)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
 	size = Vector2(PAD * 2.0 + ICON, H)

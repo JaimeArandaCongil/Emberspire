@@ -11,10 +11,15 @@ extends Node
 ##   rig.cold = true                              ambiente frío: rampas frías en toda la escena
 ##   rig.gold = true                              Resplandor: la luz cálida pasa a oro (cantos a la rampa `gold`, Forja +1 paso)
 ##   rig.set_mask(img, Rect2(0, 0, 640, 360))     máscara local de baja resolución (R8: 128 = 0 pasos, ±4)
+##   rig.dim = 2                                  la sala entera baja N pasos (transición a recompensas, biblia §12; no alfa)
 ## Todo se expresa en PASOS de rampa; nada sale de la paleta.
 
 const FLICKER_HZ := 12.0          # cadencia del parpadeo: la de una animación de pixel art
 const MAX_LIGHTS := 4
+const FLICKER_STEP := 0.12        # cambio máximo del parpadeo por tic, relativo a la amplitud
+## C20: una luz móvil no salta de paso de golpe: su fuerza persigue el objetivo a esta velocidad (pasos/s). Un salto de 1
+## paso de un brasero volteaba un disco entero de sillares en un fotograma; así el borde barre como un anillo en ~4 f.
+const LIGHT_SLEW := 7.0
 const GOLD_STEPS := 1.0           # pasos extra de la Forja y de las luces cálidas con Resplandor
 
 ## Posición y radio de la luz de la Forja (mundo 640×360; Forja de combate x 8–112, suelo y = 264).
@@ -39,6 +44,15 @@ const GOLD_STEPS := 1.0           # pasos extra de la Forja y de las luces cáli
 		gold = v
 		_dirty = true
 
+## Pasos que baja toda la escena (0..4), emisivos incluidos. Usa la máscara global (constante) y `emit_pulse`.
+@export var dim := 0:
+	set(v):
+		dim = clampi(v, 0, 4)
+		_dim_dirty = true
+		_dirty = true
+
+var _dim_dirty := false
+var _targets: Array = [NAN, NAN, NAN, NAN]   # fuerza objetivo de cada luz (move_light); la real la persigue
 var _lights: Array = []           # [pos: Vector2, radius: float, steps: float, cold: bool] o null
 var _burn_t := -1.0
 var _burn_origin := Vector2.ZERO
@@ -81,6 +95,7 @@ func add_light(pos: Vector2, radius: float, steps: float, is_cold := false) -> i
 	for i in MAX_LIGHTS:
 		if _lights[i] == null:
 			_lights[i] = [pos, radius, steps, is_cold]
+			_targets[i] = NAN
 			_dirty = true
 			return i
 	push_warning("LightRig: máximo %d luces móviles" % MAX_LIGHTS)
@@ -89,10 +104,11 @@ func add_light(pos: Vector2, radius: float, steps: float, is_cold := false) -> i
 
 func move_light(id: int, pos: Vector2, steps := NAN) -> void:
 	if id >= 0 and id < MAX_LIGHTS and _lights[id] != null:
-		_lights[id][0] = pos
+		if _lights[id][0] != pos:
+			_lights[id][0] = pos
+			_dirty = true
 		if not is_nan(steps):
-			_lights[id][2] = steps
-		_dirty = true
+			_targets[id] = steps
 
 
 func remove_light(id: int) -> void:
@@ -143,8 +159,14 @@ func _process(delta: float) -> void:
 		_flicker_acc = fmod(_flicker_acc, 1.0 / FLICKER_HZ)
 		# paseo aleatorio acotado, más vivo con más calor
 		var amp := flicker_amp * (0.5 + heat)
-		_flicker = clampf(_flicker + _rng.randf_range(-0.5, 0.5) * amp, -amp, amp)
+		# C20: el radio de la Forja (320) es casi media sala; un salto grande de parpadeo hacía cruzar el redondeo a un
+		# anillo enorme de piezas a la vez (pico de 18–21 mil píxeles en reposo). Paso máximo pequeño: anillos finos.
+		_flicker = clampf(_flicker + _rng.randf_range(-FLICKER_STEP, FLICKER_STEP) * amp, -amp, amp)
 		_dirty = true
+	for i in MAX_LIGHTS:
+		if _lights[i] != null and not is_nan(float(_targets[i])) and float(_lights[i][2]) != float(_targets[i]):
+			_lights[i][2] = move_toward(float(_lights[i][2]), float(_targets[i]), LIGHT_SLEW * delta)
+			_dirty = true
 	if _burn_t >= 0.0:
 		_burn_t += delta
 		if _burn_t > _burn_len:
@@ -170,13 +192,22 @@ func _push() -> void:
 			colds[i] = 1.0 if l[3] else 0.0
 		rs.global_shader_parameter_set(StringName("light_%d" % i), v)
 	rs.global_shader_parameter_set(&"light_cold", colds)
+	if _dim_dirty:
+		_dim_dirty = false
+		if dim > 0:
+			# Máscara constante: R = 0,5 − pasos/8 (el shader la lee como ±4 pasos).
+			var img := Image.create(4, 4, false, Image.FORMAT_R8)
+			img.fill(Color(0.5 - dim / 8.0, 0, 0))
+			set_mask(img, Rect2(-64, -64, 768, 488))
+		else:
+			set_mask(null, Rect2())
 	if _burn_t >= 0.0:
 		var fade := clampf(1.0 - _burn_t / _burn_len, 0.0, 1.0)
 		rs.global_shader_parameter_set(&"burn_pulse", Vector4(_burn_origin.x, _burn_origin.y, _burn_t * _burn_speed, _burn_strength * fade))
-		rs.global_shader_parameter_set(&"emit_pulse", 2 if _burn_t < _burn_len * 0.4 else (1 if fade > 0.0 else 0))
+		rs.global_shader_parameter_set(&"emit_pulse", (2 if _burn_t < _burn_len * 0.4 else (1 if fade > 0.0 else 0)) - dim)
 	else:
 		rs.global_shader_parameter_set(&"burn_pulse", Vector4.ZERO)
-		rs.global_shader_parameter_set(&"emit_pulse", 0)
+		rs.global_shader_parameter_set(&"emit_pulse", -dim)
 
 
 func _exit_tree() -> void:
@@ -188,5 +219,6 @@ func _exit_tree() -> void:
 	low_hp = 0.0
 	cold = false
 	gold = false
+	dim = 0
 	_push()
 	RenderingServer.global_shader_parameter_set(&"light_mask_on", 0.0)

@@ -4,8 +4,13 @@ extends Screen
 ## Los efectos de F2-FX (docs/reviews/v04/mundo_vivo/api_vfx.md) se enganchan si sus clases existen; si no, respaldo.
 
 # Disposición del mundo, en px de arte.
-const HINT_Y := 84.0               # bajo el rótulo del piso (y 30–80)
-const TOAST_Y := 112.0             # avisos: bajo el rótulo y el consejo
+# La banda de intención de jefe (arte y 22–44 = pantalla 44–88) queda libre: el rótulo del piso va dentro de la barra
+# superior y el consejo, justo debajo de la banda (F2-VIDA).
+const HINT_Y := 92.0               # consejo del tutorial: arte y 46–58
+const HINT_TURNS := 2              # el consejo desaparece al empezar el turno 3
+const TOAST_Y := 124.0             # avisos: bajo el consejo
+const BANNER_Y := 152.0            # banner de turno: arte y 76–108, por encima de las intenciones de enemigos normales
+const BANNER_H := 64.0
 const HERO_X := 162
 const ENEMY_X := Vector2i(300, 632)
 const SLOTS := {1: [466], 2: [396, 540], 3: [350, 460, 572]}
@@ -80,7 +85,9 @@ var _discard_pile: PileCounter
 var _exhaust_pile: PileCounter
 var _end_btn: EndTurnButton
 var _turn_banner: Label
-var _banner_bg: ColorRect
+var _banner_bg: Panel
+var _banner_tw: Tween
+var _hint_plate: Control
 var _vignette: ColorRect
 var _vig_mat: ShaderMaterial
 var _cyc := 0
@@ -133,20 +140,17 @@ func build() -> void:
 	_vignette.material = _vig_mat
 	add_child(_vignette)
 
-	_banner_bg = ColorRect.new()
-	_banner_bg.color = Color(Palette.OUTLINE, 0.75)
-	_banner_bg.size = Vector2(1280, 70)
-	_banner_bg.position = Vector2(0, 245)
-	_banner_bg.modulate.a = 0.0
+	# Banner de turno: placa opaca de paleta (sin alfa), se abre y se cierra por escalones de 2 px.
+	_banner_bg = Panel.new()
+	_banner_bg.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 5), 2, 0, Vector4.ZERO))
+	_banner_bg.clip_contents = true
+	_banner_bg.visible = false
 	_banner_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner_bg.z_index = 140
 	add_child(_banner_bg)
 	_turn_banner = UI.plabel("", 4, UI.EMBER)
-	_turn_banner.size = Vector2(1280, 60)
-	_turn_banner.position = Vector2(0, 250)
-	_turn_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_turn_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_turn_banner.modulate.a = 0.0
-	add_child(_turn_banner)
+	_turn_banner.visible = false
+	_banner_bg.add_child(_turn_banner)
 
 	engine.start()
 	_relayout(true)
@@ -390,25 +394,27 @@ func _build_top() -> void:
 	if run.heat() > 0:
 		extra = "Calor de Pacto %d · +%d%% Ascuas" % [run.heat(), int(Game.heat_bonus_each() * 100 * run.heat())]
 	var fl := FloorLabel.new()
-	fl.position.y = 30
-	add_child(fl)
+	fl.position.y = 2
+	_top_hud.add_child(fl)
 	fl.set_floor(run.floor_num, EnemyDB.act_name(run.floor_num), extra)
 	_build_relic_bar()
 	if run.tutorial:
 		_build_hint("Clic: jugar  ·  Clic dcho: QUEMAR  ·  Mayús + clic dcho: QUEMAR EN CALIENTE (×2)  ·  Espacio: fin de turno")
 
 
-## Consejo del tutorial sobre placa opaca, bajo el rótulo del piso: se lee igual sobre ladrillo y estandartes.
+## Consejo del tutorial sobre placa opaca, justo bajo la banda de intención de jefe; en Mini ×2. Desaparece al empezar
+## el turno `HINT_TURNS + 1` (C16).
 func _build_hint(text: String) -> void:
-	var w := roundf((PixelFont.pavesa_width(text) + 24.0) / 2.0) * 2.0
+	var w := PixelFont.mini_width(text) * 2.0 + 24.0
 	var plate := Panel.new()
+	_hint_plate = plate
 	plate.add_theme_stylebox_override("panel", UIKit.sb_plate(Palette.color(&"plate", 1), Palette.color(&"plate", 4), 1, 0, Vector4.ZERO))
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, HINT_Y)
 	plate.size = Vector2(w, 24)
 	add_child(plate)
-	var hint := UI.label(text, 14, UI.TEXT)
-	hint.position = Vector2(12, 3)
+	var hint := UI.mlabel(text, UI.TEXT)
+	hint.position = Vector2(12, 4)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(hint)
 
@@ -715,12 +721,23 @@ func _on_enemy_clicked(v: FighterView) -> void:
 	_play(cv, v.fighter)
 
 
+## C1: la carta se resuelve en el fotograma de impacto del martillazo (o en el gesto de `cast`), no al hacer clic.
+## Mientras tanto la entrada está bloqueada y la carta ya se alza para responder al clic.
 func _play(cv: CardView, target: Fighter) -> void:
 	var c := cv.card
-	if c.type() == "attack":
-		player_view.swing()
-	else:
-		player_view.cast()
+	var wait := player_view.swing() if c.type() == "attack" else player_view.cast()
+	if wait > 0.0:
+		busy = true
+		cv.interactive = false
+		cv.create_tween().tween_property(cv, "position:y", SELECT_Y - 16.0, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_refresh_labels()
+		await get_tree().create_timer(wait).timeout
+		if not is_inside_tree():
+			return
+		busy = false
+		cv.interactive = true
+		if engine.over:
+			return
 	engine.play_card(c, target)
 	_after_action()
 
@@ -800,8 +817,8 @@ func _end_turn() -> void:
 			continue
 		var is_atk := String(v.fighter.intent.get("kind", "")).begins_with("attack")
 		if is_atk:
-			v.lunge(-1.0)
-			await get_tree().create_timer(0.17).timeout
+			# C1: el daño cae en el fotograma de impacto del ataque.
+			await get_tree().create_timer(v.lunge(-1.0)).timeout
 		else:
 			v.gesture()
 		engine.enemy_act(v.fighter)
@@ -819,22 +836,39 @@ func _end_turn() -> void:
 	_relayout()
 
 
+## Banner de turno (C16 y F2-BASE c): placa opaca de paleta sobre las intenciones, nunca encima; cifra Fragua ×4 en el
+## color dado (contraste ≥ 4,5:1 sobre `plate 1`). Se abre y se cierra en 3 escalones de 33 ms, sin fundidos.
 func _banner(text: String, color: Color = UI.EMBER, hold: float = 0.5) -> void:
+	if _banner_tw != null:
+		_banner_tw.kill()
 	_turn_banner.text = text
 	_turn_banner.add_theme_color_override("font_color", color)
-	_turn_banner.modulate.a = 0.0
-	_turn_banner.position.x = -60
-	_banner_bg.scale = Vector2(1.0, 0.0)
-	_banner_bg.pivot_offset = Vector2(640, 35)
-	var tw := create_tween()
-	tw.tween_property(_banner_bg, "modulate:a", 1.0, 0.1)
-	tw.parallel().tween_property(_banner_bg, "scale:y", 1.0, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(_turn_banner, "modulate:a", 1.0, 0.14)
-	tw.parallel().tween_property(_turn_banner, "position:x", 0.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(hold)
-	tw.tween_property(_turn_banner, "modulate:a", 0.0, 0.25)
-	tw.parallel().tween_property(_turn_banner, "position:x", 60.0, 0.25)
-	tw.parallel().tween_property(_banner_bg, "modulate:a", 0.0, 0.25)
+	var tw := PixelFont.text_width(text) * 4.0
+	var w := ceilf((tw + 64.0) / 4.0) * 4.0
+	var lh := float(PixelFont.px_size(4))
+	_banner_bg.size = Vector2(w, 0)
+	_banner_bg.position = Vector2(roundf((1280.0 - w) / 4.0) * 2.0, BANNER_Y)
+	_banner_bg.visible = true
+	_turn_banner.visible = false
+	_turn_banner.size = Vector2(tw + 8.0, lh)
+	_turn_banner.position = Vector2(roundf((w - tw) / 4.0) * 2.0, roundf((BANNER_H - lh) / 4.0) * 2.0)
+	_banner_tw = create_tween()
+	for h: float in [16.0, 40.0, BANNER_H]:
+		_banner_tw.tween_callback(_banner_open.bind(h))
+		_banner_tw.tween_interval(0.033)
+	_banner_tw.tween_callback(func() -> void: _turn_banner.visible = true)
+	_banner_tw.tween_interval(hold + 0.12)
+	_banner_tw.tween_callback(func() -> void: _turn_banner.visible = false)
+	for h2: float in [40.0, 16.0]:
+		_banner_tw.tween_callback(_banner_open.bind(h2))
+		_banner_tw.tween_interval(0.033)
+	_banner_tw.tween_callback(func() -> void: _banner_bg.visible = false)
+
+
+func _banner_open(h: float) -> void:
+	_banner_bg.size.y = h
+	_banner_bg.position.y = BANNER_Y + (BANNER_H - h) * 0.5
+	_turn_banner.position.y = roundf((BANNER_H - float(PixelFont.px_size(4))) / 4.0) * 2.0 - (BANNER_H - h) * 0.5
 
 
 # --- Efectos: F2-FX o respaldo con ArtParticles -------------------------------------------------------
@@ -1168,7 +1202,8 @@ func _on_event(k: String, d: Dictionary) -> void:
 			var src := _view_for(d["source"])
 			if src != null:
 				var from := _local(src.center())
-				UI.float_text(_fx_layer, from + Vector2(0, -60), "+%s" % (d["card"] as Card).title(), UI.DIM, 18)
+				# A la altura del cuerpo, no de la intención (C16: «+Hollín» pisaba la cifra de intención).
+				UI.float_text(_fx_layer, from + Vector2(0, 10), "+%s" % (d["card"] as Card).title(), UI.TEXT, 18, 40.0)
 				var ghost := UI.tex_rect(Art.card_back_small(), UI.UI_PX)
 				ghost.position = from
 				ghost.z_index = 90
@@ -1184,13 +1219,16 @@ func _on_event(k: String, d: Dictionary) -> void:
 			if engine.turn > 1:
 				_banner("Tu turno", UI.EMBER, 0.35)
 				Sfx.play("turn")
+			if _hint_plate != null and engine.turn > HINT_TURNS:
+				_hint_plate.queue_free()
+				_hint_plate = null
 		"enemy_died":
 			var v := _view_for(d["target"])
 			if v != null:
 				v.die()
 				Sfx.play("death")
 				_fx_enemy_death(v, d["embers"])
-				main.fly_embers(v.center(), 8)
+				_fly_embers(v.center(), 8)
 				_hitstop(0.08)
 				get_tree().create_timer(0.9).timeout.connect(func() -> void:
 					if is_inside_tree():
@@ -1220,11 +1258,11 @@ func _on_event(k: String, d: Dictionary) -> void:
 		"refund":
 			var rv := _view_for(d["source"])
 			if rv != null:
-				main.fly_embers(rv.center(), 12)
+				_fly_embers(rv.center(), 12)
 				UI.float_text(_fx_layer, _local(rv.center()) + Vector2(0, -90), "¡Recuperadas ×2! +%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
 				Sfx.play("coin")
 		"embers_gain":
-			main.fly_embers(player_view.center(), 8)
+			_fly_embers(player_view.center(), 8)
 			UI.float_text(_fx_layer, _local(player_view.center()) + Vector2(0, -90), "+%s" % Num.fmt(d["amount"]), UI.EMBER, 24)
 			Sfx.play("coin")
 		"thorns":
@@ -1236,6 +1274,17 @@ func _on_event(k: String, d: Dictionary) -> void:
 			_banner("¡FÉNIX!", UI.EMBER)
 			_burst(player_view.center(), "ember", 40, 180.0, 2.0)
 			Sfx.play("rebirth")
+
+
+## Ascuas hacia el contador como brasas del mundo (C18); sin efectos de F2-FX, los orbes de `main`.
+func _fly_embers(global_from: Vector2, count: int) -> void:
+	if _death_fx == null or not _death_fx.has_method(&"fly"):
+		main.fly_embers(global_from, count)
+		return
+	_death_fx.call(&"fly", _wv.ui_to_world(global_from), _wv.ui_to_world(_top_hud.ember_anchor()), count)
+	get_tree().create_timer(0.6).timeout.connect(func() -> void:
+		if is_inside_tree():
+			_top_hud.pulse())
 
 
 func _coins(from: Vector2, to: Vector2, count: int) -> void:
@@ -1298,7 +1347,7 @@ func _victory() -> void:
 		cv.queue_free()
 	card_views.clear()
 	var wave := Game.gain_tower_embers(Game.victory_wave(kind), "wave")
-	main.fly_embers(Vector2(640, 300), 14)
+	_fly_embers(Vector2(640, 300), 14)
 	var total := engine.embers_this_combat + wave
 	var relics: Array[String] = []
 	if kind == "boss":
@@ -1318,20 +1367,35 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 	var root := Control.new()
 	root.size = Vector2(1280, 720)
 	root.z_index = 150
-	var dim := ColorRect.new()
-	dim.color = Color(0.03, 0.02, 0.03, 0.84)
-	dim.size = Vector2(1280, 720)
-	root.add_child(dim)
 	add_child(root)
+	# §12: combate → recompensa en 400 ms, la sala baja 2 pasos de rampa (no alfa). La interfaz de combate se retira y
+	# las recompensas van sobre una placa opaca. Sin sala con luz (biomas legados) se mantiene el velo anterior.
+	if _room != null:
+		for n: CanvasItem in [_fighters_ui, _crucible, _burn_plate, _heat_label, _draw_pile, _discard_pile, _exhaust_pile, _end_btn, _hand_layer, _hint_plate]:
+			if n != null:
+				n.visible = false
+		_wv.lights.dim = 1
+		get_tree().create_timer(0.2).timeout.connect(func() -> void:
+			if is_inside_tree():
+				_wv.lights.dim = 2)
+	else:
+		var dim := ColorRect.new()
+		dim.color = Color(0.03, 0.02, 0.03, 0.84)
+		dim.size = Vector2(1280, 720)
+		root.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", UIKit.sb_iron(3, Vector4(24, 16, 24, 20)))
+	panel.position = Vector2(140, 56)
+	root.add_child(panel)
 	var v := UI.vbox(10)
-	v.position = Vector2(140, 70)
-	v.size = Vector2(1000, 620)
+	v.custom_minimum_size = Vector2(760, 0)
 	v.alignment = BoxContainer.ALIGNMENT_BEGIN
-	root.add_child(v)
+	panel.add_child(v)
 	var title := UI.label("¡JEFE DERROTADO!" if kind == "boss" else "VICTORIA", 48, UI.EMBER)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
-	var sub := UI.rich("[center]Ascuas de este combate: [color=#ffd36a]%s[/color]   (oleada de la Forja: %s)[/center]" % [Num.fmt(total), Num.fmt(wave)], 18)
+	var sub := UI.mlabel("Ascuas de este combate: %s   (oleada de la Forja: %s)" % [Num.fmt(total), Num.fmt(wave)], UI.EMBER)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 	var cards_box := UI.vbox(10)
 	if relics.size() > 1:
@@ -1422,8 +1486,15 @@ func _show_rewards(total: float, wave: float, relics: Array[String], rewards: Ar
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
 	srow.add_child(skip)
 	cards_box.add_child(srow)
-	root.modulate.a = 0.0
-	root.create_tween().tween_property(root, "modulate:a", 1.0, 0.3)
+	# Aparece al final de la bajada de la sala, centrada en la rejilla ×2.
+	root.visible = false
+	await get_tree().create_timer(0.4).timeout
+	if not is_inside_tree():
+		return
+	var ps := panel.get_combined_minimum_size()
+	panel.size = ps
+	panel.position = Vector2(roundf((1280.0 - ps.x) / 4.0) * 2.0, maxf(48.0, roundf((720.0 - ps.y) / 4.0) * 2.0))
+	root.visible = true
 
 
 func _center_label(text: String, color: Color) -> Label:

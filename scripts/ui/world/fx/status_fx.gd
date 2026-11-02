@@ -2,7 +2,8 @@ class_name StatusFX
 extends Node2D
 ## Estados sobre un luchador (MV · v0.4), en coordenadas de mundo. Una sola animación en bucle por luchador
 ## (prioridad: quemadura > débil > fuerza); bloqueo y vulnerable son estáticos, con un evento al ganarlos o perderlos.
-##   quemadura  llamitas de 3×5 sobre el contorno superior, min(3, ceil(valor/3)), 4 f a 120 ms
+##   quemadura  3–5 lenguas de 3–6 px sobre el contorno superior (crecen con el valor) + grietas encendidas en el cuerpo;
+##              4 f a 120 ms. El luchador sube además sus emisivos 1 paso (`emit_boost`, FighterView). F2-VIDA · C6
 ##   bloqueo    contorno de 1 px en el borde que mira al rival; escudo que gira 4 f al ganar; 5 esquirlas al perder
 ##   fuerza     venas de brasa, 2 f; 2 anillos que suben al ganar (6 f)
 ##   débil      gotas violeta que caen del sprite, 6 f
@@ -17,13 +18,6 @@ const SHATTER_S := 0.06
 const RING_S := 0.06
 const FLASH_S := 0.1
 const JUMP_S := 0.2
-## Llamita de 3×5 en 4 fotogramas: [x, y, paso de fuego].
-const FLAME_FRAMES := [
-	[[1, 0, 4], [0, 1, 4], [1, 1, 5], [2, 1, 4], [0, 2, 4], [1, 2, 6], [2, 2, 5], [0, 3, 5], [1, 3, 6], [2, 3, 5], [1, 4, 5]],
-	[[0, 0, 4], [1, 1, 5], [0, 1, 4], [2, 1, 3], [0, 2, 5], [1, 2, 6], [2, 2, 4], [0, 3, 4], [1, 3, 6], [2, 3, 5], [1, 4, 5]],
-	[[1, 1, 4], [0, 2, 4], [1, 2, 5], [2, 2, 4], [0, 3, 5], [1, 3, 7], [2, 3, 5], [1, 4, 6]],
-	[[2, 0, 4], [1, 1, 5], [2, 1, 4], [0, 1, 3], [0, 2, 4], [1, 2, 6], [2, 2, 5], [0, 3, 5], [1, 3, 6], [2, 3, 4], [1, 4, 5]],
-]
 
 var body := Rect2(0, 0, 40, 60)
 var is_player := false
@@ -106,9 +100,16 @@ func scorch_tick() -> void:
 	_jump_t = 0.0
 
 
+## Lenguas: 3 (1–3), 4 (4–6), 5 (7+).
 func flame_count() -> int:
 	var v: int = int(_statuses.get("scorch", 0))
-	return 0 if v <= 0 else mini(3, ceili(float(v) / 3.0))
+	return 0 if v <= 0 else clampi(2 + ceili(float(v) / 3.0), 3, 5)
+
+
+## Alto de lengua en px de arte: 3 → 6 con el valor.
+func flame_height() -> int:
+	var v: int = int(_statuses.get("scorch", 0))
+	return clampi(2 + ceili(float(v) / 2.0), 3, 6)
 
 
 ## Qué animación en bucle está activa: &"scorch", &"weak", &"str" o &"".
@@ -204,12 +205,72 @@ func _draw() -> void:
 
 func _draw_flames() -> void:
 	var n := flame_count()
-	var slots: Array = [[0.5], [0.34, 0.66], [0.22, 0.5, 0.78]][n - 1]
+	var h := flame_height()
+	_draw_scorch_rim()
 	for i in n:
-		var at := _top_at(float(slots[i])) - Vector2i(1, 4)
-		var fr: Array = FLAME_FRAMES[(_k + i * 2) % FLAME_FRAMES.size()]
-		for px: Array in fr:
-			draw_rect(Rect2(at.x + int(px[0]), at.y + int(px[1]), 1, 1), Palette.color(&"fire", int(px[2])))
+		var fx := 0.14 + 0.72 * (float(i) + 0.5) / float(n)
+		var at := _top_at(fx)
+		var ph := (_k + i * 3) % 4
+		# Cada lengua respira ±1 px a su ritmo: nunca todas a la vez.
+		_draw_tongue(at, h - (1 if (ph == 1 or ph == 3) and h > 3 else 0) + (1 if ph == 2 and i % 2 == 0 else 0), ph)
+	_draw_scorch_cracks()
+
+
+## Borde superior encendido: el contorno de arriba pasa a brasa (fuego 3/4 que corre), lo que hace legible la Quemadura a
+## 1/4 aunque las lenguas midan 3 px.
+func _draw_scorch_rim() -> void:
+	var w := int(body.size.x)
+	if w <= 0:
+		return
+	for x in range(w / 10, w - w / 10):
+		var at := _top_at((float(x) + 0.5) / float(w))
+		var c := Palette.color(&"fire", 4 if (x + _k) % 4 == 0 else 3)
+		draw_rect(Rect2(at.x, at.y, 1, 1), c)
+
+
+## Lengua de fuego con la base 1 px dentro del contorno: 3 px de ancho abajo, 2 en medio, 1 en la punta, que se mece.
+func _draw_tongue(base: Vector2i, h: int, ph: int) -> void:
+	var sway: int = [0, 1, 0, -1][ph]
+	for r in h:
+		var y := base.y + 1 - r
+		var t := float(r) / float(maxi(1, h - 1))
+		var off := sway if t > 0.5 else 0
+		if t < 0.45:
+			draw_rect(Rect2(base.x - 1 + off, y, 1, 1), Palette.color(&"fire", 3))
+			draw_rect(Rect2(base.x + off, y, 1, 1), Palette.color(&"fire", 7 if r == 0 else 6))
+			draw_rect(Rect2(base.x + 1 + off, y, 1, 1), Palette.color(&"fire", 4))
+		elif t < 0.8:
+			var lx := base.x + off - (1 if sway < 0 else 0)
+			draw_rect(Rect2(lx, y, 1, 1), Palette.color(&"fire", 4))
+			draw_rect(Rect2(lx + 1, y, 1, 1), Palette.color(&"fire", 6))
+		else:
+			draw_rect(Rect2(base.x + off, y, 1, 1), Palette.color(&"fire", 4 if r == h - 1 else 5))
+
+
+## Grietas encendidas dentro de la silueta (2, o 3 desde Quemadura 7): zigzag de 1 px que late entre fuego 4 y 5.
+func _draw_scorch_cracks() -> void:
+	var w := int(body.size.x)
+	var h := int(body.size.y)
+	var count := 3 if int(_statuses.get("scorch", 0)) >= 7 else 2
+	var seeds: Array[Vector2i] = [Vector2i(w * 30 / 100, h * 40 / 100), Vector2i(w * 64 / 100, h * 55 / 100), Vector2i(w * 46 / 100, h * 70 / 100)]
+	var c := Palette.color(&"fire", 5 if _k % 4 < 2 else 4)
+	for si in count:
+		var x := seeds[si].x
+		var y := seeds[si].y
+		for j in 8:
+			if _inside(x, y):
+				draw_rect(Rect2(_body_x() + x, _body_y() + y, 1, 1), c)
+			y += 1
+			x += [1, 0, -1, -1, 0, 1, 1, 0][(j + si) % 8]
+
+
+## ¿El píxel (x, y) del cuerpo cae dentro de la silueta? Sin máscara, siempre.
+func _inside(x: int, y: int) -> bool:
+	if _left.is_empty():
+		return true
+	if y < 0 or y >= _left.size() or _left[y] < 0:
+		return false
+	return x > _left[y] + 1 and x < _right[y] - 1
 
 
 func _draw_jump(u: float) -> void:

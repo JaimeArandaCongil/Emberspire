@@ -22,7 +22,7 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	tooltip_text = "Quemas: cartas que puedes arrojar al horno este turno.\nClic derecho en una carta para quemarla."
 	_label = UI.mlabel("", Palette.color(&"ember_ui", 4))
-	_label.position = Vector2(10, 7)
+	_label.position = Vector2(10, 8)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
 	set_process(false)
